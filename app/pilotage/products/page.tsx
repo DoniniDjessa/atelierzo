@@ -1,0 +1,848 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useProducts, Product } from '@/app/contexts/ProductContext';
+import Image from 'next/image';
+import { toast } from 'sonner';
+import AdminNavbar from '@/app/components/AdminNavbar';
+import { motion, AnimatePresence } from 'framer-motion';
+import { compressImageToWebP, generateImageFilename } from '@/app/lib/utils/image';
+import { uploadImage, deleteImageFromUrl, isSupabaseImageUrl } from '@/app/lib/supabase/storage';
+import { FASHION_COLORS } from '@/app/lib/utils/colors';
+
+const ADMIN_PASSWORD = '0044';
+
+export default function ProductsPage() {
+  const router = useRouter();
+  const { products, addProduct, updateProduct, deleteProduct } = useProducts();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedColors, setSelectedColors] = useState<string[]>([]); // Array of hex codes
+  const [currentPage, setCurrentPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 20;
+
+  // Form state
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    price: '',
+    oldPrice: '',
+    imageUrl: '',
+    colors: '',
+    inStock: true,
+    category: 'bermuda',
+  });
+  const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>({});
+
+  // Check if already authenticated
+  useEffect(() => {
+    const auth = localStorage.getItem('atelierzo_admin_auth');
+    if (auth === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === ADMIN_PASSWORD) {
+      setIsAuthenticated(true);
+      localStorage.setItem('atelierzo_admin_auth', 'true');
+      setError('');
+      setPassword('');
+    } else {
+      setError('Mot de passe incorrect');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('atelierzo_admin_auth');
+    router.push('/pilotage');
+  };
+
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUploading(true);
+
+    try {
+      let imageUrl = formData.imageUrl;
+
+      // If image file is provided, upload it
+      if (imageFile) {
+        const productId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+        const filename = generateImageFilename(productId, imageFile.name);
+        const path = `products/${filename}`;
+
+        // Compress and convert to WebP
+        const compressedBlob = await compressImageToWebP(imageFile, 1200, 1200, 0.7);
+
+        // Upload to Supabase
+        const uploadResult = await uploadImage(compressedBlob, path);
+        if (uploadResult.error || !uploadResult.url) {
+          toast.error(`Erreur lors de l'upload de l'image: ${uploadResult.error || 'URL non disponible'}`);
+          setIsUploading(false);
+          return;
+        }
+        imageUrl = uploadResult.url;
+      } else if (!formData.imageUrl) {
+        toast.error('Veuillez sélectionner une image ou fournir une URL');
+        setIsUploading(false);
+        return;
+      }
+
+      // Convert sizeQuantities to sizes array and sizeQuantities object
+      const sizes = Object.keys(sizeQuantities);
+      const newProduct: Omit<Product, 'id'> = {
+        title: formData.title,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : undefined,
+        imageUrl,
+        sizes,
+        sizeQuantities,
+        colors: selectedColors.length > 0 ? selectedColors : (formData.colors ? formData.colors.split(',').map((c) => c.trim()).filter((c) => c.length > 0) : []),
+        inStock: formData.inStock,
+        category: formData.category,
+      };
+      addProduct(newProduct);
+      resetForm();
+      setShowAddForm(false);
+      toast.success('Produit ajouté avec succès');
+    } catch (error) {
+      console.error('Error adding product:', error);
+      toast.error('Erreur lors de l\'ajout du produit');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setIsEditing(true);
+    setFormData({
+      title: product.title,
+      description: product.description,
+      price: product.price.toString(),
+      oldPrice: product.oldPrice?.toString() || '',
+      imageUrl: product.imageUrl,
+      colors: product.colors?.join(', ') || '',
+      inStock: product.inStock ?? true,
+      category: product.category || 'bermuda',
+    });
+    // Initialize selectedColors from product
+    setSelectedColors(product.colors || []);
+    // Initialize sizeQuantities from product
+    if (product.sizeQuantities) {
+      setSizeQuantities(product.sizeQuantities);
+    } else if (product.sizes) {
+      // Convert sizes array to sizeQuantities object with default quantity 0
+      const initialQuantities: Record<string, number> = {};
+      product.sizes.forEach((size) => {
+        initialQuantities[size] = 0;
+      });
+      setSizeQuantities(initialQuantities);
+    } else {
+      setSizeQuantities({});
+    }
+    setImageFile(null);
+    setImagePreview(product.imageUrl);
+    setShowAddForm(true);
+  };
+
+  const handleUpdateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+
+    setIsUploading(true);
+
+    try {
+      let imageUrl = formData.imageUrl;
+      let oldImageUrl: string | null = null;
+
+      // If new image file is provided, upload it
+      if (imageFile) {
+        // Delete old image if it's from Supabase
+        if (editingProduct.imageUrl && isSupabaseImageUrl(editingProduct.imageUrl)) {
+          oldImageUrl = editingProduct.imageUrl;
+        }
+
+        const filename = generateImageFilename(editingProduct.id, imageFile.name);
+        const path = `products/${filename}`;
+
+        // Compress and convert to WebP
+        const compressedBlob = await compressImageToWebP(imageFile, 1200, 1200, 0.7);
+
+        // Upload to Supabase
+        const uploadResult = await uploadImage(compressedBlob, path);
+        if (uploadResult.error || !uploadResult.url) {
+          toast.error(`Erreur lors de l'upload de l'image: ${uploadResult.error || 'URL non disponible'}`);
+          setIsUploading(false);
+          return;
+        }
+        imageUrl = uploadResult.url;
+
+        // Delete old image after successful upload
+        if (oldImageUrl) {
+          await deleteImageFromUrl(oldImageUrl);
+        }
+      }
+
+      // Convert sizeQuantities to sizes array and sizeQuantities object
+      const sizes = Object.keys(sizeQuantities);
+      updateProduct(editingProduct.id, {
+        title: formData.title,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : undefined,
+        imageUrl,
+        sizes,
+        sizeQuantities,
+        colors: selectedColors.length > 0 ? selectedColors : (formData.colors ? formData.colors.split(',').map((c) => c.trim()).filter((c) => c.length > 0) : []),
+        inStock: formData.inStock,
+        category: formData.category,
+      });
+      resetForm();
+      setIsEditing(false);
+      setEditingProduct(null);
+      setShowAddForm(false);
+      toast.success('Produit mis à jour avec succès');
+    } catch (error) {
+      console.error('Error updating product:', error);
+      toast.error('Erreur lors de la mise à jour du produit');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
+      await deleteProduct(id);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      price: '',
+      oldPrice: '',
+      imageUrl: '',
+      colors: '',
+      inStock: true,
+      category: 'bermuda',
+    });
+    setSizeQuantities({});
+    setSelectedColors([]);
+    setImageFile(null);
+    setImagePreview(null);
+  };
+
+  const handleCancel = () => {
+    resetForm();
+    setIsEditing(false);
+    setEditingProduct(null);
+    setShowAddForm(false);
+  };
+
+  // Filter products based on search query
+  const filteredProducts = products.filter((product) =>
+    product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
+  const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
+  const endIndex = startIndex + PRODUCTS_PER_PAGE;
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-black flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+          <h1 className="text-xl font-bold text-center mb-4 text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+            Accès Administrateur
+          </h1>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label htmlFor="password" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
+                Mot de passe
+              </label>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError('');
+                }}
+                className="w-full px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                style={{ fontFamily: 'var(--font-poppins)' }}
+                placeholder="Entrez le mot de passe"
+                autoFocus
+              />
+              {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400" style={{ fontFamily: 'var(--font-poppins)' }}>{error}</p>}
+            </div>
+            <button
+              type="submit"
+              className="w-full bg-black dark:bg-white text-white dark:text-black py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors"
+              style={{ fontFamily: 'var(--font-poppins)' }}
+            >
+              Connexion
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-black relative">
+      <AdminNavbar onLogout={handleLogout} />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-black dark:text-white mb-1" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+              Gestion des Produits
+            </h1>
+            <p className="text-xs text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+              {filteredProducts.length} produit(s) {searchQuery ? 'trouvé(s)' : 'au total'}
+              {filteredProducts.length > PRODUCTS_PER_PAGE && ` (Page ${currentPage}/${totalPages})`}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              resetForm();
+              setIsEditing(false);
+              setEditingProduct(null);
+              setShowAddForm(true);
+            }}
+            className="px-4 py-2 text-sm bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors font-semibold"
+            style={{ fontFamily: 'var(--font-poppins)' }}
+          >
+            + Ajouter un produit
+          </button>
+        </div>
+
+        {/* Search Form */}
+        <div className="mb-4">
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher un produit..."
+              className="w-full px-4 py-2 pl-10 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+              style={{ fontFamily: 'var(--font-poppins)' }}
+            />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Products List */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {paginatedProducts.map((product) => (
+              <div key={product.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <div className="relative w-full aspect-square bg-gray-100 dark:bg-gray-700">
+                  <Image
+                    src={product.imageUrl}
+                    alt={product.title}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
+                    unoptimized={product.imageUrl.includes('unsplash.com')}
+                  />
+                  {!product.inStock && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                      <span className="text-white text-[10px] font-semibold" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        Rupture
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="p-2">
+                  <h3 className="text-[11px] font-bold text-black dark:text-white mb-0.5 line-clamp-1" style={{ fontFamily: 'var(--font-fira-sans)' }}>
+                    {product.title}
+                  </h3>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-fira-sans)' }}>
+                      {product.price.toLocaleString('fr-FR')} FCFA
+                    </span>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleEditProduct(product)}
+                      className="flex-1 px-2 py-1 bg-indigo-600 text-white rounded text-[10px] font-medium hover:bg-indigo-700 transition-colors"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      onClick={() => handleDeleteProduct(product.id)}
+                      className="px-2 py-1 bg-red-600 text-white rounded text-[10px] font-medium hover:bg-red-700 transition-colors"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    >
+                      Del
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {paginatedProducts.length === 0 && (
+            <p className="text-center text-xs text-gray-500 dark:text-gray-400 py-6" style={{ fontFamily: 'var(--font-poppins)' }}>
+              {searchQuery ? 'Aucun produit trouvé.' : 'Aucun produit. Ajoutez-en un pour commencer.'}
+            </p>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                Précédent
+              </button>
+              <div className="flex gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                      currentPage === page
+                        ? 'bg-black dark:bg-white text-white dark:text-black'
+                        : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                Suivant
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Right Sidebar for Add/Edit Form */}
+      <AnimatePresence>
+        {showAddForm && (
+          <>
+            {/* Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => {
+                handleCancel();
+              }}
+              className="fixed inset-0 bg-black/50 z-40"
+            />
+
+            {/* Sidebar */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{
+                type: 'spring',
+                stiffness: 500,
+                damping: 40,
+              }}
+              className="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-800 z-50 shadow-2xl flex flex-col"
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-base font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-fira-sans)' }}>
+                    {isEditing ? 'Modifier le produit' : 'Nouveau produit'}
+                  </h2>
+                  <button
+                    onClick={handleCancel}
+                    className="p-2 text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                    aria-label="Fermer"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Form */}
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Titre *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Catégorie *
+                    </label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    >
+                      <option value="bermuda">Chemise Bermuda</option>
+                      <option value="pantalon">Chemise Pantalon</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Description *
+                    </label>
+                    <textarea
+                      required
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      rows={3}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        Prix (FCFA) *
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        value={formData.price}
+                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        Ancien prix (FCFA)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.oldPrice}
+                        onChange={(e) => setFormData({ ...formData, oldPrice: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Image *
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setImageFile(file);
+                          setFormData({ ...formData, imageUrl: '' });
+                          // Create preview
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setImagePreview(reader.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    />
+                    <input
+                      type="url"
+                      value={formData.imageUrl}
+                      onChange={(e) => {
+                        setFormData({ ...formData, imageUrl: e.target.value });
+                        setImageFile(null);
+                        setImagePreview(e.target.value || null);
+                      }}
+                      className="w-full mt-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                      placeholder="Ou entrez une URL d'image"
+                    />
+                    {imagePreview && (
+                      <div className="mt-2 relative w-full aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
+                        <Image
+                          src={imagePreview}
+                          alt="Preview"
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 384px) 100vw, 384px"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Tailles et quantités
+                    </label>
+                    <div className="space-y-2">
+                      {Object.entries(sizeQuantities).map(([size, quantity]) => (
+                        <div key={size} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={size}
+                            onChange={(e) => {
+                              const newSizeQuantities = { ...sizeQuantities };
+                              delete newSizeQuantities[size];
+                              newSizeQuantities[e.target.value] = quantity;
+                              setSizeQuantities(newSizeQuantities);
+                            }}
+                            className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                            style={{ fontFamily: 'var(--font-poppins)' }}
+                            placeholder="Taille (ex: S, M, L)"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            value={quantity}
+                            onChange={(e) => {
+                              setSizeQuantities({
+                                ...sizeQuantities,
+                                [size]: parseInt(e.target.value) || 0,
+                              });
+                            }}
+                            className="w-20 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                            style={{ fontFamily: 'var(--font-poppins)' }}
+                            placeholder="Qté"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newSizeQuantities = { ...sizeQuantities };
+                              delete newSizeQuantities[size];
+                              setSizeQuantities(newSizeQuantities);
+                            }}
+                            className="px-2 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSizeQuantities({
+                            ...sizeQuantities,
+                            ['']: 0,
+                          });
+                        }}
+                        className="w-full px-3 py-2 text-sm border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      >
+                        + Ajouter une taille
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Couleurs
+                    </label>
+                    {/* Color Palette */}
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mb-3 max-h-48 overflow-y-auto p-2 border border-gray-200 dark:border-gray-700 rounded-lg">
+                      {FASHION_COLORS.map((color, index) => {
+                        const isSelected = selectedColors.includes(color.hex);
+                        return (
+                          <button
+                            key={color.name}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedColors(selectedColors.filter((c) => c !== color.hex));
+                              } else {
+                                setSelectedColors([...selectedColors, color.hex]);
+                              }
+                            }}
+                            className={`relative p-2 rounded-lg border-2 transition-all ${
+                              isSelected
+                                ? 'border-black dark:border-white scale-110 shadow-md'
+                                : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                            }`}
+                            title={color.displayName}
+                          >
+                            <div
+                              className="w-full h-8 rounded"
+                              style={{ backgroundColor: color.hex }}
+                            />
+                            {isSelected && (
+                              <div className="absolute -top-1 -right-1 w-4 h-4 bg-black dark:bg-white rounded-full flex items-center justify-center">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-3 w-3 text-white dark:text-black"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={3}
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                            )}
+                            <span className="text-[9px] text-gray-600 dark:text-gray-400 mt-1 block truncate" style={{ fontFamily: 'var(--font-poppins)' }}>
+                              {color.displayName}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {/* Selected Colors Hex Codes (for display/reference) */}
+                    {selectedColors.length > 0 && (
+                      <div className="mt-2">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                          Codes couleurs sélectionnées :
+                        </label>
+                        <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                          <p className="text-xs text-gray-600 dark:text-gray-400 break-all" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {selectedColors.join(', ')}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {/* Fallback input for custom colors */}
+                    <details className="mt-2">
+                      <summary className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        Ajouter une couleur personnalisée (code hex)
+                      </summary>
+                      <input
+                        type="text"
+                        value={formData.colors}
+                        onChange={(e) => {
+                          setFormData({ ...formData, colors: e.target.value });
+                          // Also add to selectedColors if it's a valid hex code
+                          const hexCodes = e.target.value.split(',').map((c) => c.trim()).filter((c) => /^#[0-9A-F]{6}$/i.test(c));
+                          if (hexCodes.length > 0) {
+                            setSelectedColors([...selectedColors.filter((c) => !hexCodes.includes(c)), ...hexCodes]);
+                          }
+                        }}
+                        className="w-full mt-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                        placeholder="#1f2937, #ffffff"
+                      />
+                    </details>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="inStock"
+                      checked={formData.inStock}
+                      onChange={(e) => setFormData({ ...formData, inStock: e.target.checked })}
+                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    />
+                    <label htmlFor="inStock" className="ml-2 text-xs text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      En stock
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    className="flex-1 px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-semibold"
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isUploading}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (isEditing) {
+                        handleUpdateProduct(e);
+                      } else {
+                        handleAddProduct(e);
+                      }
+                    }}
+                    className={`flex-1 px-4 py-2 text-sm rounded-lg transition-colors font-semibold ${
+                      isUploading
+                        ? 'bg-gray-400 dark:bg-gray-600 text-white cursor-not-allowed'
+                        : 'bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-100'
+                    }`}
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    {isUploading ? 'Traitement...' : isEditing ? 'Mettre à jour' : 'Ajouter'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
