@@ -500,23 +500,23 @@ export default function ProductsPage() {
       </div>
 
       {/* Right Sidebar for Add/Edit Form */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {showAddForm && (
           <>
             {/* Overlay */}
             <motion.div
+              key="overlay"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              onClick={() => {
-                handleCancel();
-              }}
-              className="fixed inset-0 bg-black/50 z-[100]"
+              onClick={handleCancel}
+              className="fixed inset-0 bg-black/50 z-[99]"
             />
 
             {/* Sidebar */}
             <motion.div
+              key="sidebar"
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
