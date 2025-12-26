@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import ProductCard from '../components/ProductCard';
 import { useProducts } from '../contexts/ProductContext';
 import { FASHION_COLORS, getColorName } from '../lib/utils/colors';
-import { Slider } from 'lucide-react';
+import { Filter } from 'lucide-react';
 
 const CATEGORIES = [
   { value: 'all', label: 'Tous les produits' },
@@ -349,7 +349,7 @@ export default function ProductsPage() {
                 className="lg:hidden flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300"
                 style={{ fontFamily: 'var(--font-poppins)' }}
               >
-                <Slider className="w-4 h-4" />
+                <Filter className="w-4 h-4" />
                 Filtres
               </button>
 
