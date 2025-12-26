@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 export default function Footer() {
   return (
     <footer className="bg-slate-800 dark:bg-slate-900 border-t border-slate-700 dark:border-slate-800 mt-12">
@@ -7,12 +9,17 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Brand */}
           <div>
-            <h3
-              className="text-lg font-bold text-white mb-2"
-                  style={{ fontFamily: 'var(--font-ubuntu)' }}
-            >
-              Les Ateliers Zo
-            </h3>
+            <div className="mb-3">
+              <Image
+                src="/logo.png"
+                alt="Les Ateliers Zo"
+                width={150}
+                height={50}
+                className="h-10 w-auto object-contain"
+                priority
+                unoptimized
+              />
+            </div>
             <p
               className="text-sm text-gray-300"
               style={{ fontFamily: 'var(--font-poppins)' }}

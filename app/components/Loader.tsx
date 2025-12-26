@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 
 export default function Loader() {
   const [isLoading, setIsLoading] = useState(true);
@@ -21,13 +20,11 @@ export default function Loader() {
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white dark:bg-black transition-opacity duration-500">
       <div className="flex flex-col items-center gap-6">
         {/* Logo with pulse animation */}
-        <Image
+        <img
           src="/logo.png"
           alt="Les Ateliers Zo"
-          width={180}
-          height={60}
           className="h-16 w-auto object-contain animate-pulse"
-          priority
+          style={{ maxWidth: '180px', height: 'auto' }}
         />
         
         {/* Loading dots */}
