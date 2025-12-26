@@ -134,7 +134,7 @@ export default function ProductsPage() {
         inStock: formData.inStock,
         category: formData.category,
       };
-      addProduct(newProduct);
+      await addProduct(newProduct);
       resetForm();
       setShowAddForm(false);
       toast.success('Produit ajouté avec succès');
@@ -219,7 +219,7 @@ export default function ProductsPage() {
 
       // Convert sizeQuantities to sizes array and sizeQuantities object
       const sizes = Object.keys(sizeQuantities);
-      updateProduct(editingProduct.id, {
+      await updateProduct(editingProduct.id, {
         title: formData.title,
         description: formData.description,
         price: parseFloat(formData.price),
