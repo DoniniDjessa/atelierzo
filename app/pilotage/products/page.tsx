@@ -120,8 +120,20 @@ export default function ProductsPage() {
         return;
       }
 
-      // Convert sizeQuantities to sizes array and sizeQuantities object
-      const sizes = Object.keys(sizeQuantities);
+      // Validate that at least one size with quantity > 0 is provided
+      const validSizes = Object.entries(sizeQuantities).filter(([size, qty]) => size.trim() !== '' && qty > 0);
+      if (validSizes.length === 0) {
+        toast.error('Veuillez ajouter au moins une taille avec une quantité supérieure à 0');
+        setIsUploading(false);
+        return;
+      }
+
+      // Convert sizeQuantities to sizes array and sizeQuantities object (only valid sizes)
+      const filteredSizeQuantities: Record<string, number> = {};
+      validSizes.forEach(([size, qty]) => {
+        filteredSizeQuantities[size.trim()] = qty;
+      });
+      const sizes = Object.keys(filteredSizeQuantities);
       const newProduct: Omit<Product, 'id'> = {
         title: formData.title,
         description: formData.description,
@@ -129,7 +141,7 @@ export default function ProductsPage() {
         oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : undefined,
         imageUrl,
         sizes,
-        sizeQuantities,
+        sizeQuantities: filteredSizeQuantities,
         colors: selectedColors.length > 0 ? selectedColors : (formData.colors ? formData.colors.split(',').map((c) => c.trim()).filter((c) => c.length > 0) : []),
         inStock: formData.inStock,
         category: formData.category,
@@ -217,8 +229,20 @@ export default function ProductsPage() {
         }
       }
 
-      // Convert sizeQuantities to sizes array and sizeQuantities object
-      const sizes = Object.keys(sizeQuantities);
+      // Validate that at least one size with quantity > 0 is provided
+      const validSizes = Object.entries(sizeQuantities).filter(([size, qty]) => size.trim() !== '' && qty > 0);
+      if (validSizes.length === 0) {
+        toast.error('Veuillez ajouter au moins une taille avec une quantité supérieure à 0');
+        setIsUploading(false);
+        return;
+      }
+
+      // Convert sizeQuantities to sizes array and sizeQuantities object (only valid sizes)
+      const filteredSizeQuantities: Record<string, number> = {};
+      validSizes.forEach(([size, qty]) => {
+        filteredSizeQuantities[size.trim()] = qty;
+      });
+      const sizes = Object.keys(filteredSizeQuantities);
       await updateProduct(editingProduct.id, {
         title: formData.title,
         description: formData.description,
@@ -226,7 +250,7 @@ export default function ProductsPage() {
         oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : undefined,
         imageUrl,
         sizes,
-        sizeQuantities,
+        sizeQuantities: filteredSizeQuantities,
         colors: selectedColors.length > 0 ? selectedColors : (formData.colors ? formData.colors.split(',').map((c) => c.trim()).filter((c) => c.length > 0) : []),
         inStock: formData.inStock,
         category: formData.category,
@@ -417,6 +441,14 @@ export default function ProductsPage() {
                       </span>
                     </div>
                   )}
+                  {/* Quantity Counter Badge */}
+                  {product.sizeQuantities && Object.keys(product.sizeQuantities).length > 0 && (
+                    <div className="absolute top-2 right-2 bg-gradient-to-r from-cyan-400 to-cyan-700 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg z-10">
+                      <span className="text-xs font-bold" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        {Object.values(product.sizeQuantities).reduce((sum, qty) => sum + (qty || 0), 0)}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="p-2">
                   <h3 className="text-[11px] font-bold text-black dark:text-white mb-0.5 line-clamp-1" style={{ fontFamily: 'var(--font-fira-sans)' }}>
@@ -512,12 +544,6 @@ export default function ProductsPage() {
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
-            transition={{
-              type: 'spring',
-              stiffness: 400,
-              damping: 35,
-              mass: 0.8,
-            }}
             className="fixed top-0 right-0 h-full w-[98%] md:w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
           >
               {/* Header */}
@@ -675,6 +701,7 @@ export default function ProductsPage() {
                           <input
                             type="text"
                             value={size}
+                            maxLength={5}
                             onChange={(e) => {
                               const newSizeQuantities = { ...sizeQuantities };
                               delete newSizeQuantities[size];
@@ -683,7 +710,7 @@ export default function ProductsPage() {
                             }}
                             className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
                             style={{ fontFamily: 'var(--font-poppins)' }}
-                            placeholder="Taille (ex: S, M, L)"
+                            placeholder="Taille (ex: S, M, L, XXXXL)"
                           />
                           <input
                             type="number"
@@ -881,7 +908,6 @@ export default function ProductsPage() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={() => {
                 setShowFlashSaleModal(false);
@@ -892,7 +918,6 @@ export default function ProductsPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
               transition={{ 
                 type: 'spring', 
                 stiffness: 400, 
@@ -1006,7 +1031,6 @@ export default function ProductsPage() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={() => {
                 setShowProductDetails(false);
@@ -1020,7 +1044,6 @@ export default function ProductsPage() {
             <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
-              exit={{ x: '100%' }}
               transition={{
                 type: 'spring',
                 stiffness: 400,

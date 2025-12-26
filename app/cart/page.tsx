@@ -127,7 +127,7 @@ export default function CartPage() {
           </p>
           <button
             onClick={() => router.push('/')}
-            className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors font-semibold"
+            className="px-6 py-3 bg-gradient-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800 text-white rounded-lg transition-all transform hover:scale-105 active:scale-95 font-semibold"
             style={{ fontFamily: 'var(--font-poppins)' }}
           >
             Découvrir les produits
@@ -517,7 +517,7 @@ export default function CartPage() {
               <button
                 onClick={handleCheckout}
                 disabled={isProcessing || !user}
-                className="w-full px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-6 py-3 bg-gradient-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800 text-white rounded-lg transition-all transform hover:scale-105 active:scale-95 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 style={{ fontFamily: 'var(--font-poppins)' }}
               >
                 {isProcessing ? 'Traitement...' : !user ? 'Connectez-vous pour commander' : 'Passer la commande'}

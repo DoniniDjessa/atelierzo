@@ -91,6 +91,50 @@ export async function createOrder(input: CreateOrderInput): Promise<{ data: Orde
       return { data: null, error: itemsError.message };
     }
 
+    // Decrease product quantities for each order item
+    for (const item of input.items) {
+      try {
+        // Get current product
+        const { data: product, error: productError } = await supabase
+          .from('zo-products')
+          .select('sizes')
+          .eq('id', item.product_id)
+          .single();
+
+        if (productError || !product) {
+          console.error(`Error fetching product ${item.product_id}:`, productError);
+          continue; // Skip this product but continue with others
+        }
+
+        // Update sizes with decreased quantities
+        if (product.sizes && typeof product.sizes === 'object' && !Array.isArray(product.sizes)) {
+          const sizes = product.sizes as Record<string, number>;
+          const currentQty = sizes[item.size] || 0;
+          const newQty = Math.max(0, currentQty - item.quantity); // Ensure quantity doesn't go below 0
+          
+          const updatedSizes = {
+            ...sizes,
+            [item.size]: newQty,
+          };
+
+          // Calculate total quantity to determine if product is in stock
+          const totalQuantity = Object.values(updatedSizes).reduce((sum, qty) => sum + qty, 0);
+
+          // Update product with new quantities and stock status
+          await supabase
+            .from('zo-products')
+            .update({
+              sizes: updatedSizes,
+              in_stock: totalQuantity > 0,
+            })
+            .eq('id', item.product_id);
+        }
+      } catch (error) {
+        console.error(`Error updating product ${item.product_id} quantity:`, error);
+        // Continue with other products even if one fails
+      }
+    }
+
     // Fetch order with items
     const { data: orderWithItems, error: fetchError } = await supabase
       .from('zo-orders')
@@ -113,7 +157,12 @@ export async function createOrder(input: CreateOrderInput): Promise<{ data: Orde
       
       // Send SMS notification
       try {
-        await sendNewOrderNotification(order.id, totalAmount, clientName, clientPhone);
+        const smsResult = await sendNewOrderNotification(order.id, totalAmount, clientName, clientPhone);
+        if (smsResult?.error) {
+          console.error('SMS notification error:', smsResult.error);
+        } else {
+          console.log('SMS notification sent successfully');
+        }
       } catch (smsError) {
         console.error('Failed to send SMS notification (non-blocking):', smsError);
       }
@@ -130,7 +179,7 @@ export async function createOrder(input: CreateOrderInput): Promise<{ data: Orde
         }));
         
         // Call API route to send email (non-blocking)
-        fetch('/api/email', {
+        const emailResponse = await fetch('/api/email', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -144,9 +193,14 @@ export async function createOrder(input: CreateOrderInput): Promise<{ data: Orde
             deliveryAddress,
             items: emailItems,
           }),
-        }).catch((emailError) => {
-          console.error('Failed to send email notification (non-blocking):', emailError);
         });
+        
+        if (!emailResponse.ok) {
+          const errorData = await emailResponse.json().catch(() => ({}));
+          console.error('Email notification error:', errorData.error || `HTTP ${emailResponse.status}`);
+        } else {
+          console.log('Email notification sent successfully');
+        }
       } catch (emailError) {
         console.error('Failed to send email notification (non-blocking):', emailError);
       }

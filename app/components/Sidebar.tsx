@@ -97,7 +97,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={onClose}
               className="fixed inset-0 bg-black/50 z-50"
@@ -107,7 +106,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <motion.div
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
               transition={{
                 type: 'spring',
                 stiffness: 400,

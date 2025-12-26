@@ -24,11 +24,14 @@ const STATUS_LABELS: Record<Order['status'], string> = {
   cancelled: 'Annulée',
 };
 
+const ITEMS_PER_PAGE = 10;
+
 export default function ProfileHistoryPage() {
   const router = useRouter();
   const { user } = useUser();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (!user) {
@@ -62,6 +65,17 @@ export default function ProfileHistoryPage() {
       day: 'numeric',
     });
   };
+
+  // Pagination calculations
+  const totalPages = Math.ceil(orders.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentOrders = orders.slice(startIndex, endIndex);
+
+  // Reset to page 1 when orders change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [orders.length]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black py-8 px-4 sm:px-6 lg:px-8">
@@ -99,8 +113,9 @@ export default function ProfileHistoryPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {orders.map((order) => {
+          <>
+            <div className="space-y-3">
+              {currentOrders.map((order) => {
               const itemsCount = order.items?.length || 0;
               return (
                 <div
@@ -156,8 +171,83 @@ export default function ProfileHistoryPage() {
                   </div>
                 </div>
               );
-            })}
-          </div>
+              })}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-8 flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  Précédent
+                </button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                    // Show first page, last page, current page, and pages around current
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === page
+                              ? 'bg-indigo-600 text-white'
+                              : 'border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                          }`}
+                          style={{ fontFamily: 'var(--font-poppins)' }}
+                        >
+                          {page}
+                        </button>
+                      );
+                    } else if (
+                      page === currentPage - 2 ||
+                      page === currentPage + 2
+                    ) {
+                      return (
+                        <span
+                          key={page}
+                          className="px-2 text-gray-500 dark:text-gray-400"
+                        >
+                          ...
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  Suivant
+                </button>
+              </div>
+            )}
+
+            {/* Page info */}
+            {totalPages > 1 && (
+              <div className="mt-4 text-center">
+                <p
+                  className="text-sm text-gray-600 dark:text-gray-400"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  Page {currentPage} sur {totalPages} ({orders.length} {orders.length === 1 ? 'commande' : 'commandes'})
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

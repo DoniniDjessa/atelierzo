@@ -70,19 +70,9 @@ export default function CategorySection({
               colors={product.colors}
               sizes={product.sizes}
               hideAddToCart={true}
-              onClick={product.isOutOfStock ? undefined : () => onProductClick?.(product.id)}
+              isOutOfStock={product.isOutOfStock}
+              onClick={() => onProductClick?.(product.id)}
             />
-            {/* Out of Stock Overlay */}
-            {product.isOutOfStock && (
-              <div className="absolute inset-0 bg-black/60 dark:bg-black/70 rounded-2xl flex items-center justify-center z-20 pointer-events-none">
-                <span
-                  className="text-white text-base font-semibold"
-                  style={{ fontFamily: 'var(--font-poppins)' }}
-                >
-                  En rupture de stock
-                </span>
-              </div>
-            )}
           </div>
         ))}
       </div>
@@ -91,7 +81,7 @@ export default function CategorySection({
       <div className="flex justify-center px-2 sm:px-0">
         <button
           onClick={handleViewAll}
-          className="w-full max-w-xs flex items-center justify-center gap-2 py-2 sm:py-3 px-4 sm:px-6 bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 active:scale-95 text-sm"
+          className="w-full max-w-xs flex items-center justify-center gap-2 py-2 sm:py-3 px-4 sm:px-6 bg-gradient-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 active:scale-95 text-sm"
           style={{ fontFamily: 'var(--font-poppins)' }}
         >
           <span className="text-sm">Afficher tout</span>

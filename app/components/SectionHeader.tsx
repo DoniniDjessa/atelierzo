@@ -28,11 +28,11 @@ export default function SectionHeader({ activeCategoryName }: SectionHeaderProps
 
   return (
     <div className="mb-6 inline-flex">
-      <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#B9F19D] font-bold">
-        <span className="text-black whitespace-nowrap" style={{ fontFamily: 'var(--font-poppins)' }}>
+      <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#B9F19D] font-bold flex-wrap">
+        <span className="text-black break-words" style={{ fontFamily: 'var(--font-poppins)' }}>
           {activeCategoryName}
         </span>
-        <span className="bg-black text-white text-xs font-bold px-2 py-0.5 rounded-full">
+        <span className="bg-black text-white text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
           {productCount}
         </span>
       </div>

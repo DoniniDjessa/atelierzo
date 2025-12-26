@@ -79,6 +79,15 @@ export async function getAllProducts(): Promise<{ data: Product[] | null; error:
         }
       }
 
+      // Check if product is out of stock based on quantities
+      // Only mark as in stock if there are actual quantities > 0
+      let inStock = false;
+      if (Object.keys(sizeQuantities).length > 0) {
+        const totalQuantity = Object.values(sizeQuantities).reduce((sum, qty) => sum + (qty || 0), 0);
+        inStock = totalQuantity > 0;
+      }
+      // If no sizes or no quantities, inStock remains false (out of stock)
+
       return {
         id: item.id,
         title: item.title,
@@ -89,7 +98,7 @@ export async function getAllProducts(): Promise<{ data: Product[] | null; error:
         colors: item.colors || [],
         sizes: sizes,
         sizeQuantities: Object.keys(sizeQuantities).length > 0 ? sizeQuantities : undefined,
-        inStock: item.in_stock !== false,
+        inStock: inStock,
         category: item.category,
       };
     });
@@ -148,6 +157,15 @@ export async function getProductById(productId: string): Promise<{ data: Product
       }
     }
 
+    // Check if product is out of stock based on quantities
+    // Only mark as in stock if there are actual quantities > 0
+    let inStock = false;
+    if (Object.keys(sizeQuantities).length > 0) {
+      const totalQuantity = Object.values(sizeQuantities).reduce((sum, qty) => sum + (qty || 0), 0);
+      inStock = totalQuantity > 0;
+    }
+    // If no sizes or no quantities, inStock remains false (out of stock)
+
     const transformedData = {
       id: data.id,
       title: data.title,
@@ -158,7 +176,7 @@ export async function getProductById(productId: string): Promise<{ data: Product
       colors: data.colors || [],
       sizes: sizes,
       sizeQuantities: Object.keys(sizeQuantities).length > 0 ? sizeQuantities : undefined,
-      inStock: data.in_stock !== false,
+      inStock: inStock,
       category: data.category,
     };
 
@@ -195,6 +213,9 @@ export async function createProduct(product: CreateProductPayload): Promise<{ da
     // Store sizes as JSONB - prefer size_quantities if available, otherwise use sizes array
     if (product.size_quantities && Object.keys(product.size_quantities).length > 0) {
       dbProduct.sizes = product.size_quantities;
+      // Auto-set in_stock based on quantities: if all quantities are 0, mark as out of stock
+      const totalQuantity = Object.values(product.size_quantities).reduce((sum, qty) => sum + qty, 0);
+      dbProduct.in_stock = totalQuantity > 0;
     } else if (product.sizes && product.sizes.length > 0) {
       // Convert sizes array to object with default quantity of 0
       const sizesObj: Record<string, number> = {};
@@ -202,8 +223,10 @@ export async function createProduct(product: CreateProductPayload): Promise<{ da
         sizesObj[size] = 0;
       });
       dbProduct.sizes = sizesObj;
+      dbProduct.in_stock = false; // No quantities provided, mark as out of stock
     } else {
       dbProduct.sizes = {};
+      dbProduct.in_stock = false; // No sizes provided, mark as out of stock
     }
 
     const { data, error } = await supabase
@@ -276,6 +299,9 @@ export async function updateProduct(
     // Handle sizes updates
     if (updates.size_quantities !== undefined) {
       dbUpdates.sizes = updates.size_quantities;
+      // Auto-set in_stock based on quantities: if all quantities are 0, mark as out of stock
+      const totalQuantity = Object.values(updates.size_quantities).reduce((sum, qty) => sum + qty, 0);
+      dbUpdates.in_stock = totalQuantity > 0;
     } else if (updates.sizes !== undefined) {
       // If sizes array is provided, convert to object
       const sizesObj: Record<string, number> = {};
@@ -283,6 +309,7 @@ export async function updateProduct(
         sizesObj[size] = 0;
       });
       dbUpdates.sizes = sizesObj;
+      dbUpdates.in_stock = false; // No quantities provided, mark as out of stock
     }
 
     const { data, error } = await supabase

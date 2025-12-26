@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import AdminNavbar from '@/app/components/AdminNavbar';
 import { getAllOrders, updateOrderStatus, getOrderById, Order } from '@/app/lib/supabase/orders';
+import { getAllPreorders, updatePreorderStatus, Preorder } from '@/app/lib/supabase/preorders';
 import { useProducts } from '@/app/contexts/ProductContext';
 import { getUserById } from '@/app/lib/supabase/users';
 import { getColorName } from '@/app/lib/utils/colors';
@@ -38,11 +39,16 @@ export default function OrdersPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
+  const [preorders, setPreorders] = useState<Preorder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'orders' | 'preorders'>('orders');
   const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
+  const [preorderStatusFilter, setPreorderStatusFilter] = useState<Preorder['status'] | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedPreorder, setSelectedPreorder] = useState<Preorder | null>(null);
   const [showOrderSidebar, setShowOrderSidebar] = useState(false);
+  const [showPreorderSidebar, setShowPreorderSidebar] = useState(false);
   const [clientNames, setClientNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -50,6 +56,7 @@ export default function OrdersPage() {
     if (auth === 'true') {
       setIsAuthenticated(true);
       fetchOrders();
+      fetchPreorders();
     }
   }, []);
 
@@ -78,6 +85,29 @@ export default function OrdersPage() {
     setLoading(false);
   };
 
+  const fetchPreorders = async () => {
+    const { data, error } = await getAllPreorders();
+    if (error) {
+      console.error('Error fetching preorders:', error);
+      setPreorders([]);
+    } else {
+      setPreorders(data || []);
+      // Fetch client names for preorders
+      if (data) {
+        const names: Record<string, string> = {};
+        for (const preorder of data) {
+          if (preorder.user_id && !names[preorder.user_id]) {
+            const { data: user } = await getUserById(preorder.user_id);
+            if (user) {
+              names[preorder.user_id] = user.name || user.phone;
+            }
+          }
+        }
+        setClientNames((prev) => ({ ...prev, ...names }));
+      }
+    }
+  };
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === ADMIN_PASSWORD) {
@@ -86,6 +116,7 @@ export default function OrdersPage() {
       setError('');
       setPassword('');
       fetchOrders();
+      fetchPreorders();
     } else {
       setError('Mot de passe incorrect');
     }
@@ -153,6 +184,42 @@ export default function OrdersPage() {
     return matchesStatus && matchesSearch;
   });
 
+  // Filter preorders by status and search query
+  const filteredPreorders = preorders.filter((preorder) => {
+    const matchesStatus = preorderStatusFilter === 'all' || preorder.status === preorderStatusFilter;
+    const matchesSearch =
+      searchQuery === '' ||
+      preorder.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      preorder.product_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      preorder.size.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (clientNames[preorder.user_id] && clientNames[preorder.user_id].toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesStatus && matchesSearch;
+  });
+
+  const PREORDER_STATUS_COLORS: Record<Preorder['status'], string> = {
+    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+    confirmed: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+    fulfilled: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  };
+
+  const PREORDER_STATUS_LABELS: Record<Preorder['status'], string> = {
+    pending: 'En attente',
+    confirmed: 'Confirmée',
+    cancelled: 'Annulée',
+    fulfilled: 'Honorée',
+  };
+
+  const handlePreorderStatusChange = async (preorderId: string, newStatus: Preorder['status']) => {
+    const { error } = await updatePreorderStatus(preorderId, newStatus);
+    if (error) {
+      toast.error(`Erreur lors de la mise à jour: ${error}`);
+    } else {
+      toast.success(`Statut de la précommande mis à jour: ${PREORDER_STATUS_LABELS[newStatus]}`);
+      fetchPreorders(); // Refresh preorders
+    }
+  };
+
   const handleViewOrderDetails = async (orderId: string) => {
     const { data } = await getOrderById(orderId, true);
     if (data) {
@@ -206,13 +273,41 @@ export default function OrdersPage() {
       <AdminNavbar onLogout={handleLogout} />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6">
+          {/* Tabs */}
+          <div className="flex items-center gap-2 mb-4 border-b border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 ${
+                activeTab === 'orders'
+                  ? 'border-black dark:border-white text-black dark:text-white'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+              style={{ fontFamily: 'var(--font-poppins)' }}
+            >
+              Commandes ({orders.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('preorders')}
+              className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 ${
+                activeTab === 'preorders'
+                  ? 'border-black dark:border-white text-black dark:text-white'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+              style={{ fontFamily: 'var(--font-poppins)' }}
+            >
+              Précommandes ({preorders.length})
+            </button>
+          </div>
+
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-xl font-bold text-black dark:text-white mb-1" style={{ fontFamily: 'var(--font-ubuntu)' }}>
-                Commandes
+                {activeTab === 'orders' ? 'Commandes' : 'Précommandes'}
               </h1>
               <p className="text-xs text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-                {filteredOrders.length} commande(s) {statusFilter !== 'all' ? `(${STATUS_LABELS[statusFilter]})` : 'au total'}
+                {activeTab === 'orders'
+                  ? `${filteredOrders.length} commande(s) ${statusFilter !== 'all' ? `(${STATUS_LABELS[statusFilter]})` : 'au total'}`
+                  : `${filteredPreorders.length} précommande(s) ${preorderStatusFilter !== 'all' ? `(${PREORDER_STATUS_LABELS[preorderStatusFilter]})` : 'au total'}`}
               </p>
             </div>
           </div>
@@ -225,7 +320,7 @@ export default function OrdersPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher par ID, téléphone, adresse..."
+                placeholder={activeTab === 'orders' ? 'Rechercher par ID, téléphone, adresse...' : 'Rechercher par ID, produit, taille...'}
                 className="w-full px-4 py-2 pl-10 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
                 style={{ fontFamily: 'var(--font-poppins)' }}
               />
@@ -243,50 +338,101 @@ export default function OrdersPage() {
 
             {/* Filter Buttons */}
             <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => setStatusFilter('all')}
-                className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
-                  statusFilter === 'all'
-                    ? 'bg-black dark:bg-white text-white dark:text-black'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-                style={{ fontFamily: 'var(--font-poppins)' }}
-              >
-                Tous
-              </button>
-              <button
-                onClick={() => setStatusFilter('pending')}
-                className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
-                  statusFilter === 'pending'
-                    ? 'bg-yellow-500 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-                style={{ fontFamily: 'var(--font-poppins)' }}
-              >
-                En attente
-              </button>
-              <button
-                onClick={() => setStatusFilter('processing')}
-                className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
-                  statusFilter === 'processing'
-                    ? 'bg-indigo-500 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-                style={{ fontFamily: 'var(--font-poppins)' }}
-              >
-                En traitement
-              </button>
-              <button
-                onClick={() => setStatusFilter('delivered')}
-                className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
-                  statusFilter === 'delivered'
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-                style={{ fontFamily: 'var(--font-poppins)' }}
-              >
-                Terminées
-              </button>
+              {activeTab === 'orders' ? (
+                <>
+                  <button
+                    onClick={() => setStatusFilter('all')}
+                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
+                      statusFilter === 'all'
+                        ? 'bg-black dark:bg-white text-white dark:text-black'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    Tous
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('pending')}
+                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
+                      statusFilter === 'pending'
+                        ? 'bg-yellow-500 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    En attente
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('processing')}
+                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
+                      statusFilter === 'processing'
+                        ? 'bg-indigo-500 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    En traitement
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('delivered')}
+                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
+                      statusFilter === 'delivered'
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    Terminées
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setPreorderStatusFilter('all')}
+                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
+                      preorderStatusFilter === 'all'
+                        ? 'bg-black dark:bg-white text-white dark:text-black'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    Tous
+                  </button>
+                  <button
+                    onClick={() => setPreorderStatusFilter('pending')}
+                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
+                      preorderStatusFilter === 'pending'
+                        ? 'bg-yellow-500 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    En attente
+                  </button>
+                  <button
+                    onClick={() => setPreorderStatusFilter('confirmed')}
+                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
+                      preorderStatusFilter === 'confirmed'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    Confirmées
+                  </button>
+                  <button
+                    onClick={() => setPreorderStatusFilter('fulfilled')}
+                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
+                      preorderStatusFilter === 'fulfilled'
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    Honorées
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -296,10 +442,11 @@ export default function OrdersPage() {
             <div className="p-12 text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
               <p className="mt-4 text-sm text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-                Chargement des commandes...
+                Chargement...
               </p>
             </div>
-          ) : filteredOrders.length > 0 ? (
+          ) : activeTab === 'orders' ? (
+            filteredOrders.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
@@ -380,6 +527,126 @@ export default function OrdersPage() {
                 </tbody>
               </table>
             </div>
+            ) : (
+              <div className="p-12 text-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-12 w-12 mx-auto text-gray-400 dark:text-gray-600 mb-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h5.25c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"
+                  />
+                </svg>
+                <p className="text-sm text-gray-500 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                  {statusFilter !== 'all' ? `Aucune commande avec le statut "${STATUS_LABELS[statusFilter]}".` : 'Aucune commande enregistrée.'}
+                </p>
+              </div>
+            )
+          ) : activeTab === 'preorders' ? (
+            filteredPreorders.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      ID
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Client
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Produit
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Taille
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Quantité
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Statut
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Date
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredPreorders.map((preorder) => {
+                    const product = getProductById(preorder.product_id);
+                    return (
+                      <tr key={preorder.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-xs font-mono text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {preorder.id.substring(0, 8)}...
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {clientNames[preorder.user_id] || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {product?.title || preorder.product_id}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {preorder.size}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {preorder.quantity}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <select
+                            value={preorder.status}
+                            onChange={(e) => handlePreorderStatusChange(preorder.id, e.target.value as Preorder['status'])}
+                            className={`text-xs font-semibold px-3 py-1.5 rounded-full border-0 cursor-pointer ${PREORDER_STATUS_COLORS[preorder.status]} hover:opacity-80 transition-opacity`}
+                            style={{ fontFamily: 'var(--font-poppins)' }}
+                          >
+                            {Object.entries(PREORDER_STATUS_LABELS).map(([value, label]) => (
+                              <option key={value} value={value} className="bg-white dark:bg-gray-800">
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-xs text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {formatDate(preorder.created_at)}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => {
+                              setSelectedPreorder(preorder);
+                              setShowPreorderSidebar(true);
+                            }}
+                            className="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                            style={{ fontFamily: 'var(--font-poppins)' }}
+                          >
+                            Détails
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <div className="p-12 text-center">
               <svg
@@ -397,12 +664,186 @@ export default function OrdersPage() {
                 />
               </svg>
               <p className="text-sm text-gray-500 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-                {statusFilter !== 'all' ? `Aucune commande avec le statut "${STATUS_LABELS[statusFilter]}".` : 'Aucune commande enregistrée.'}
+                {preorderStatusFilter !== 'all'
+                  ? `Aucune précommande avec le statut "${PREORDER_STATUS_LABELS[preorderStatusFilter]}".`
+                  : 'Aucune précommande enregistrée.'}
               </p>
             </div>
-          )}
+            )
+          ) : null}
         </div>
       </div>
+
+      {/* Preorder Details Sidebar */}
+      <AnimatePresence mode="wait">
+        {showPreorderSidebar && selectedPreorder && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              onClick={() => {
+                setShowPreorderSidebar(false);
+                setSelectedPreorder(null);
+              }}
+              className="fixed inset-0 bg-black/50 z-[100]"
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{
+                type: 'spring',
+                stiffness: 400,
+                damping: 35,
+                mass: 0.8,
+              }}
+              className="fixed top-0 right-0 h-full w-full max-w-2xl bg-white dark:bg-gray-800 shadow-xl z-[100] overflow-y-auto"
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-lg font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                    Détails de la précommande
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setShowPreorderSidebar(false);
+                      setSelectedPreorder(null);
+                    }}
+                    className="p-2 text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                    aria-label="Fermer"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Preorder Info */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-base font-bold text-black dark:text-white mb-1" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                          Précommande #{selectedPreorder.id.substring(0, 8)}
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                          {formatDate(selectedPreorder.created_at)}
+                        </p>
+                      </div>
+                      <span
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium ${PREORDER_STATUS_COLORS[selectedPreorder.status]}`}
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      >
+                        {PREORDER_STATUS_LABELS[selectedPreorder.status]}
+                      </span>
+                    </div>
+
+                    {/* Status Change */}
+                    <div className="mb-4">
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        Changer le statut
+                      </label>
+                      <select
+                        value={selectedPreorder.status}
+                        onChange={(e) => {
+                          const newStatus = e.target.value as Preorder['status'];
+                          handlePreorderStatusChange(selectedPreorder.id, newStatus);
+                          setSelectedPreorder({ ...selectedPreorder, status: newStatus });
+                        }}
+                        className={`w-full text-xs font-semibold px-3 py-2 rounded-lg border-0 cursor-pointer ${PREORDER_STATUS_COLORS[selectedPreorder.status]}`}
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      >
+                        {Object.entries(PREORDER_STATUS_LABELS).map(([value, label]) => (
+                          <option key={value} value={value} className="bg-white dark:bg-gray-800">
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Client Info */}
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <h3 className="text-sm font-bold text-black dark:text-white mb-3" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                      Informations client
+                    </h3>
+                    <div className="space-y-2 text-sm" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400 font-medium">Nom :</span>
+                        <span className="ml-2 text-gray-900 dark:text-white">{clientNames[selectedPreorder.user_id] || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Product Info */}
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <h3 className="text-sm font-bold text-black dark:text-white mb-3" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                      Informations produit
+                    </h3>
+                    {(() => {
+                      const product = getProductById(selectedPreorder.product_id);
+                      return (
+                        <div className="space-y-3">
+                          {product && (
+                            <div className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                              <div className="relative w-16 h-16 flex-shrink-0 overflow-hidden rounded-lg">
+                                <Image
+                                  src={product.imageUrl}
+                                  alt={product.title}
+                                  fill
+                                  className="object-cover"
+                                  sizes="64px"
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="text-sm font-semibold text-black dark:text-white mb-1" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                                  {product.title}
+                                </h4>
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                                  <span>Taille: {selectedPreorder.size}</span>
+                                  <span>•</span>
+                                  <span>Quantité: {selectedPreorder.quantity}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {!product && (
+                            <div className="text-sm text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                              <p>Produit ID: {selectedPreorder.product_id}</p>
+                              <p>Taille: {selectedPreorder.size}</p>
+                              <p>Quantité: {selectedPreorder.quantity}</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {selectedPreorder.notes && (
+                    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                      <h3 className="text-sm font-bold text-black dark:text-white mb-3" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                        Notes
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        {selectedPreorder.notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Order Details Sidebar */}
       <AnimatePresence mode="wait">

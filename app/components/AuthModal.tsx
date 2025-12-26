@@ -199,7 +199,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-4 bg-indigo-700 hover:bg-indigo-800 disabled:bg-indigo-400 disabled:cursor-not-allowed text-white rounded-full font-semibold uppercase transition-colors"
+                  className="w-full py-4 bg-gradient-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800 disabled:from-cyan-300 disabled:to-cyan-500 disabled:cursor-not-allowed text-white rounded-full font-semibold uppercase transition-all transform hover:scale-105 active:scale-95 disabled:hover:scale-100"
                   style={{ fontFamily: 'var(--font-fira-sans)' }}
                 >
                   {loading ? 'Chargement...' : (isLogin ? 'Se connecter' : "S'inscrire")}

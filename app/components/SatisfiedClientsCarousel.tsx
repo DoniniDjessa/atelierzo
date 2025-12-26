@@ -46,15 +46,26 @@ export default function SatisfiedClientsCarousel() {
   }
 
   return (
-    <section className="py-12 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-black">
+      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-black">
       <div className="max-w-7xl mx-auto">
         {/* Title */}
-        <h2
-          className="text-3xl sm:text-4xl font-bold text-center mb-8 text-black dark:text-white"
-          style={{ fontFamily: 'var(--font-ubuntu)' }}
-        >
-          Clients satisfaits
-        </h2>
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <Image
+            src="/logo.png"
+            alt="Les Ateliers Zo"
+            width={60}
+            height={20}
+            className="h-8 w-auto object-contain"
+            priority
+            unoptimized
+          />
+          <h2
+            className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-cyan-400 to-cyan-700 bg-clip-text text-transparent"
+            style={{ fontFamily: 'var(--font-ubuntu)' }}
+          >
+            Clients satisfaits
+          </h2>
+        </div>
         
         <div className="flex justify-center">
           <div className="w-full sm:max-w-[50vw] 2xl:max-w-[1000px]">

@@ -11,11 +11,11 @@ export default function Footer() {
           <div>
             <div className="mb-3">
               <Image
-                src="/logo.png"
+                src="/icon.png"
                 alt="Les Ateliers Zo"
                 width={150}
                 height={50}
-                className="h-10 w-auto object-contain"
+                className="h-20 w-auto object-contain"
                 priority
                 unoptimized
               />

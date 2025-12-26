@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useProducts } from '@/app/contexts/ProductContext';
 import { useCart } from '@/app/contexts/CartContext';
 import { getColorName } from '@/app/lib/utils/colors';
+import CartNotification from '@/app/components/CartNotification';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -14,10 +15,11 @@ export default function ProductDetailPage() {
   const productId = params.id as string;
   const { getProductById } = useProducts();
   const product = getProductById(productId);
-  const { addToCart } = useCart();
+  const { addToCart, getItemCount } = useCart();
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [showCartNotification, setShowCartNotification] = useState(false);
 
   if (!product) {
     return (
@@ -63,7 +65,11 @@ export default function ProductDetailPage() {
     const sizesText = selectedSizes.length > 1 ? `tailles ${selectedSizes.join(', ')}` : `taille ${selectedSizes[0]}`;
     const colorsText = selectedColors.length > 0 ? ` - Couleurs: ${selectedColors.map(c => getColorName(c) || c).join(', ')}` : '';
     toast.success(`Produit ajouté au panier ! ${sizesText}${colorsText}`);
-    router.push('/cart');
+    setShowCartNotification(true);
+    // Don't redirect immediately, let user see the notification
+    setTimeout(() => {
+      router.back();
+    }, 2000);
   };
 
   const toggleSize = (size: string) => {
@@ -232,27 +238,29 @@ export default function ProductDetailPage() {
                   className="text-xs text-red-600 dark:text-red-400 font-medium"
                   style={{ fontFamily: 'var(--font-poppins)' }}
                 >
-                  En rupture de stock
+                  Rupture de stock
                 </p>
               </div>
             )}
 
-            {/* Add to Cart Button */}
+            {/* Add to Cart / Pre-order Button */}
             <button
               onClick={handleAddToCart}
-              disabled={!product.inStock || selectedSizes.length === 0}
+              disabled={selectedSizes.length === 0}
               className={`w-full py-3 px-4 rounded-xl text-xs font-semibold text-white transition-all transform ${
-                !product.inStock || selectedSizes.length === 0
+                selectedSizes.length === 0
                   ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-500 hover:to-cyan-500 hover:scale-105 active:scale-95'
+                  : product.inStock
+                  ? 'bg-gradient-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800 hover:scale-105 active:scale-95'
+                  : 'bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 hover:scale-105 active:scale-95'
               }`}
               style={{ fontFamily: 'var(--font-poppins)' }}
             >
-              {!product.inStock
-                ? 'Produit indisponible'
-                : selectedSizes.length === 0
+              {selectedSizes.length === 0
                 ? 'Sélectionnez une taille'
-                : 'Ajouter au panier'}
+                : product.inStock
+                ? 'Ajouter au panier'
+                : 'Précommander'}
             </button>
 
             {/* Additional Info */}
@@ -291,6 +299,13 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Cart Notification */}
+      <CartNotification
+        isVisible={showCartNotification}
+        onClose={() => setShowCartNotification(false)}
+        itemCount={getItemCount()}
+      />
     </div>
   );
 }
