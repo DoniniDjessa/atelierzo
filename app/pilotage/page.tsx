@@ -131,7 +131,12 @@ export default function PilotageDashboard() {
           order.items.forEach((item) => {
             const product = products.find((p) => p.id === item.product_id);
             if (product) {
-              const category = product.category === 'bermuda' ? 'Chemise Bermuda' : 'Chemise Pantalon';
+              const categoryMap: Record<string, string> = {
+                'bermuda': 'Chemise Bermuda',
+                'pantalon': 'Chemise Pantalon',
+                'tshirt-oversize-civ': 'Tshirt Oversize Côte d\'Ivoire Champions d\'Afrique',
+              };
+              const category = categoryMap[product.category] || product.category;
               categorySales[category] = (categorySales[category] || 0) + item.quantity;
             }
           });

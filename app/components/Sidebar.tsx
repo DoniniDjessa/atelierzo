@@ -16,6 +16,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user } = useUser();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [wasAuthModalOpened, setWasAuthModalOpened] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Close sidebar when user logs in (if auth modal was opened from sidebar)
   useEffect(() => {
@@ -48,6 +49,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
+  // Reset search query when sidebar closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchQuery('');
+    }
+  }, [isOpen]);
+
   const handleNavigate = (path: string) => {
     onClose();
     router.push(path);
@@ -62,6 +70,21 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       // If user is not logged in, open auth modal
       setWasAuthModalOpened(true);
       setIsAuthModalOpen(true);
+    }
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      onClose();
+      router.push(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
+    }
+  };
+
+  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch(e);
     }
   };
 
@@ -120,28 +143,37 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </div>
 
                 {/* Search bar */}
-                <div className="relative">
+                <form onSubmit={handleSearch} className="relative">
                   <input
                     type="text"
                     placeholder="Rechercher..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={handleSearchKeyPress}
                     className="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-gray-800 rounded-full text-sm text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400"
                     style={{ fontFamily: 'var(--font-poppins)' }}
                   />
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
+                  <button
+                    type="submit"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                    aria-label="Rechercher"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                </div>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                  </button>
+                </form>
               </div>
 
               {/* Main Navigation */}
@@ -180,6 +212,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                       style={{ fontFamily: 'var(--font-poppins)' }}
                     >
                       Chemise Pantalon
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => handleNavigate('/products?category=tshirt-oversize-civ')}
+                    className="w-full flex items-center justify-between py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
+                  >
+                    <span
+                      className="text-base font-medium"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    >
+                      Tshirt Oversize CIV Champions d'Afrique
                     </span>
                   </button>
 

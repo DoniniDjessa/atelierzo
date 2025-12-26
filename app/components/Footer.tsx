@@ -41,7 +41,7 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="/products/chemise-bermuda"
+                  href="/products?category=bermuda"
                   className="text-sm text-gray-300 hover:text-white transition-colors"
                   style={{ fontFamily: 'var(--font-poppins)' }}
                 >
@@ -50,11 +50,20 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="/products/chemise-pantalon"
+                  href="/products?category=pantalon"
                   className="text-sm text-gray-300 hover:text-white transition-colors"
                   style={{ fontFamily: 'var(--font-poppins)' }}
                 >
                   Chemise Pantalon
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/products?category=tshirt-oversize-civ"
+                  className="text-sm text-gray-300 hover:text-white transition-colors"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  Tshirt Oversize CIV Champions d'Afrique
                 </a>
               </li>
             </ul>

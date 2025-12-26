@@ -205,6 +205,23 @@ export default function Home() {
               onProductClick={(productId) => router.push(`/product/${productId}`)}
             />
           )}
+
+          {/* Tshirt Oversize CIV Section */}
+          {products.filter((p) => (p as any).category === 'tshirt-oversize-civ').length > 0 && (
+            <CategorySection
+              title="Tshirt Oversize Côte d'Ivoire Champions d'Afrique"
+              subtitle="Célébrez la victoire avec style"
+              products={products
+                .filter((p) => (p as any).category === 'tshirt-oversize-civ')
+                .slice(0, 4)
+                .map((p) => ({
+                  ...p,
+                  isOutOfStock: !(p as any).inStock,
+                }))}
+              categoryPath="/products?category=tshirt-oversize-civ"
+              onProductClick={(productId) => router.push(`/product/${productId}`)}
+            />
+          )}
         </div>
       </section>
 

@@ -526,7 +526,7 @@ export default function ProductsPage() {
                 damping: 35,
                 mass: 0.8,
               }}
-              className="fixed top-0 right-0 h-full w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
+              className="fixed top-0 right-0 h-full w-[98%] md:w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
             >
               {/* Header */}
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -581,6 +581,7 @@ export default function ProductsPage() {
                     >
                       <option value="bermuda">Chemise Bermuda</option>
                       <option value="pantalon">Chemise Pantalon</option>
+                      <option value="tshirt-oversize-civ">Tshirt Oversize Côte d'Ivoire Champions d'Afrique</option>
                     </select>
                   </div>
                   <div>
@@ -1035,7 +1036,7 @@ export default function ProductsPage() {
                 damping: 35,
                 mass: 0.8,
               }}
-              className="fixed top-0 right-0 h-full w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
+              className="fixed top-0 right-0 h-full w-[98%] md:w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
             >
               {/* Header */}
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -1099,7 +1100,13 @@ export default function ProductsPage() {
                           {selectedProductForDetails.inStock ? 'En stock' : 'Rupture de stock'}
                         </span>
                         <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>
-                          {selectedProductForDetails.category === 'bermuda' ? 'Chemise Bermuda' : 'Chemise Pantalon'}
+                          {selectedProductForDetails.category === 'bermuda' 
+                            ? 'Chemise Bermuda' 
+                            : selectedProductForDetails.category === 'pantalon' 
+                            ? 'Chemise Pantalon' 
+                            : selectedProductForDetails.category === 'tshirt-oversize-civ'
+                            ? 'Tshirt Oversize Côte d\'Ivoire Champions d\'Afrique'
+                            : selectedProductForDetails.category}
                         </span>
                       </div>
 

@@ -10,6 +10,7 @@ const categoryMap: Record<string, string> = {
   'Home': 'all',
   'Chemise Bermuda': 'bermuda',
   'Chemise Pantalon': 'pantalon',
+  'Tshirt Oversize Côte d\'Ivoire Champions d\'Afrique': 'tshirt-oversize-civ',
 };
 
 export default function SectionHeader({ activeCategoryName }: SectionHeaderProps) {

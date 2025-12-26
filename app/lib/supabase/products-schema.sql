@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS "zo-products" (
   colors TEXT[], -- Array of color hex codes
   sizes JSONB NOT NULL DEFAULT '{}'::jsonb, -- Object with size as key and quantity as value, e.g. {"S": 10, "M": 15, "L": 20}
   in_stock BOOLEAN DEFAULT true,
-  category TEXT NOT NULL CHECK (category IN ('bermuda', 'pantalon')),
+  category TEXT NOT NULL CHECK (category IN ('bermuda', 'pantalon', 'tshirt-oversize-civ')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
