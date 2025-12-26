@@ -500,34 +500,26 @@ export default function ProductsPage() {
       </div>
 
       {/* Right Sidebar for Add/Edit Form */}
-      <AnimatePresence>
-        {showAddForm && (
-          <>
-            {/* Overlay */}
-            <motion.div
-              key="overlay"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
-              onClick={handleCancel}
-              className="fixed inset-0 bg-black/50 z-[99]"
-            />
+      {showAddForm && (
+        <>
+          {/* Overlay */}
+          <div
+            onClick={handleCancel}
+            className="fixed inset-0 bg-black/50 z-[99]"
+          />
 
-            {/* Sidebar */}
-            <motion.div
-              key="sidebar"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{
-                type: 'spring',
-                stiffness: 400,
-                damping: 35,
-                mass: 0.8,
-              }}
-              className="fixed top-0 right-0 h-full w-[98%] md:w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
-            >
+          {/* Sidebar */}
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            transition={{
+              type: 'spring',
+              stiffness: 400,
+              damping: 35,
+              mass: 0.8,
+            }}
+            className="fixed top-0 right-0 h-full w-[98%] md:w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
+          >
               {/* Header */}
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-4">
@@ -881,7 +873,6 @@ export default function ProductsPage() {
             </motion.div>
           </>
         )}
-      </AnimatePresence>
 
       {/* Flash Sale Quick Add Modal */}
       <AnimatePresence mode="wait">
