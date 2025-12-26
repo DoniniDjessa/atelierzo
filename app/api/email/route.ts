@@ -79,7 +79,7 @@ async function sendEmail(params: {
       const trans = getTransporter();
 
       const mailOptions = {
-        from: `"Atelierzo" <${SMTP_CONFIG.auth.user}>`,
+        from: `"Les Ateliers Zo" <${SMTP_CONFIG.auth.user}>`,
         to: params.to,
         subject: params.subject,
         html: params.html,
@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
           </div>
 
           <div style="margin-top: 20px; text-align: center; color: #9ca3af; font-size: 12px;">
-            <p>Atelierzo - E-commerce de mode</p>
+            <p>Les Ateliers Zo - E-commerce de mode</p>
             <p>Cet email a été généré automatiquement par le système.</p>
           </div>
         </body>

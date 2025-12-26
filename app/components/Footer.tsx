@@ -11,7 +11,7 @@ export default function Footer() {
               className="text-lg font-bold text-white mb-2"
                   style={{ fontFamily: 'var(--font-ubuntu)' }}
             >
-              Atelierzo
+              Les Ateliers Zo
             </h3>
             <p
               className="text-sm text-gray-300"
@@ -100,7 +100,7 @@ export default function Footer() {
             className="text-sm text-gray-600 dark:text-gray-400"
             style={{ fontFamily: 'var(--font-poppins)' }}
           >
-            © {new Date().getFullYear()} Atelierzo. Tous droits réservés.
+            © {new Date().getFullYear()} Les Ateliers Zo. Tous droits réservés.
           </p>
         </div>
       </div>

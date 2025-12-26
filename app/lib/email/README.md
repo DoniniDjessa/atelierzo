@@ -27,7 +27,7 @@ To generate a Gmail App Password:
 
 - **SMTP Server**: `smtp.gmail.com`
 - **Port**: `587` (TLS)
-- **From Address**: `"Atelierzo" <doninidjessa@gmail.com>`
+- **From Address**: `"Les Ateliers Zo" <doninidjessa@gmail.com>`
 - **Admin Email**: `doninidjessa@gmail.com` (receives order notifications)
 
 ## Features

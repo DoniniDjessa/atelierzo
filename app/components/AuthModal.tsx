@@ -145,7 +145,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 className="text-2xl font-bold mb-8"
                 style={{ fontFamily: 'var(--font-fira-sans)' }}
               >
-                Atelierzo
+                Les Ateliers Zo
               </h1>
             </div>
 

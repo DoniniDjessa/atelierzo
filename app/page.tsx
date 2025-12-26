@@ -64,10 +64,10 @@ export default function Home() {
         {/* Background Image */}
         <div className="absolute inset-0 overflow-hidden">
           <Image
-            src="/bg.jpg"
+            src="/cover.webp"
             alt="Hero background"
             fill
-            className="object-cover"
+            className="object-cover object-top"
             priority
             unoptimized
           />
@@ -117,7 +117,7 @@ export default function Home() {
                     className="text-lg font-semibold text-gray-800 dark:text-gray-200"
                     style={{ fontFamily: 'var(--font-fira-sans)' }}
                   >
-                    Atelier Zo, ici vous etes chez vous ❤️
+                    Les Ateliers Zo, ici vous êtes chez vous ❤️
                   </p>
                 </div>
 

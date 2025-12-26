@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import AuthModal from './AuthModal';
 import Sidebar from './Sidebar';
@@ -80,10 +81,16 @@ export default function Navbar() {
           <div className="absolute left-1/2 -translate-x-1/2">
             <Link 
               href="/" 
-              className="text-xl font-bold transition-transform hover:scale-105"
-                  style={{ fontFamily: 'var(--font-ubuntu)' }}
+              className="flex items-center justify-center transition-transform hover:scale-105"
             >
-              Atelierzo
+              <Image
+                src="/logo.png"
+                alt="Les Ateliers Zo"
+                width={120}
+                height={40}
+                className="h-8 w-auto object-contain"
+                priority
+              />
             </Link>
           </div>
 
