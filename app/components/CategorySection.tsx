@@ -38,7 +38,7 @@ export default function CategorySection({
     const categoryMap: Record<string, string> = {
       'Chemise Bermuda': 'bermuda',
       'Chemise Pantalon': 'pantalon',
-      'Tshirt Oversize Côte d\'Ivoire Champions d\'Afrique': 'tshirt-oversize-civ',
+      'Tshirt Oversize CIV Champions d\'Afrique': 'tshirt-oversize-civ',
     };
     
     const categoryValue = categoryMap[title];

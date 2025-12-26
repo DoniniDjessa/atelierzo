@@ -281,7 +281,7 @@ export default function Home() {
           {/* Tshirt Oversize CIV Section */}
           {products.filter((p) => (p as any).category === 'tshirt-oversize-civ').length > 0 && (
             <CategorySection
-              title="Tshirt Oversize Côte d'Ivoire Champions d'Afrique"
+              title="Tshirt Oversize CIV Champions"
               subtitle="Célébrez la victoire avec style"
               products={products
                 .filter((p) => (p as any).category === 'tshirt-oversize-civ')

@@ -21,11 +21,11 @@ export default function Loader() {
       <div className="flex flex-col items-center gap-6">
         {/* Logo with pulse animation */}
         <img
-          src="/logo.png"
-          alt="Les Ateliers Zo"
+            src="/logo.png"
+            alt="Les Ateliers Zo"
           className="h-16 w-auto object-contain animate-pulse"
           style={{ maxWidth: '180px', height: 'auto' }}
-        />
+          />
         
         {/* Loading dots */}
         <div className="flex gap-1.5">

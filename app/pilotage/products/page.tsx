@@ -1119,7 +1119,7 @@ export default function ProductsPage() {
                             : selectedProductForDetails.category === 'pantalon' 
                             ? 'Chemise Pantalon' 
                             : selectedProductForDetails.category === 'tshirt-oversize-civ'
-                            ? 'Tshirt Oversize Côte d\'Ivoire Champions d\'Afrique'
+                            ? 'Tshirt Oversize CIV Champions d\'Afrique'
                             : selectedProductForDetails.category}
                         </span>
                       </div>

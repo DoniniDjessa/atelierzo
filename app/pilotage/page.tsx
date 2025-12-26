@@ -134,7 +134,7 @@ export default function PilotageDashboard() {
               const categoryMap: Record<string, string> = {
                 'bermuda': 'Chemise Bermuda',
                 'pantalon': 'Chemise Pantalon',
-                'tshirt-oversize-civ': 'Tshirt Oversize Côte d\'Ivoire Champions d\'Afrique',
+                'tshirt-oversize-civ': 'Tshirt Oversize CIV Champions d\'Afrique',
               };
               const category = categoryMap[product.category] || product.category;
               categorySales[category] = (categorySales[category] || 0) + item.quantity;
