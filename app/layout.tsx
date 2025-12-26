@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Ubuntu, Poppins } from "next/font/google";
 import "./globals.css";
-import Navbar from "./components/Navbar";
+import ConditionalNavbar from "./components/ConditionalNavbar";
 import Loader from "./components/Loader";
 import { UserProvider } from "./contexts/UserContext";
 import { ProductProvider } from "./contexts/ProductContext";
@@ -41,7 +41,7 @@ export default function RootLayout({
             <FavoritesProvider>
               <CartProvider>
                 <Loader />
-                <Navbar />
+                <ConditionalNavbar />
                 {children}
                 <Toaster position="top-center" richColors />
               </CartProvider>

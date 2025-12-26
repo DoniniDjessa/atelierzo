@@ -47,17 +47,17 @@ export default function ProductCard({
 
   return (
     <div 
-      className={`bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow relative flex flex-col h-full overflow-hidden ${onClick ? 'cursor-pointer' : ''}`}
+      className={`bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-shadow relative flex flex-col h-full overflow-hidden ${onClick ? 'cursor-pointer' : ''}`}
       onClick={onClick}
     >
-      {/* Product Image - Takes more space, fills top area */}
-      <div className="relative w-full flex-1 min-h-[320px] bg-gray-100 dark:bg-gray-700">
+      {/* Product Image - Square on mobile, larger on desktop */}
+      <div className="relative w-full aspect-square sm:flex-1 sm:min-h-[320px] bg-gray-100 dark:bg-gray-700 rounded-t-xl sm:rounded-t-2xl overflow-hidden">
         <Image
           src={imageUrl}
           alt={title}
           fill
           className="object-cover"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          sizes="(max-width: 640px) 50vw, (max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           unoptimized={imageUrl.includes('unsplash.com') || imageUrl.includes('placehold.co')}
         />
       </div>
@@ -65,12 +65,12 @@ export default function ProductCard({
       {/* Favorite Badge */}
       <button
         onClick={handleFavoriteClick}
-        className="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm flex items-center justify-center hover:bg-white dark:hover:bg-gray-800 transition-colors z-10 shadow-sm"
+        className="absolute top-2 right-2 sm:top-3 sm:right-3 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm flex items-center justify-center hover:bg-white dark:hover:bg-gray-800 transition-colors z-10 shadow-sm"
         aria-label="Add to favorites"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className={`h-3.5 w-3.5 transition-colors ${isFav ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+          className={`h-3 w-3 sm:h-3.5 sm:w-3.5 transition-colors ${isFav ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
           viewBox="0 0 24 24"
           stroke="currentColor"
           strokeWidth={2}
@@ -85,31 +85,23 @@ export default function ProductCard({
       </button>
 
       {/* Content Section */}
-      <div className="p-4 flex flex-col flex-shrink-0">
+      <div className="p-3.5 sm:p-4 flex flex-col flex-shrink-0">
         {/* Product Title */}
       <h3
-        className="text-base font-bold text-black dark:text-white mb-1 line-clamp-1"
+        className="text-sm sm:text-base font-bold text-black dark:text-white mb-2 sm:mb-3 line-clamp-1"
                   style={{ fontFamily: 'var(--font-ubuntu)' }}
       >
         {title}
       </h3>
 
-      {/* Product Description */}
-      <p
-        className="text-xs text-gray-400 dark:text-gray-500 mb-2 leading-tight line-clamp-2"
-        style={{ fontFamily: 'var(--font-poppins)' }}
-      >
-        {description}
-      </p>
-
       {/* Color or Size Selector */}
       {(colors.length > 0 || sizes.length > 0) && (
-        <div className="flex gap-1.5 mb-3">
+        <div className="flex items-center justify-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
           {colors.length > 0 &&
             colors.map((color, index) => (
               <div
                 key={index}
-                className="w-4 h-4 rounded-full border border-gray-200 dark:border-gray-600"
+                className="w-3 h-3 sm:w-4 sm:h-4 rounded-full border border-gray-200 dark:border-gray-600"
                 style={{ backgroundColor: color }}
                 title={color}
               />
@@ -118,7 +110,7 @@ export default function ProductCard({
             sizes.map((size, index) => (
               <span
                 key={index}
-                className="px-1.5 py-0.5 text-xs border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-400"
+                className="px-1 py-0.5 sm:px-1.5 sm:py-0.5 text-[10px] sm:text-xs border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-400"
                 style={{ fontFamily: 'var(--font-poppins)' }}
               >
                 {size}
@@ -128,22 +120,22 @@ export default function ProductCard({
       )}
 
       {/* Footer: Price and Add to Cart */}
-      <div className="pt-3 border-t border-gray-100 dark:border-gray-700 mt-auto">
-        {/* Prices */}
-        <div className="flex items-center justify-between">
+      <div className="pt-2 sm:pt-3 border-t border-gray-100 dark:border-gray-700 mt-auto">
+        {/* Prices - All on same line */}
+        <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-0 flex-wrap">
           {oldPrice && (
             <span
-              className="text-xs text-gray-400 dark:text-gray-500 line-through"
+              className="text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-500 line-through"
               style={{ fontFamily: 'var(--font-poppins)' }}
             >
-              {oldPrice.toLocaleString('fr-FR')} FCFA
+              {oldPrice.toLocaleString('fr-FR')} XOF
             </span>
           )}
           <span
-            className="text-lg font-bold text-black dark:text-white"
+            className="text-[10px] sm:text-sm font-bold text-black dark:text-white"
                   style={{ fontFamily: 'var(--font-ubuntu)' }}
           >
-            {price.toLocaleString('fr-FR')} FCFA
+            {price.toLocaleString('fr-FR')} XOF
           </span>
         </div>
 
@@ -154,13 +146,13 @@ export default function ProductCard({
               e.stopPropagation();
               onAddToCart?.();
             }}
-            className="w-full mt-3 bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-500 hover:to-cyan-500 text-white px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all transform hover:scale-105 active:scale-95"
+            className="w-full mt-2 sm:mt-3 bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-500 hover:to-cyan-500 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg flex items-center justify-center gap-1 sm:gap-1.5 transition-all transform hover:scale-105 active:scale-95"
             style={{ fontFamily: 'var(--font-poppins)' }}
           >
-            <span className="text-xs font-medium">Ajouter au panier</span>
+            <span className="text-[10px] sm:text-xs font-medium">Ajouter au panier</span>
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-3.5 w-3.5"
+              className="h-3 w-3 sm:h-3.5 sm:w-3.5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"

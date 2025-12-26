@@ -152,98 +152,256 @@ export default function CartPage() {
             {items.map((item, index) => (
               <div
                 key={`${item.productId}-${item.size}-${item.color || 'no-color'}-${index}`}
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm transition-shadow p-4 flex items-center justify-between gap-x-6"
+                className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm transition-shadow p-3 sm:p-4"
               >
-                {/* Image - Left side */}
-                <div className="relative w-24 h-24 flex-shrink-0 overflow-hidden">
-                  <Image
-                    src={item.imageUrl}
-                    alt={item.title}
-                    fill
-                    className="object-contain"
-                    sizes="96px"
-                  />
-                </div>
+                {/* Mobile Layout: Stacked */}
+                <div className="flex flex-col sm:hidden gap-3">
+                  {/* Top Row: Image + Info */}
+                  <div className="flex items-start gap-3">
+                    {/* Image */}
+                    <div className="relative w-20 h-20 flex-shrink-0 overflow-hidden rounded-lg">
+                      <Image
+                        src={item.imageUrl}
+                        alt={item.title}
+                        fill
+                        className="object-contain"
+                        sizes="80px"
+                      />
+                    </div>
 
-                {/* Product Info - Flex-1 to push other elements */}
-                <div className="flex-1 flex flex-col gap-1">
-                  {/* Brand/Model Name - Bold */}
-                  <h3
-                    className="text-base font-bold text-black dark:text-white"
-                    style={{ fontFamily: 'var(--font-fira-sans)' }}
-                  >
-                    {item.title}
-                  </h3>
-                  
-                  {/* Short Description - Light Gray */}
-                  {(() => {
-                    const product = getProductById(item.productId);
-                    return product?.description ? (
-                      <p
-                        className="text-sm text-gray-400 dark:text-gray-500 line-clamp-1"
+                    {/* Product Info */}
+                    <div className="flex-1 min-w-0">
+                      <h3
+                        className="text-sm font-bold text-black dark:text-white mb-1 truncate"
+                        style={{ fontFamily: 'var(--font-fira-sans)' }}
+                      >
+                        {item.title}
+                      </h3>
+                      
+                      {/* Variant - Size Display */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className="text-[10px] text-gray-500 dark:text-gray-400"
+                          style={{ fontFamily: 'var(--font-poppins)' }}
+                        >
+                          taille {item.size}
+                        </span>
+                        {item.color && (
+                          <>
+                            <span className="text-[10px] text-gray-400">•</span>
+                            <div className="flex items-center gap-1">
+                              <div
+                                className="w-3 h-3 rounded-full border border-gray-300 dark:border-gray-600"
+                                style={{ backgroundColor: item.color }}
+                              />
+                              <span
+                                className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[60px]"
+                                style={{ fontFamily: 'var(--font-poppins)' }}
+                              >
+                                {getColorName(item.color) || item.color}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Remove Button - Top right */}
+                    <button
+                      onClick={() => removeFromCart(item.productId, item.size, item.color)}
+                      className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors p-1 flex-shrink-0"
+                      aria-label="Supprimer"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Bottom Row: Quantity + Price */}
+                  <div className="flex items-center justify-between">
+                    {/* Quantity Selector */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => updateQuantity(item.productId, item.size, item.quantity - 1, item.color)}
+                        className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors"
+                        aria-label="Diminuer la quantité"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2.5}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+                        </svg>
+                      </button>
+                      <span
+                        className="text-sm font-medium text-black dark:text-white w-6 text-center"
                         style={{ fontFamily: 'var(--font-poppins)' }}
                       >
-                        {product.description}
-                      </p>
-                    ) : null;
-                  })()}
+                        {item.quantity}
+                      </span>
+                      <button
+                        onClick={() => updateQuantity(item.productId, item.size, item.quantity + 1, item.color)}
+                        className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors"
+                        aria-label="Augmenter la quantité"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2.5}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                      </button>
+                    </div>
 
-                  {/* Variant - Size Display */}
-                  <div className="flex items-center gap-2">
+                    {/* Price */}
                     <span
-                      className="text-xs text-gray-500 dark:text-gray-400"
-                      style={{ fontFamily: 'var(--font-poppins)' }}
+                      className="text-sm font-bold text-black dark:text-white"
+                      style={{ fontFamily: 'var(--font-fira-sans)' }}
                     >
-                      taille {item.size}
+                      {(item.price * item.quantity).toLocaleString('fr-FR')} XOF
                     </span>
-                    {item.color && (
-                      <>
-                        <span className="text-xs text-gray-400">•</span>
-                        <div className="flex items-center gap-1.5">
-                          <div
-                            className="w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-gray-600"
-                            style={{ backgroundColor: item.color }}
-                          />
-                          <span
-                            className="text-xs text-gray-500 dark:text-gray-400"
-                            style={{ fontFamily: 'var(--font-poppins)' }}
-                          >
-                            {getColorName(item.color) || item.color}
-                          </span>
-                        </div>
-                      </>
-                    )}
                   </div>
                 </div>
 
-                {/* Quantity Selector - Center-right */}
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => updateQuantity(item.productId, item.size, item.quantity - 1, item.color)}
-                    className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors"
-                    aria-label="Diminuer la quantité"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
+                {/* Desktop Layout: Horizontal */}
+                <div className="hidden sm:flex items-center justify-between gap-x-6">
+                  {/* Image - Left side */}
+                  <div className="relative w-24 h-24 flex-shrink-0 overflow-hidden rounded-lg">
+                    <Image
+                      src={item.imageUrl}
+                      alt={item.title}
+                      fill
+                      className="object-contain"
+                      sizes="96px"
+                    />
+                  </div>
+
+                  {/* Product Info - Flex-1 to push other elements */}
+                  <div className="flex-1 flex flex-col gap-1 min-w-0">
+                    {/* Brand/Model Name - Bold */}
+                    <h3
+                      className="text-base font-bold text-black dark:text-white truncate"
+                      style={{ fontFamily: 'var(--font-fira-sans)' }}
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
-                    </svg>
-                  </button>
+                      {item.title}
+                    </h3>
+                    
+                    {/* Short Description - Light Gray */}
+                    {(() => {
+                      const product = getProductById(item.productId);
+                      return product?.description ? (
+                        <p
+                          className="text-sm text-gray-400 dark:text-gray-500 line-clamp-1"
+                          style={{ fontFamily: 'var(--font-poppins)' }}
+                        >
+                          {product.description}
+                        </p>
+                      ) : null;
+                    })()}
+
+                    {/* Variant - Size Display */}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="text-xs text-gray-500 dark:text-gray-400"
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      >
+                        taille {item.size}
+                      </span>
+                      {item.color && (
+                        <>
+                          <span className="text-xs text-gray-400">•</span>
+                          <div className="flex items-center gap-1.5">
+                            <div
+                              className="w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-gray-600"
+                              style={{ backgroundColor: item.color }}
+                            />
+                            <span
+                              className="text-xs text-gray-500 dark:text-gray-400"
+                              style={{ fontFamily: 'var(--font-poppins)' }}
+                            >
+                              {getColorName(item.color) || item.color}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quantity Selector - Center-right */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => updateQuantity(item.productId, item.size, item.quantity - 1, item.color)}
+                      className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors"
+                      aria-label="Diminuer la quantité"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+                      </svg>
+                    </button>
+                    <span
+                      className="text-sm font-medium text-black dark:text-white w-6 text-center"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    >
+                      {item.quantity}
+                    </span>
+                    <button
+                      onClick={() => updateQuantity(item.productId, item.size, item.quantity + 1, item.color)}
+                      className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors"
+                      aria-label="Augmenter la quantité"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Price - Before X icon */}
                   <span
-                    className="text-sm font-medium text-black dark:text-white w-6 text-center"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
+                    className="text-base font-bold text-black dark:text-white"
+                    style={{ fontFamily: 'var(--font-fira-sans)' }}
                   >
-                    {item.quantity}
+                    {(item.price * item.quantity).toLocaleString('fr-FR')} XOF
                   </span>
+
+                  {/* Remove Button - Orange X - Extreme right */}
                   <button
-                    onClick={() => updateQuantity(item.productId, item.size, item.quantity + 1, item.color)}
-                    className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors"
-                    aria-label="Augmenter la quantité"
+                    onClick={() => removeFromCart(item.productId, item.size, item.color)}
+                    className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors p-1 flex-shrink-0"
+                    aria-label="Supprimer"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -253,40 +411,14 @@ export default function CartPage() {
                       stroke="currentColor"
                       strokeWidth={2.5}
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>
-
-                {/* Price - Before X icon */}
-                <span
-                  className="text-base font-bold text-black dark:text-white"
-                  style={{ fontFamily: 'var(--font-fira-sans)' }}
-                >
-                  {(item.price * item.quantity).toLocaleString('fr-FR')} FCFA
-                </span>
-
-                {/* Remove Button - Orange X - Extreme right */}
-                <button
-                  onClick={() => removeFromCart(item.productId, item.size, item.color)}
-                  className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors p-1 flex-shrink-0"
-                  aria-label="Supprimer"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
               </div>
             ))}
           </div>
@@ -366,7 +498,7 @@ export default function CartPage() {
                     className="text-sm font-medium text-black dark:text-white"
                     style={{ fontFamily: 'var(--font-fira-sans)' }}
                   >
-                    {getTotal().toLocaleString('fr-FR')} FCFA
+                    {getTotal().toLocaleString('fr-FR')} XOF
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -380,7 +512,7 @@ export default function CartPage() {
                     className="text-lg font-bold text-black dark:text-white"
                     style={{ fontFamily: 'var(--font-fira-sans)' }}
                   >
-                    {getTotal().toLocaleString('fr-FR')} FCFA
+                    {getTotal().toLocaleString('fr-FR')} XOF
                   </span>
                 </div>
               </div>

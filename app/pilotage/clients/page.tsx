@@ -304,7 +304,7 @@ export default function ClientsPage() {
                 setShowClientSidebar(false);
                 setSelectedClient(null);
               }}
-              className="fixed inset-0 bg-black/50 z-[70]"
+              className="fixed inset-0 bg-black/50 z-[100]"
             />
 
             {/* Sidebar */}
@@ -317,7 +317,7 @@ export default function ClientsPage() {
                 stiffness: 500,
                 damping: 40,
               }}
-              className="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-800 z-[70] shadow-2xl flex flex-col"
+              className="fixed top-0 right-0 h-full w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
             >
               {/* Header */}
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">

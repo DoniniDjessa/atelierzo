@@ -7,9 +7,13 @@ import Image from 'next/image';
 import { toast } from 'sonner';
 import AdminNavbar from '@/app/components/AdminNavbar';
 import { motion, AnimatePresence } from 'framer-motion';
+import { X } from 'lucide-react';
 import { compressImageToWebP, generateImageFilename } from '@/app/lib/utils/image';
 import { uploadImage, deleteImageFromUrl, isSupabaseImageUrl } from '@/app/lib/supabase/storage';
 import { FASHION_COLORS } from '@/app/lib/utils/colors';
+import { getAllVenteFlash, addProductToVenteFlash } from '@/app/lib/supabase/vente-flash';
+import { Zap } from 'lucide-react';
+import { getProductStats, ProductSalesStats } from '@/app/lib/utils/product-stats';
 
 const ADMIN_PASSWORD = '0044';
 
@@ -42,14 +46,31 @@ export default function ProductsPage() {
     category: 'bermuda',
   });
   const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>({});
+  const [showFlashSaleModal, setShowFlashSaleModal] = useState(false);
+  const [selectedProductForFlashSale, setSelectedProductForFlashSale] = useState<string | null>(null);
+  const [venteFlashList, setVenteFlashList] = useState<any[]>([]);
+  const [selectedVenteFlashId, setSelectedVenteFlashId] = useState<string>('');
+  const [flashSaleDiscount, setFlashSaleDiscount] = useState<number>(0);
+  const [showProductDetails, setShowProductDetails] = useState(false);
+  const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null);
+  const [productStats, setProductStats] = useState<ProductSalesStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
 
   // Check if already authenticated
   useEffect(() => {
     const auth = localStorage.getItem('atelierzo_admin_auth');
     if (auth === 'true') {
       setIsAuthenticated(true);
+      loadVenteFlash();
     }
   }, []);
+
+  const loadVenteFlash = async () => {
+    const { data } = await getAllVenteFlash();
+    if (data) {
+      setVenteFlashList(data);
+    }
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -368,7 +389,18 @@ export default function ProductsPage() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {paginatedProducts.map((product) => (
-              <div key={product.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <div 
+                key={product.id} 
+                className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={async () => {
+                  setSelectedProductForDetails(product);
+                  setShowProductDetails(true);
+                  setLoadingStats(true);
+                  const stats = await getProductStats(product.id);
+                  setProductStats(stats);
+                  setLoadingStats(false);
+                }}
+              >
                 <div className="relative w-full aspect-square bg-gray-100 dark:bg-gray-700">
                   <Image
                     src={product.imageUrl}
@@ -392,19 +424,25 @@ export default function ProductsPage() {
                   </h3>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-fira-sans)' }}>
-                      {product.price.toLocaleString('fr-FR')} FCFA
+                      {product.price.toLocaleString('fr-FR')} XOF
                     </span>
                   </div>
                   <div className="flex gap-1">
                     <button
-                      onClick={() => handleEditProduct(product)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditProduct(product);
+                      }}
                       className="flex-1 px-2 py-1 bg-indigo-600 text-white rounded text-[10px] font-medium hover:bg-indigo-700 transition-colors"
                       style={{ fontFamily: 'var(--font-poppins)' }}
                     >
                       Modifier
                     </button>
                     <button
-                      onClick={() => handleDeleteProduct(product.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteProduct(product.id);
+                      }}
                       className="px-2 py-1 bg-red-600 text-white rounded text-[10px] font-medium hover:bg-red-700 transition-colors"
                       style={{ fontFamily: 'var(--font-poppins)' }}
                     >
@@ -474,7 +512,7 @@ export default function ProductsPage() {
               onClick={() => {
                 handleCancel();
               }}
-              className="fixed inset-0 bg-black/50 z-40"
+              className="fixed inset-0 bg-black/50 z-[100]"
             />
 
             {/* Sidebar */}
@@ -487,7 +525,7 @@ export default function ProductsPage() {
                 stiffness: 500,
                 damping: 40,
               }}
-              className="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-800 z-50 shadow-2xl flex flex-col"
+              className="fixed top-0 right-0 h-full w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
             >
               {/* Header */}
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -837,6 +875,348 @@ export default function ProductsPage() {
                     {isUploading ? 'Traitement...' : isEditing ? 'Mettre à jour' : 'Ajouter'}
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Flash Sale Quick Add Modal */}
+      <AnimatePresence>
+        {showFlashSaleModal && selectedProductForFlashSale && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowFlashSaleModal(false);
+                setSelectedProductForFlashSale(null);
+              }}
+              className="fixed inset-0 bg-black/50 z-[110]"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl z-[110] p-6 w-full max-w-md"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                  Ajouter à une vente flash
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowFlashSaleModal(false);
+                    setSelectedProductForFlashSale(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <X className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!selectedVenteFlashId) {
+                    toast.error('Veuillez sélectionner une vente flash');
+                    return;
+                  }
+
+                  try {
+                    const { error } = await addProductToVenteFlash(selectedVenteFlashId, selectedProductForFlashSale, flashSaleDiscount);
+                    if (error) {
+                      toast.error(`Erreur: ${error}`);
+                    } else {
+                      toast.success('Produit ajouté à la vente flash');
+                      setShowFlashSaleModal(false);
+                      setSelectedProductForFlashSale(null);
+                      setSelectedVenteFlashId('');
+                      setFlashSaleDiscount(0);
+                    }
+                  } catch (error: any) {
+                    toast.error(`Erreur: ${error.message}`);
+                  }
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    Vente flash *
+                  </label>
+                  <select
+                    value={selectedVenteFlashId}
+                    onChange={(e) => setSelectedVenteFlashId(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                    required
+                  >
+                    <option value="">Sélectionner une vente flash</option>
+                    {venteFlashList.map((vf) => (
+                      <option key={vf.id} value={vf.id}>
+                        {vf.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    Remise (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={flashSaleDiscount}
+                    onChange={(e) => setFlashSaleDiscount(parseInt(e.target.value) || 0)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                    required
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFlashSaleModal(false);
+                      setSelectedProductForFlashSale(null);
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-semibold text-sm"
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold text-sm"
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    Ajouter
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Product Details Sidebar */}
+      <AnimatePresence>
+        {showProductDetails && selectedProductForDetails && (
+          <>
+            {/* Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => {
+                setShowProductDetails(false);
+                setSelectedProductForDetails(null);
+                setProductStats(null);
+              }}
+              className="fixed inset-0 bg-black/50 z-[100]"
+            />
+
+            {/* Sidebar */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{
+                type: 'spring',
+                stiffness: 500,
+                damping: 40,
+              }}
+              className="fixed top-0 right-0 h-full w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                    Détails du produit
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setShowProductDetails(false);
+                      setSelectedProductForDetails(null);
+                      setProductStats(null);
+                    }}
+                    className="p-2 text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                    aria-label="Fermer"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {selectedProductForDetails && (
+                  <div className="space-y-4">
+                    {/* Product Image */}
+                    <div className="relative w-full aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
+                      <Image
+                        src={selectedProductForDetails.imageUrl}
+                        alt={selectedProductForDetails.title}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 500px) 100vw, 500px"
+                      />
+                    </div>
+
+                    {/* Product Info */}
+                    <div>
+                      <h3 className="text-xl font-bold text-black dark:text-white mb-2" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                        {selectedProductForDetails.title}
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        {selectedProductForDetails.description}
+                      </p>
+                      <div className="flex items-center gap-4 mb-4">
+                        <span className="text-lg font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                          {selectedProductForDetails.price.toLocaleString('fr-FR')} XOF
+                        </span>
+                        {selectedProductForDetails.oldPrice && (
+                          <span className="text-sm text-gray-400 line-through" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {selectedProductForDetails.oldPrice.toLocaleString('fr-FR')} XOF
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          selectedProductForDetails.inStock 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                        }`} style={{ fontFamily: 'var(--font-poppins)' }}>
+                          {selectedProductForDetails.inStock ? 'En stock' : 'Rupture de stock'}
+                        </span>
+                        <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>
+                          {selectedProductForDetails.category === 'bermuda' ? 'Chemise Bermuda' : 'Chemise Pantalon'}
+                        </span>
+                      </div>
+
+                      {/* Sizes and Quantities */}
+                      {selectedProductForDetails.sizeQuantities && Object.keys(selectedProductForDetails.sizeQuantities).length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-sm font-semibold text-black dark:text-white mb-2" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                            Tailles et quantités :
+                          </h4>
+                          <div className="grid grid-cols-3 gap-2">
+                            {Object.entries(selectedProductForDetails.sizeQuantities).map(([size, qty]) => (
+                              <div key={size} className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
+                                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                                  Taille {size}
+                                </div>
+                                <div className="text-sm font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                                  {qty} unités
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Colors */}
+                      {selectedProductForDetails.colors && selectedProductForDetails.colors.length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-sm font-semibold text-black dark:text-white mb-2" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                            Couleurs disponibles :
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedProductForDetails.colors.map((color, index) => (
+                              <div
+                                key={index}
+                                className="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-gray-600"
+                                style={{ backgroundColor: color }}
+                                title={color}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Sales Statistics */}
+                      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                        <h4 className="text-base font-bold text-black dark:text-white mb-4" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                          Statistiques de vente
+                        </h4>
+                        {loadingStats ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 dark:border-white"></div>
+                          </div>
+                        ) : productStats ? (
+                          <div className="space-y-3">
+                            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <div className="text-xs text-blue-600 dark:text-blue-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                                Nombre de ventes
+                              </div>
+                              <div className="text-2xl font-bold text-blue-900 dark:text-blue-300" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                                {productStats.totalSales}
+                              </div>
+                              <div className="text-xs text-blue-600 dark:text-blue-400 mt-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                                (commandes livrées uniquement)
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                              <div className="text-xs text-green-600 dark:text-green-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                                Revenu généré
+                              </div>
+                              <div className="text-2xl font-bold text-green-900 dark:text-green-300" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                                {productStats.totalRevenue.toLocaleString('fr-FR')} XOF
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                              <div className="text-xs text-purple-600 dark:text-purple-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                                Nombre de commandes
+                              </div>
+                              <div className="text-2xl font-bold text-purple-900 dark:text-purple-300" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                                {productStats.ordersCount}
+                              </div>
+                            </div>
+
+                            {productStats.bestBuyer && (
+                              <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                                <div className="text-xs text-orange-600 dark:text-orange-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                                  Meilleur acheteur
+                                </div>
+                                <div className="text-sm font-bold text-orange-900 dark:text-orange-300 mb-1" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                                  {productStats.bestBuyer.userName}
+                                </div>
+                                <div className="text-xs text-orange-600 dark:text-orange-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                                  {productStats.bestBuyer.userPhone}
+                                </div>
+                                <div className="text-xs text-orange-600 dark:text-orange-400 mt-2" style={{ fontFamily: 'var(--font-poppins)' }}>
+                                  {productStats.bestBuyer.quantity} unités achetées • {productStats.bestBuyer.totalSpent.toLocaleString('fr-FR')} XOF dépensés
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            Aucune vente enregistrée pour ce produit
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+                <button
+                  onClick={() => {
+                    if (selectedProductForDetails) {
+                      handleEditProduct(selectedProductForDetails);
+                      setShowProductDetails(false);
+                    }
+                  }}
+                  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold text-sm"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  Modifier le produit
+                </button>
               </div>
             </motion.div>
           </>

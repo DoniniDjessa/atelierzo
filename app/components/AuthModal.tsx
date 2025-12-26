@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { E164Number } from 'react-phone-number-input';
 import PhoneInput from './PhoneInput';
 import { registerWithPhone, loginWithPhone } from '@/app/lib/supabase/auth';
 import { useUser } from '@/app/contexts/UserContext';
@@ -14,7 +13,7 @@ interface AuthModalProps {
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const { setUser } = useUser();
   const [isLogin, setIsLogin] = useState(true);
-  const [phoneNumber, setPhoneNumber] = useState<E164Number | undefined>();
+  const [phoneNumber, setPhoneNumber] = useState<string | undefined>();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

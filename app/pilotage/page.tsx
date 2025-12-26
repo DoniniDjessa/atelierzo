@@ -9,6 +9,7 @@ import { getAllOrders, Order } from '@/app/lib/supabase/orders';
 import { getAllUsers } from '@/app/lib/supabase/users';
 import { getAllSatisfiedClients } from '@/app/lib/supabase/satisfied-clients';
 import { useProducts } from '@/app/contexts/ProductContext';
+import { getMostSoldProducts } from '@/app/lib/utils/product-stats';
 
 const ADMIN_PASSWORD = '0044';
 
@@ -48,6 +49,7 @@ export default function PilotageDashboard() {
   const [categoryData, setCategoryData] = useState<any[]>([]);
   const [ordersByStatus, setOrdersByStatus] = useState<Record<string, number>>({});
   const [period, setPeriod] = useState<'week' | 'month' | 'year'>('month');
+  const [mostSoldProducts, setMostSoldProducts] = useState<Array<{ productId: string; sales: number; revenue: number }>>([]);
 
   useEffect(() => {
     const auth = localStorage.getItem('atelierzo_admin_auth');
@@ -182,6 +184,10 @@ export default function PilotageDashboard() {
         clientsChange,
         profitChange: revenueChange * 0.8, // Simplified profit (80% of revenue)
       });
+
+      // Load most sold products
+      const topProducts = await getMostSoldProducts(5);
+      setMostSoldProducts(topProducts);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -592,6 +598,46 @@ export default function PilotageDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Most Sold Products */}
+        {mostSoldProducts.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                Produits les plus vendus
+              </h2>
+              <Package className="h-5 w-5 text-slate-400" />
+            </div>
+            <div className="space-y-3">
+              {mostSoldProducts.map((item, index) => {
+                const product = products.find((p) => p.id === item.productId);
+                if (!product) return null;
+                return (
+                  <div key={item.productId} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-gray-700 rounded-lg">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                      <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                        {index + 1}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-black dark:text-white truncate" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                        {product.title}
+                      </h3>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-xs text-slate-600 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                          {item.sales} ventes
+                        </span>
+                        <span className="text-xs text-green-600 dark:text-green-400 font-medium" style={{ fontFamily: 'var(--font-poppins)' }}>
+                          {item.revenue.toLocaleString('fr-FR')} XOF
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

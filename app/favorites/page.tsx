@@ -46,9 +46,9 @@ export default function FavoritesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black py-8 sm:py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-8 px-2 sm:px-0">
           <h1
             className="text-3xl sm:text-4xl font-bold text-black dark:text-white mb-2"
             style={{ fontFamily: 'var(--font-fira-sans)' }}
@@ -65,7 +65,7 @@ export default function FavoritesPage() {
 
         {/* Products Grid */}
         {favoriteProducts.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
             {favoriteProducts.map((product) => (
               <ProductCard
                 key={product.id}

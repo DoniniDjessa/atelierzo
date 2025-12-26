@@ -40,12 +40,14 @@ export default function CategorySection({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 mb-8">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 mb-8">
       {/* Section Header with Category Pills */}
-      <SectionHeader activeCategoryName={title} />
+      <div className="px-1 sm:px-0">
+        <SectionHeader activeCategoryName={title} />
+      </div>
 
       {/* Products Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6">
         {products.map((product) => (
           <div key={product.id} className="relative">
             <ProductCard
@@ -76,10 +78,10 @@ export default function CategorySection({
       </div>
 
       {/* View All Button */}
-      <div className="flex justify-center">
+      <div className="flex justify-center px-2 sm:px-0">
         <button
           onClick={handleViewAll}
-          className="w-full max-w-xs flex items-center justify-center gap-2 py-3 px-6 bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
+          className="w-full max-w-xs flex items-center justify-center gap-2 py-2 sm:py-3 px-4 sm:px-6 bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 active:scale-95 text-sm"
           style={{ fontFamily: 'var(--font-poppins)' }}
         >
           <span className="text-sm">Afficher tout</span>

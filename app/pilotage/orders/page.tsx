@@ -416,14 +416,14 @@ export default function OrdersPage() {
                 setShowOrderSidebar(false);
                 setSelectedOrder(null);
               }}
-              className="fixed inset-0 bg-black/50 z-[70]"
+              className="fixed inset-0 bg-black/50 z-[100]"
             />
             <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="fixed top-0 right-0 h-full w-full max-w-2xl bg-white dark:bg-gray-800 shadow-xl z-[70] overflow-y-auto"
+              className="fixed top-0 right-0 h-full w-full max-w-2xl bg-white dark:bg-gray-800 shadow-xl z-[100] overflow-y-auto"
             >
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">

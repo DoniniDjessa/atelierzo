@@ -1,4 +1,5 @@
 import { supabase } from './client';
+import { sendNewOrderNotification } from '@/app/lib/sms/service';
 
 export interface OrderItem {
   id: string;
@@ -100,6 +101,18 @@ export async function createOrder(input: CreateOrderInput): Promise<{ data: Orde
     if (fetchError) {
       console.error('Error fetching order with items:', fetchError);
       return { data: order, error: null }; // Return order without items if fetch fails
+    }
+
+    // Send SMS notification to admin (non-blocking)
+    try {
+      // Get user info for SMS
+      const { data: userData } = await supabase.from('zo-users').select('name, phone').eq('id', input.user_id).single();
+      const clientName = userData?.name || input.shipping_phone || 'Client';
+      const clientPhone = userData?.phone || input.shipping_phone || 'N/A';
+      
+      await sendNewOrderNotification(order.id, totalAmount, clientName, clientPhone);
+    } catch (smsError) {
+      console.error('Failed to send SMS notification (non-blocking):', smsError);
     }
 
     return { data: orderWithItems as unknown as Order, error: null };
