@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useFavorites } from '@/app/contexts/FavoritesContext';
 import { useProducts } from '@/app/contexts/ProductContext';
 import ProductCard from '@/app/components/ProductCard';
+import PageTitle from '@/app/components/PageTitle';
 import { useUser } from '@/app/contexts/UserContext';
 
 export default function FavoritesPage() {
@@ -49,14 +50,9 @@ export default function FavoritesPage() {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8 px-2 sm:px-0">
-          <h1
-            className="text-3xl sm:text-4xl font-bold text-black dark:text-white mb-2"
-            style={{ fontFamily: 'var(--font-fira-sans)' }}
-          >
-            Mes favoris
-          </h1>
+          <PageTitle title="Mes favoris" />
           <p
-            className="text-sm text-gray-600 dark:text-gray-400"
+            className="text-sm text-gray-600 dark:text-gray-400 mt-2"
             style={{ fontFamily: 'var(--font-poppins)' }}
           >
             {favoriteProducts.length} produit(s) dans vos favoris

@@ -54,10 +54,14 @@ export async function sendSMS(phoneNumber: string, message: string): Promise<{ s
     const apiUrl = `${MONSMS_BASE_URL}/v1/campaign/create`;
     
     // Prepare request body according to MonSMS API format
+    // The API expects contacts as an array of objects with phone property
     const requestBody = {
       apiKey: MONSMS_API_KEY,
-      senderId: 'LEKONAMS',
-      contacts: [normalizedPhone],
+      contacts: [
+        {
+          phone: `225${normalizedPhone}` // Add country code back for API
+        }
+      ],
       text: message,
       type: 'SMS'
     };

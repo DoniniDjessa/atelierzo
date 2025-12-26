@@ -3,6 +3,7 @@ import { Ubuntu, Poppins } from "next/font/google";
 import "./globals.css";
 import ConditionalNavbar from "./components/ConditionalNavbar";
 import Loader from "./components/Loader";
+import ScrollToTop from "./components/ScrollToTop";
 import { UserProvider } from "./contexts/UserContext";
 import { ProductProvider } from "./contexts/ProductContext";
 import { FavoritesProvider } from "./contexts/FavoritesContext";
@@ -43,6 +44,7 @@ export default function RootLayout({
                 <Loader />
                 <ConditionalNavbar />
                 {children}
+                <ScrollToTop />
                 <Toaster position="top-center" richColors />
               </CartProvider>
             </FavoritesProvider>

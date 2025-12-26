@@ -10,6 +10,7 @@ import { useProducts } from '@/app/contexts/ProductContext';
 import { createOrder } from '@/app/lib/supabase/orders';
 import { getColorName } from '@/app/lib/utils/colors';
 import Footer from '@/app/components/Footer';
+import PageTitle from '@/app/components/PageTitle';
 
 export default function CartPage() {
   const router = useRouter();
@@ -139,12 +140,7 @@ export default function CartPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black py-8 sm:py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1
-          className="text-3xl sm:text-4xl font-bold text-black dark:text-white mb-8"
-          style={{ fontFamily: 'var(--font-fira-sans)' }}
-        >
-          Mon panier
-        </h1>
+        <PageTitle title="Mon panier" />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart Items */}

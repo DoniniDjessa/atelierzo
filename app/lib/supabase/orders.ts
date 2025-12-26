@@ -103,16 +103,55 @@ export async function createOrder(input: CreateOrderInput): Promise<{ data: Orde
       return { data: order, error: null }; // Return order without items if fetch fails
     }
 
-    // Send SMS notification to admin (non-blocking)
+    // Send SMS and Email notifications to admin (non-blocking)
     try {
-      // Get user info for SMS
+      // Get user info once for both SMS and email
       const { data: userData } = await supabase.from('zo-users').select('name, phone').eq('id', input.user_id).single();
       const clientName = userData?.name || input.shipping_phone || 'Client';
       const clientPhone = userData?.phone || input.shipping_phone || 'N/A';
+      const deliveryAddress = input.shipping_address || 'Non spécifiée';
       
-      await sendNewOrderNotification(order.id, totalAmount, clientName, clientPhone);
-    } catch (smsError) {
-      console.error('Failed to send SMS notification (non-blocking):', smsError);
+      // Send SMS notification
+      try {
+        await sendNewOrderNotification(order.id, totalAmount, clientName, clientPhone);
+      } catch (smsError) {
+        console.error('Failed to send SMS notification (non-blocking):', smsError);
+      }
+      
+      // Send Email notification via API route
+      try {
+        // Prepare items for email
+        const emailItems = input.items.map((item) => ({
+          title: item.title,
+          quantity: item.quantity,
+          price: item.price * item.quantity,
+          size: item.size,
+          color: item.color,
+        }));
+        
+        // Call API route to send email (non-blocking)
+        fetch('/api/email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'order_notification',
+            orderId: order.id,
+            totalAmount,
+            clientName,
+            clientPhone,
+            deliveryAddress,
+            items: emailItems,
+          }),
+        }).catch((emailError) => {
+          console.error('Failed to send email notification (non-blocking):', emailError);
+        });
+      } catch (emailError) {
+        console.error('Failed to send email notification (non-blocking):', emailError);
+      }
+    } catch (notificationError) {
+      console.error('Failed to send notifications (non-blocking):', notificationError);
     }
 
     return { data: orderWithItems as unknown as Order, error: null };

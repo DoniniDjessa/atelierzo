@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/app/contexts/UserContext';
+import PageTitle from '@/app/components/PageTitle';
 
 export default function ProfileDetailsPage() {
   const router = useRouter();
@@ -21,12 +22,7 @@ export default function ProfileDetailsPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        <h1
-          className="text-3xl sm:text-4xl font-bold mb-8 text-black dark:text-white"
-          style={{ fontFamily: 'var(--font-fira-sans)' }}
-        >
-          Détails du profil
-        </h1>
+        <PageTitle title="Détails du profil" />
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 sm:p-8">
           <div className="space-y-6">

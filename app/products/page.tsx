@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ProductCard from '../components/ProductCard';
+import PageTitle from '../components/PageTitle';
 import { useProducts } from '../contexts/ProductContext';
 import { getColorName } from '../lib/utils/colors';
 import { Filter } from 'lucide-react';
@@ -163,13 +164,8 @@ function ProductsPageContent() {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1
-            className="text-3xl sm:text-4xl font-bold text-black dark:text-white mb-2"
-            style={{ fontFamily: 'var(--font-ubuntu)' }}
-          >
-            Nos Produits
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+          <PageTitle title="Nos Produits" />
+          <p className="text-gray-600 dark:text-gray-400 mt-2" style={{ fontFamily: 'var(--font-poppins)' }}>
             {filteredProducts.length} produit{filteredProducts.length !== 1 ? 's' : ''} trouvé{filteredProducts.length !== 1 ? 's' : ''}
           </p>
         </div>

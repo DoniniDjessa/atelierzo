@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useUser } from '@/app/contexts/UserContext';
 import { getOrderById, Order } from '@/app/lib/supabase/orders';
 import { getColorName } from '@/app/lib/utils/colors';
+import PageTitle from '@/app/components/PageTitle';
 
 const STATUS_COLORS: Record<Order['status'], string> = {
   pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -117,16 +118,13 @@ export default function OrderDetailsPage() {
           Retour
         </button>
 
+        <PageTitle title={`Commande #${order.id.substring(0, 8)}`} />
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-6" style={{ fontFamily: 'var(--font-poppins)' }}>
+          {formatDate(order.created_at)}
+        </p>
+        
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-xl font-bold text-black dark:text-white mb-1" style={{ fontFamily: 'var(--font-ubuntu)' }}>
-                Commande #{order.id.substring(0, 8)}
-              </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-                {formatDate(order.created_at)}
-              </p>
-            </div>
+          <div className="flex items-center justify-end mb-6">
             <span
               className={`px-3 py-1.5 rounded-full text-xs font-medium ${STATUS_COLORS[order.status]}`}
               style={{ fontFamily: 'var(--font-poppins)' }}

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/app/contexts/UserContext';
 import { getUserOrders, Order } from '@/app/lib/supabase/orders';
+import PageTitle from '@/app/components/PageTitle';
 
 const STATUS_COLORS: Record<Order['status'], string> = {
   pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -65,12 +66,7 @@ export default function ProfileHistoryPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        <h1
-          className="text-xl font-bold mb-6 text-black dark:text-white"
-          style={{ fontFamily: 'var(--font-ubuntu)' }}
-        >
-          Mon historique
-        </h1>
+        <PageTitle title="Mon historique" />
 
         {loading ? (
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-12 text-center">

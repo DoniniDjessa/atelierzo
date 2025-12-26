@@ -121,19 +121,19 @@ export default function ProductCard({
 
       {/* Footer: Price and Add to Cart */}
       <div className="pt-2 sm:pt-3 border-t border-gray-100 dark:border-gray-700 mt-auto">
-        {/* Prices - All on same line */}
-        <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-0 flex-wrap">
+        {/* Prices - justify-between on same line, centered vertically */}
+        <div className="flex items-center justify-between mb-1.5 sm:mb-0">
           {oldPrice && (
             <span
-              className="text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-500 line-through"
+              className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 line-through"
               style={{ fontFamily: 'var(--font-poppins)' }}
             >
               {oldPrice.toLocaleString('fr-FR')} XOF
             </span>
           )}
           <span
-            className="text-[10px] sm:text-sm font-bold text-black dark:text-white"
-                  style={{ fontFamily: 'var(--font-ubuntu)' }}
+            className={`text-base sm:text-lg font-bold text-black dark:text-white ${oldPrice ? '' : 'ml-auto'}`}
+            style={{ fontFamily: 'var(--font-ubuntu)' }}
           >
             {price.toLocaleString('fr-FR')} XOF
           </span>
