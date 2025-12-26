@@ -160,7 +160,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                   {/* Categories */}
                   <button
-                    onClick={() => handleNavigate('/products/chemise-bermuda')}
+                    onClick={() => handleNavigate('/products?category=bermuda')}
                     className="w-full flex items-center justify-between py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
                   >
                     <span
@@ -171,7 +171,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     </span>
                   </button>
                   <button
-                    onClick={() => handleNavigate('/products/chemise-pantalon')}
+                    onClick={() => handleNavigate('/products?category=pantalon')}
                     className="w-full flex items-center justify-between py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
                   >
                     <span

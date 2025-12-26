@@ -34,8 +34,17 @@ export default function CategorySection({
   const router = useRouter();
 
   const handleViewAll = () => {
-    if (categoryPath) {
-      router.push(categoryPath);
+    // Map category titles to category values
+    const categoryMap: Record<string, string> = {
+      'Chemise Bermuda': 'bermuda',
+      'Chemise Pantalon': 'pantalon',
+    };
+    
+    const categoryValue = categoryMap[title];
+    if (categoryValue) {
+      router.push(`/products?category=${categoryValue}`);
+    } else {
+      router.push('/products');
     }
   };
 

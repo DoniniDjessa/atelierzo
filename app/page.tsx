@@ -184,7 +184,7 @@ export default function Home() {
                   ...p,
                   isOutOfStock: !(p as any).inStock,
                 }))}
-              categoryPath="/categories/chemise-bermuda"
+              categoryPath="/products?category=bermuda"
               onProductClick={(productId) => router.push(`/product/${productId}`)}
             />
           )}
@@ -201,7 +201,7 @@ export default function Home() {
                   ...p,
                   isOutOfStock: !(p as any).inStock,
                 }))}
-              categoryPath="/categories/chemise-pantalon"
+              categoryPath="/products?category=pantalon"
               onProductClick={(productId) => router.push(`/product/${productId}`)}
             />
           )}
