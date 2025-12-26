@@ -183,7 +183,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   </button>
 
                   <button
-                    onClick={() => handleNavigate('/sales/flash')}
+                    onClick={() => handleNavigate('/vente-flash')}
                     className="w-full flex items-center justify-between py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
                   >
                     <span

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ProductCard from '../components/ProductCard';
 import { useProducts } from '../contexts/ProductContext';
-import { FASHION_COLORS, getColorName } from '../lib/utils/colors';
+import { getColorName } from '../lib/utils/colors';
 import { Filter } from 'lucide-react';
 
 const CATEGORIES = [
@@ -13,7 +13,7 @@ const CATEGORIES = [
   { value: 'pantalon', label: 'Chemise Pantalon' },
 ];
 
-export default function ProductsPage() {
+function ProductsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { products } = useProducts();
@@ -439,6 +439,23 @@ export default function ProductsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 dark:bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+            Chargement...
+          </p>
+        </div>
+      </div>
+    }>
+      <ProductsPageContent />
+    </Suspense>
   );
 }
 
