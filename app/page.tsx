@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import ProductCard from './components/ProductCard';
@@ -9,10 +10,52 @@ import Footer from './components/Footer';
 import SatisfiedClientsCarousel from './components/SatisfiedClientsCarousel';
 import FlashSaleSection from './components/FlashSaleSection';
 import { useProducts } from './contexts/ProductContext';
+import { getMostSoldProducts } from './lib/utils/product-stats';
 
 export default function Home() {
   const router = useRouter();
   const { products } = useProducts();
+  const [bestProducts, setBestProducts] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadBestProducts = async () => {
+      try {
+        // Get 5 most sold products
+        const mostSold = await getMostSoldProducts(5);
+        
+        if (mostSold.length > 0) {
+          // Create a map of products by ID for quick lookup
+          const productsMap = new Map(products.map(p => [p.id, p]));
+          
+          // Map product IDs to actual product objects
+          const productsList = mostSold
+            .map((item) => productsMap.get(item.productId))
+            .filter((p) => p !== undefined) as any[];
+          
+          // If we have products from orders, use them; otherwise use first 5
+          if (productsList.length > 0) {
+            setBestProducts(productsList);
+          } else {
+            setBestProducts(products.slice(0, 5));
+          }
+        } else {
+          // If no products with orders, show first 5 products
+          setBestProducts(products.slice(0, 5));
+        }
+      } catch (error) {
+        console.error('Error loading best products:', error);
+        // Fallback to first 5 products on error
+        setBestProducts(products.slice(0, 5));
+      }
+    };
+
+    if (products.length > 0) {
+      loadBestProducts();
+    } else {
+      // If no products available, clear bestProducts
+      setBestProducts([]);
+    }
+  }, [products]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black">
@@ -146,12 +189,12 @@ export default function Home() {
 
           {/* Products Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-            {products.length === 0 && (
+            {bestProducts.length === 0 && products.length === 0 && (
               <div className="col-span-full text-center py-12">
                 <p className="text-gray-500 dark:text-gray-400">Aucun produit disponible pour le moment</p>
               </div>
             )}
-            {products.slice(0, 6).map((product) => (
+            {(bestProducts.length > 0 ? bestProducts : products.slice(0, 5)).map((product) => (
               <ProductCard
                 key={product.id}
                 productId={product.id}
