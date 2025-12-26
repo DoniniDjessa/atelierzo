@@ -88,13 +88,14 @@ export default function AdminNavbar({ onLogout }: AdminNavbarProps) {
       </nav>
 
       {/* Sidebar - Visible on all screen sizes */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {sidebarOpen && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={() => setSidebarOpen(false)}
               className="fixed inset-0 bg-black/50 z-[60]"
             />
@@ -102,7 +103,12 @@ export default function AdminNavbar({ onLogout }: AdminNavbarProps) {
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              transition={{ 
+                type: 'spring', 
+                stiffness: 400, 
+                damping: 35,
+                mass: 0.8,
+              }}
               className="fixed top-0 left-0 h-full w-64 bg-slate-800 dark:bg-slate-900 z-[60] shadow-2xl"
             >
               <div className="p-4 border-b border-slate-700 flex items-center justify-between">

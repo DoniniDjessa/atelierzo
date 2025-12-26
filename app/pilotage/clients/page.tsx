@@ -291,7 +291,7 @@ export default function ClientsPage() {
       </div>
 
       {/* Right Sidebar for Client Details */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showClientSidebar && selectedClient && (
           <>
             {/* Overlay */}
@@ -299,7 +299,7 @@ export default function ClientsPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={() => {
                 setShowClientSidebar(false);
                 setSelectedClient(null);
@@ -314,8 +314,9 @@ export default function ClientsPage() {
               exit={{ x: '100%' }}
               transition={{
                 type: 'spring',
-                stiffness: 500,
-                damping: 40,
+                stiffness: 400,
+                damping: 35,
+                mass: 0.8,
               }}
               className="fixed top-0 right-0 h-full w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
             >

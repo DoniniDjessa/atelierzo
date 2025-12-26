@@ -328,13 +328,14 @@ export default function SatisfiedClientsPage() {
       </div>
 
       {/* Add/Edit Form Sidebar */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showAddForm && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={handleCancel}
               className="fixed inset-0 bg-black/50 z-[100]"
             />
@@ -342,7 +343,12 @@ export default function SatisfiedClientsPage() {
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              transition={{ 
+                type: 'spring', 
+                stiffness: 400, 
+                damping: 35,
+                mass: 0.8,
+              }}
               className="fixed top-0 right-0 h-full w-[500px] bg-white dark:bg-gray-800 shadow-xl z-[100] overflow-y-auto"
             >
               <div className="p-6">

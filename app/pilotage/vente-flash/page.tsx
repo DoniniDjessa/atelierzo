@@ -370,13 +370,14 @@ export default function VenteFlashPage() {
       </div>
 
       {/* Detail View Sidebar */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {selectedVenteFlashId && selectedVenteFlash && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={() => {
                 setSelectedVenteFlashId(null);
                 setSelectedVenteFlash(null);
@@ -388,7 +389,12 @@ export default function VenteFlashPage() {
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              transition={{ 
+                type: 'spring', 
+                stiffness: 400, 
+                damping: 35,
+                mass: 0.8,
+              }}
               className="fixed top-0 right-0 h-full w-full max-w-3xl bg-white dark:bg-gray-800 z-[100] overflow-y-auto shadow-2xl"
             >
               <div className="p-6">
@@ -501,13 +507,14 @@ export default function VenteFlashPage() {
       </AnimatePresence>
 
       {/* Add Product Modal */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showAddProductModal && selectedVenteFlashId && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={() => setShowAddProductModal(false)}
               className="fixed inset-0 bg-black/50 z-[110]"
             />
@@ -515,6 +522,12 @@ export default function VenteFlashPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ 
+                type: 'spring', 
+                stiffness: 400, 
+                damping: 35,
+                mass: 0.8,
+              }}
               className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl z-[110] p-6 w-full max-w-md"
             >
               <div className="flex items-center justify-between mb-4">
@@ -546,13 +559,14 @@ export default function VenteFlashPage() {
       </AnimatePresence>
 
       {/* Form Sidebar */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showForm && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={() => {
                 setShowForm(false);
                 resetForm();
@@ -563,7 +577,12 @@ export default function VenteFlashPage() {
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              transition={{ 
+                type: 'spring', 
+                stiffness: 400, 
+                damping: 35,
+                mass: 0.8,
+              }}
               className="fixed top-0 right-0 h-full w-full max-w-2xl bg-white dark:bg-gray-800 z-[100] overflow-y-auto shadow-2xl"
             >
               <div className="p-6">

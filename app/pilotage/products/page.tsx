@@ -500,7 +500,7 @@ export default function ProductsPage() {
       </div>
 
       {/* Right Sidebar for Add/Edit Form */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showAddForm && (
           <>
             {/* Overlay */}
@@ -508,7 +508,7 @@ export default function ProductsPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={() => {
                 handleCancel();
               }}
@@ -522,8 +522,9 @@ export default function ProductsPage() {
               exit={{ x: '100%' }}
               transition={{
                 type: 'spring',
-                stiffness: 500,
-                damping: 40,
+                stiffness: 400,
+                damping: 35,
+                mass: 0.8,
               }}
               className="fixed top-0 right-0 h-full w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
             >
@@ -882,13 +883,14 @@ export default function ProductsPage() {
       </AnimatePresence>
 
       {/* Flash Sale Quick Add Modal */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showFlashSaleModal && selectedProductForFlashSale && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={() => {
                 setShowFlashSaleModal(false);
                 setSelectedProductForFlashSale(null);
@@ -899,6 +901,12 @@ export default function ProductsPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ 
+                type: 'spring', 
+                stiffness: 400, 
+                damping: 35,
+                mass: 0.8,
+              }}
               className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl z-[110] p-6 w-full max-w-md"
             >
               <div className="flex items-center justify-between mb-4">
@@ -999,7 +1007,7 @@ export default function ProductsPage() {
       </AnimatePresence>
 
       {/* Product Details Sidebar */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showProductDetails && selectedProductForDetails && (
           <>
             {/* Overlay */}
@@ -1007,7 +1015,7 @@ export default function ProductsPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={() => {
                 setShowProductDetails(false);
                 setSelectedProductForDetails(null);
@@ -1023,8 +1031,9 @@ export default function ProductsPage() {
               exit={{ x: '100%' }}
               transition={{
                 type: 'spring',
-                stiffness: 500,
-                damping: 40,
+                stiffness: 400,
+                damping: 35,
+                mass: 0.8,
               }}
               className="fixed top-0 right-0 h-full w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
             >

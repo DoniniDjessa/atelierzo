@@ -67,7 +67,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   return (
     <>
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {isOpen && (
           <>
             {/* Overlay */}
@@ -75,7 +75,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={onClose}
               className="fixed inset-0 bg-black/50 z-50"
             />
@@ -87,8 +87,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               exit={{ x: '-100%' }}
               transition={{
                 type: 'spring',
-                stiffness: 500,
-                damping: 40,
+                stiffness: 400,
+                damping: 35,
+                mass: 0.8,
               }}
               className="fixed top-0 left-0 h-full w-80 bg-white dark:bg-black z-50 shadow-2xl flex flex-col"
             >

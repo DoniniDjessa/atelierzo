@@ -405,13 +405,14 @@ export default function OrdersPage() {
       </div>
 
       {/* Order Details Sidebar */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showOrderSidebar && selectedOrder && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={() => {
                 setShowOrderSidebar(false);
                 setSelectedOrder(null);
@@ -422,7 +423,12 @@ export default function OrdersPage() {
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              transition={{ 
+                type: 'spring', 
+                stiffness: 400, 
+                damping: 35,
+                mass: 0.8,
+              }}
               className="fixed top-0 right-0 h-full w-full max-w-2xl bg-white dark:bg-gray-800 shadow-xl z-[100] overflow-y-auto"
             >
               <div className="p-6">
