@@ -3,8 +3,8 @@
  * Based on MonSMS API format
  */
 
-const MONSMS_API_KEY = process.env.MONSMS_API_KEY || process.env.SMS_API_KEY;
-const MONSMS_BASE_URL = process.env.MONSMS_BASE_URL || process.env.SMS_API_URL || 'https://rest.monsms.pro';
+const MONSMS_API_KEY = process.env.MONSMS_API_KEY;
+const MONSMS_BASE_URL = process.env.MONSMS_BASE_URL || 'https://rest.monsms.pro';
 
 const ADMIN_PHONE = '2250777489119';
 
