@@ -33,8 +33,7 @@
     "noImplicitReturns": false,
     "noFallthroughCasesInSwitch": false,
     "noUncheckedIndexedAccess": false,
-    "noPropertyAccessFromIndexSignature": false,
-    "suppressImplicitAnyIndexErrors": true
+    "noPropertyAccessFromIndexSignature": false
   },
   "include": [
     "next-env.d.ts",

@@ -9,6 +9,7 @@ import CategorySection from './components/CategorySection';
 import Footer from './components/Footer';
 import SatisfiedClientsCarousel from './components/SatisfiedClientsCarousel';
 import FlashSaleSection from './components/FlashSaleSection';
+import HeroCarousel from './components/HeroCarousel';
 import { useProducts } from './contexts/ProductContext';
 import { getMostSoldProducts } from './lib/utils/product-stats';
 
@@ -60,136 +61,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black">
       {/* Hero Section */}
-      <section className="relative w-full h-[60vh] min-h-[500px] max-h-[700px] overflow-visible mb-20">
-        {/* Background Image */}
-        <div className="absolute inset-0 overflow-hidden">
-          <Image
-            src="/cover.webp"
-            alt="Hero background"
-            fill
-            className="object-cover object-top"
-            priority
-            unoptimized
-          />
-        </div>
-
-        {/* Floating Info Card - Positioned to be half inside, half outside */}
-        {/* COMMENTED OUT - Original floating card with contact info
-        <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 z-20 w-full max-w-md px-4">
-          <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-2xl p-6 border border-white/20">
-            <div className="space-y-4">
-              <div className="flex flex-row">
-                <div className="">  <Image
-                    src="/logo.png"
-                    alt="Les Ateliers Zo"
-                    width={120}
-                    height={40}
-                    className="h-20 w-auto object-contain"
-                    priority
-                    unoptimized
-                  /></div>
-         
-              <div className="space-y-4">
-                 <div className="flex items-center gap-3">
-                  <p
-                    className="text-lg font-semibold text-gray-800 dark:text-gray-200"
-                    style={{ fontFamily: 'var(--font-fira-sans)' }}
-                  >
-                    Les Ateliers Zo
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <div>
-                    <span
-                      className="text-sm font-semibold text-gray-800 dark:text-gray-200 block"
-                      style={{ fontFamily: 'var(--font-ubuntu)' }}
-                    >
-                      Ouverture
-                    </span>
-                    <span
-                      className="text-sm text-gray-600 dark:text-gray-400"
-                      style={{ fontFamily: 'var(--font-poppins)' }}
-                    >
-                      09:00 AM - 06:00 PM
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                    />
-                  </svg>
-                  <span
-                    className="text-sm text-gray-600 dark:text-gray-400"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
-                  >
-                    0707070707
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
-                  </svg>
-                  <span
-                    className="text-sm text-gray-600 dark:text-gray-400"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
-                  >
-                    contact@contact@atelierzo.com
-                  </span>
-                </div>     </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        */}
-
-        {/* New Floating Card with cover-card.webp */}
-        <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4 pointer-events-auto">
-          <div className="relative w-full rounded-2xl shadow-2xl overflow-hidden">
-            <img
-              src="/cover-card.webp"
-              alt="Les Ateliers Zo"
-              className="w-full h-auto object-contain rounded-2xl block"
-              style={{ maxWidth: '100%', height: 'auto' }}
-            />
-          </div>
-        </div>
-      </section>
+      <HeroCarousel />
 
       {/* Flash Sale Section */}
       <FlashSaleSection />
@@ -211,7 +83,7 @@ export default function Home() {
               className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-cyan-400 to-cyan-700 bg-clip-text text-transparent px-2 sm:px-0"
               style={{ fontFamily: 'var(--font-ubuntu)' }}
             >
-              Nos meilleurs produits
+              Nos Offres Zo du moment
             </h2>
           </div>
 

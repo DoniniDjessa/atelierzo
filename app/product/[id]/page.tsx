@@ -6,8 +6,10 @@ import Image from 'next/image';
 import { toast } from 'sonner';
 import { useProducts } from '@/app/contexts/ProductContext';
 import { useCart } from '@/app/contexts/CartContext';
+import { useUser } from '@/app/contexts/UserContext';
 import { getColorName } from '@/app/lib/utils/colors';
 import CartNotification from '@/app/components/CartNotification';
+import AuthModal from '@/app/components/AuthModal';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -16,10 +18,13 @@ export default function ProductDetailPage() {
   const { getProductById } = useProducts();
   const product = getProductById(productId);
   const { addToCart, getItemCount } = useCart();
+  const { user } = useUser();
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [showCartNotification, setShowCartNotification] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   if (!product) {
     return (
@@ -44,6 +49,11 @@ export default function ProductDetailPage() {
   }
 
   const handleAddToCart = () => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     if (selectedSizes.length === 0) {
       toast.error('Veuillez sélectionner au moins une taille');
       return;
@@ -52,6 +62,7 @@ export default function ProductDetailPage() {
     // Add each size-color combination to cart
     selectedSizes.forEach((size) => {
       const color = selectedColors.length > 0 ? selectedColors[0] : undefined; // Use first selected color or undefined
+      const qty = quantities[size] || 1;
       addToCart({
         productId: product.id,
         title: product.title,
@@ -59,6 +70,7 @@ export default function ProductDetailPage() {
         imageUrl: product.imageUrl,
         size,
         color,
+        quantity: qty,
       });
     });
 
@@ -73,9 +85,25 @@ export default function ProductDetailPage() {
   };
 
   const toggleSize = (size: string) => {
-    setSelectedSizes((prev) =>
-      prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
-    );
+    if (selectedSizes.includes(size)) {
+      setSelectedSizes((prev) => prev.filter((s) => s !== size));
+      setQuantities((prev) => {
+        const next = { ...prev };
+        delete next[size];
+        return next;
+      });
+    } else {
+      setSelectedSizes((prev) => [...prev, size]);
+      setQuantities((prev) => ({ ...prev, [size]: 1 }));
+    }
+  };
+
+  const updateQty = (size: string, delta: number) => {
+    setQuantities((prev) => {
+      const current = prev[size] || 1;
+      const newQty = Math.max(1, current + delta);
+      return { ...prev, [size]: newQty };
+    });
   };
 
   const toggleColor = (color: string) => {
@@ -185,21 +213,45 @@ export default function ProductDetailPage() {
                 >
                   Tailles {selectedSizes.length > 0 && <span className="text-gray-500">({selectedSizes.join(', ')})</span>}
                 </label>
-                <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => toggleSize(size)}
-                      className={`px-4 py-2 text-xs border-2 rounded-lg font-medium transition-all ${
-                        selectedSizes.includes(size)
-                          ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
-                          : 'border-gray-300 dark:border-gray-600 text-black dark:text-white hover:border-gray-400 dark:hover:border-gray-500'
-                      }`}
-                      style={{ fontFamily: 'var(--font-poppins)' }}
-                    >
-                      {size}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap gap-4">
+                  {product.sizes.map((size) => {
+                    const isSelected = selectedSizes.includes(size);
+                    const qty = quantities[size] || 0;
+                    
+                    return (
+                      <div key={size} className="flex flex-col items-center gap-2">
+                        <button
+                          onClick={() => toggleSize(size)}
+                          className={`px-4 py-2 text-xs border-2 rounded-lg font-medium transition-all ${
+                            isSelected
+                              ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
+                              : 'border-gray-300 dark:border-gray-600 text-black dark:text-white hover:border-gray-400 dark:hover:border-gray-500'
+                          }`}
+                          style={{ fontFamily: 'var(--font-poppins)' }}
+                        >
+                          {size}
+                        </button>
+                        
+                        {isSelected && (
+                          <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+                            <button 
+                              onClick={() => updateQty(size, -1)}
+                              className="w-6 h-6 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700 rounded-md transition-colors"
+                            >
+                              -
+                            </button>
+                            <span className="text-xs font-medium w-4 text-center text-black dark:text-white">{qty}</span>
+                            <button 
+                              onClick={() => updateQty(size, 1)}
+                              className="w-6 h-6 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700 rounded-md transition-colors"
+                            >
+                              +
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -305,6 +357,12 @@ export default function ProductDetailPage() {
         isVisible={showCartNotification}
         onClose={() => setShowCartNotification(false)}
         itemCount={getItemCount()}
+      />
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
       />
     </div>
   );

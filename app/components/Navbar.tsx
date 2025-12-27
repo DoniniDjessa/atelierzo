@@ -125,6 +125,15 @@ export default function Navbar() {
             
             {/* User/Login Icon */}
             <div className="flex items-center gap-2 relative" ref={menuRef}>
+              {!user && (
+                <span 
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden sm:inline-block cursor-pointer hover:text-indigo-600 transition-colors"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                  onClick={() => setIsModalOpen(true)}
+                >
+                  Connexion
+                </span>
+              )}
               {user && (
                 <span 
                   className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden sm:inline-block"

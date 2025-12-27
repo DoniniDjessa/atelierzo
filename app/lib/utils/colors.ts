@@ -51,6 +51,7 @@ export function getColorHex(colorName: string): string | null {
  * Get color name by hex code
  */
 export function getColorName(hexCode: string): string | null {
+  if (!hexCode) return null;
   const color = FASHION_COLORS.find((c) => c.hex.toLowerCase() === hexCode.toLowerCase());
   return color?.displayName || null;
 }

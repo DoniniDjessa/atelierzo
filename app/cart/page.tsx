@@ -11,6 +11,7 @@ import { createOrder } from '@/app/lib/supabase/orders';
 import { getColorName } from '@/app/lib/utils/colors';
 import Footer from '@/app/components/Footer';
 import PageTitle from '@/app/components/PageTitle';
+import ReceiptModal from '@/app/components/ReceiptModal';
 
 export default function CartPage() {
   const router = useRouter();
@@ -21,6 +22,8 @@ export default function CartPage() {
   const [shippingAddress, setShippingAddress] = useState('');
   const [shippingPhone, setShippingPhone] = useState(user?.phone || '');
   const [notes, setNotes] = useState('');
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [receiptData, setReceiptData] = useState<any>(null);
 
   const handleCheckout = async () => {
     if (!user) {
@@ -84,15 +87,41 @@ export default function CartPage() {
         }
       });
 
-      // Clear cart and redirect
-      clearCart();
+      // Prepare receipt data
+      const receipt = {
+        id: order?.id || '',
+        items: items.map((item) => ({
+          title: item.title,
+          size: item.size,
+          color: getColorName(item.color) || item.color || 'N/A',
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        total: getTotal(),
+        shipping_address: shippingAddress,
+        shipping_phone: shippingPhone,
+        created_at: new Date().toISOString(),
+        customerName: user?.name || user?.email || 'Client',
+        notes: notes || undefined,
+      };
+
+      // Show receipt modal (don't clear cart yet)
+      setReceiptData(receipt);
+      setShowReceipt(true);
+      setIsProcessing(false);
+      
       toast.success(`Commande créée avec succès ! Numéro: ${order?.id}`);
-      router.push(`/orders/${order?.id}`);
     } catch (error: any) {
       console.error('Error during checkout:', error);
       toast.error('Erreur lors du traitement de la commande');
       setIsProcessing(false);
     }
+  };
+
+  const handleCloseReceipt = () => {
+    setShowReceipt(false);
+    clearCart();
+    router.push(`/orders/${receiptData?.id}`);
   };
 
   if (items.length === 0) {
@@ -528,19 +557,24 @@ export default function CartPage() {
                   className="mt-3 text-xs text-center text-gray-600 dark:text-gray-400"
                   style={{ fontFamily: 'var(--font-poppins)' }}
                 >
-                  <button
-                    onClick={() => router.push('/')}
-                    className="text-indigo-600 dark:text-indigo-400 hover:underline"
-                  >
-                    Se connecter
-                  </button>
+                  Vous devez être connecté pour passer commande
                 </p>
               )}
+
             </div>
           </div>
         </div>
       </div>
       <Footer />
+
+      {/* Receipt Modal */}
+      {showReceipt && receiptData && (
+        <ReceiptModal
+          isOpen={showReceipt}
+          onClose={handleCloseReceipt}
+          orderData={receiptData}
+        />
+      )}
     </div>
   );
 }

@@ -484,9 +484,17 @@ export default function OrdersPage() {
                           {clientNames[order.user_id] || order.shipping_phone || 'N/A'}
                         </div>
                         {order.shipping_phone && (
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5" style={{ fontFamily: 'var(--font-poppins)' }}>
+                          <a 
+                            href={`tel:${order.shipping_phone}`}
+                            className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5 hover:underline flex items-center gap-1" 
+                            style={{ fontFamily: 'var(--font-poppins)' }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                            </svg>
                             {order.shipping_phone}
-                          </div>
+                          </a>
                         )}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -955,7 +963,9 @@ export default function OrdersPage() {
                       {selectedOrder.shipping_phone && (
                         <div>
                           <span className="text-gray-600 dark:text-gray-400 font-medium">Téléphone :</span>
-                          <span className="ml-2 text-gray-900 dark:text-white">{selectedOrder.shipping_phone}</span>
+                          <a href={`tel:${selectedOrder.shipping_phone}`} className="ml-2 text-indigo-600 dark:text-indigo-400 hover:underline">
+                            {selectedOrder.shipping_phone}
+                          </a>
                         </div>
                       )}
                       {selectedOrder.shipping_address && (

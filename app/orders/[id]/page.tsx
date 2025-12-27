@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { toast } from 'sonner';
+import html2canvas from 'html2canvas';
 import { useUser } from '@/app/contexts/UserContext';
 import { getOrderById, Order } from '@/app/lib/supabase/orders';
 import { getColorName } from '@/app/lib/utils/colors';
@@ -20,11 +22,18 @@ const STATUS_COLORS: Record<Order['status'], string> = {
 const STATUS_LABELS: Record<Order['status'], string> = {
   pending: 'En attente',
   confirmed: 'Confirmée',
-  processing: 'En traitement',
-  shipped: 'Expédiée',
+  processing: 'Disponible à la boutique',
+  shipped: 'En route vers vous',
   delivered: 'Livrée',
   cancelled: 'Annulée',
 };
+
+const ORDER_STEPS = [
+  { status: 'confirmed', label: 'Confirmée' },
+  { status: 'processing', label: 'Disponible à la boutique' },
+  { status: 'shipped', label: 'En route vers vous' },
+  { status: 'delivered', label: 'Livrée' },
+];
 
 export default function OrderDetailsPage() {
   const params = useParams();
@@ -52,6 +61,29 @@ export default function OrderDetailsPage() {
       setOrder(data);
     }
     setLoading(false);
+  };
+
+  const handleDownloadReceipt = async () => {
+    const element = document.getElementById('order-receipt');
+    if (!element || !order) return;
+
+    try {
+      const canvas = await html2canvas(element, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true, // Important for images
+      });
+      
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `recu-commande-${order.id.substring(0, 8)}.png`;
+      link.click();
+      toast.success('Reçu téléchargé avec succès');
+    } catch (error) {
+      console.error('Error generating receipt:', error);
+      toast.error('Erreur lors de la génération du reçu');
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -100,30 +132,43 @@ export default function OrderDetailsPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        <button
-          onClick={() => router.back()}
-          className="mb-6 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
-          style={{ fontFamily: 'var(--font-poppins)' }}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+            style={{ fontFamily: 'var(--font-poppins)' }}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Retour
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Retour
+          </button>
+
+          <button
+            onClick={handleDownloadReceipt}
+            className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors text-sm font-medium"
+            style={{ fontFamily: 'var(--font-poppins)' }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Télécharger le reçu
+          </button>
+        </div>
 
         <PageTitle title={`Commande #${order.id.substring(0, 8)}`} />
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-6" style={{ fontFamily: 'var(--font-poppins)' }}>
           {formatDate(order.created_at)}
         </p>
         
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
+        <div id="order-receipt" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
           <div className="flex items-center justify-end mb-6">
             <span
               className={`px-3 py-1.5 rounded-full text-xs font-medium ${STATUS_COLORS[order.status]}`}
@@ -132,6 +177,62 @@ export default function OrderDetailsPage() {
               {STATUS_LABELS[order.status]}
             </span>
           </div>
+
+          {/* Order Progress Stepper */}
+          {order.status !== 'cancelled' && (
+            <div className="mb-10 px-2">
+              <div className="relative flex items-center justify-between w-full">
+                <div className="absolute left-0 top-3 w-full h-0.5 bg-gray-200 dark:bg-gray-700 -z-10" />
+                <div 
+                  className="absolute left-0 top-3 h-0.5 bg-green-500 transition-all duration-500 -z-10"
+                  style={{ 
+                    width: `${Math.max(0, (ORDER_STEPS.findIndex(s => s.status === order.status) / (ORDER_STEPS.length - 1)) * 100)}%` 
+                  }} 
+                />
+                
+                {ORDER_STEPS.map((step, index) => {
+                  const currentIndex = ORDER_STEPS.findIndex(s => s.status === order.status);
+                  const isCompleted = index <= currentIndex;
+                  const isCurrent = index === currentIndex;
+                  
+                  return (
+                    <div key={step.status} className="flex flex-col items-center gap-2 relative">
+                      <div 
+                        className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors z-10 ${
+                          isCompleted 
+                            ? 'bg-green-500 border-green-500 text-white' 
+                            : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400'
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        ) : (
+                          <span className="text-[10px] font-medium">{index + 1}</span>
+                        )}
+                      </div>
+                      <div className="absolute top-8 w-24 text-center">
+                        <span 
+                          className={`text-[10px] font-medium block leading-tight ${
+                            isCurrent ? 'text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'
+                          }`}
+                          style={{ fontFamily: 'var(--font-poppins)' }}
+                        >
+                          {step.label}
+                        </span>
+                        {step.status === 'shipped' && isCurrent && (
+                          <span className="block text-[9px] text-indigo-600 dark:text-indigo-400 mt-0.5 font-medium">
+                            (Enlevé par le coursier)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Order Items */}
           {order.items && order.items.length > 0 && (

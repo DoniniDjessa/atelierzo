@@ -210,7 +210,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 <button
                   onClick={handleSwitchMode}
                   type="button"
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  className={`text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors ${isLogin ? 'animate-pulse font-bold text-indigo-600 dark:text-indigo-400' : ''}`}
                   style={{ fontFamily: 'var(--font-poppins)' }}
                 >
                   {isLogin ? "Pas encore de compte ? S'inscrire" : 'Déjà un compte ? Se connecter'}
