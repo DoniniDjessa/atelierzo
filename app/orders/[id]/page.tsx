@@ -234,6 +234,8 @@ export default function OrderDetailsPage() {
             </div>
           )}
 
+          <div className="flex justify-center items-center bg-cyan-600 text-white py-2 my-6 rounded-xl">Vous serez livré sous <span className="font-bold ml-2">2-3 jours</span></div>
+
           {/* Order Items */}
           {order.items && order.items.length > 0 && (
             <div className="mb-6">
