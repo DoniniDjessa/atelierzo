@@ -303,7 +303,7 @@ export default function CartPage() {
                       className="text-sm font-bold text-black dark:text-white"
                       style={{ fontFamily: 'var(--font-fira-sans)' }}
                     >
-                      {(item.price * item.quantity).toLocaleString('fr-FR')} XOF
+                      {(item.price * item.quantity).toLocaleString('fr-FR')} FCFA
                     </span>
                   </div>
                 </div>
@@ -419,7 +419,7 @@ export default function CartPage() {
                     className="text-base font-bold text-black dark:text-white"
                     style={{ fontFamily: 'var(--font-fira-sans)' }}
                   >
-                    {(item.price * item.quantity).toLocaleString('fr-FR')} XOF
+                    {(item.price * item.quantity).toLocaleString('fr-FR')} FCFA
                   </span>
 
                   {/* Remove Button - Orange X - Extreme right */}
@@ -523,7 +523,7 @@ export default function CartPage() {
                     className="text-sm font-medium text-black dark:text-white"
                     style={{ fontFamily: 'var(--font-fira-sans)' }}
                   >
-                    {getTotal().toLocaleString('fr-FR')} XOF
+                    {getTotal().toLocaleString('fr-FR')} FCFA
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -537,7 +537,7 @@ export default function CartPage() {
                     className="text-lg font-bold text-black dark:text-white"
                     style={{ fontFamily: 'var(--font-fira-sans)' }}
                   >
-                    {getTotal().toLocaleString('fr-FR')} XOF
+                    {getTotal().toLocaleString('fr-FR')} FCFA
                   </span>
                 </div>
               </div>

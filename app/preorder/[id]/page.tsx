@@ -145,11 +145,11 @@ export default function PreorderPage() {
 
               <div className="mb-6">
                 <p className="text-3xl font-bold text-black dark:text-white mb-1">
-                  {product.price.toFixed(0)} FCFA
+                  {product.price.toLocaleString('fr-FR')} FCFA
                 </p>
                 {product.oldPrice && (
                   <p className="text-lg text-gray-500 dark:text-gray-400 line-through">
-                    {product.oldPrice.toFixed(0)} FCFA
+                    {product.oldPrice.toLocaleString('fr-FR')} FCFA
                   </p>
                 )}
               </div>

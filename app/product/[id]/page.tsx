@@ -101,7 +101,8 @@ export default function ProductDetailPage() {
   const updateQty = (size: string, delta: number) => {
     setQuantities((prev) => {
       const current = prev[size] || 1;
-      const newQty = Math.max(1, current + delta);
+      const availableQty = product.sizeQuantities?.[size] || 0;
+      const newQty = Math.max(1, Math.min(availableQty, current + delta));
       return { ...prev, [size]: newQty };
     });
   };
@@ -187,20 +188,20 @@ export default function ProductDetailPage() {
             </p>
 
             {/* Price */}
-            <div className="flex items-center gap-2 mb-6">
+            <div className="flex items-center gap-0 sm:gap-2 mb-6">
               {product.oldPrice && (
                 <span
-                  className="text-sm text-gray-400 dark:text-gray-500 line-through"
+                  className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 line-through"
                   style={{ fontFamily: 'var(--font-poppins)' }}
                 >
-                  {product.oldPrice.toLocaleString('fr-FR')} FCFA
+                  {product.oldPrice.toLocaleString('fr-FR')} XOF
                 </span>
               )}
               <span
                 className="text-xl font-bold text-black dark:text-white"
                   style={{ fontFamily: 'var(--font-ubuntu)' }}
               >
-                {product.price.toLocaleString('fr-FR')} FCFA
+                {product.price.toLocaleString('fr-FR')} XOF
               </span>
             </div>
 

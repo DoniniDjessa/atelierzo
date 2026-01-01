@@ -138,7 +138,7 @@ export default function ProductCard({
         <div className="flex items-center justify-between mb-1.5 sm:mb-0">
           {oldPrice && (
             <span
-              className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 line-through"
+              className="text-[10px] sm:text-sm text-gray-400 dark:text-gray-500 line-through"
               style={{ fontFamily: 'var(--font-poppins)' }}
             >
               {oldPrice.toLocaleString('fr-FR')} XOF
