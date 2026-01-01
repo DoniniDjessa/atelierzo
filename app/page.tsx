@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import Script from 'next/script';
 import ProductCard from './components/ProductCard';
 import CategoryCard from './components/CategoryCard';
 import CategorySection from './components/CategorySection';
@@ -12,6 +13,7 @@ import FlashSaleSection from './components/FlashSaleSection';
 import HeroCarousel from './components/HeroCarousel';
 import { useProducts } from './contexts/ProductContext';
 import { getMostSoldProducts } from './lib/utils/product-stats';
+import { generateOrganizationJsonLd, generateWebsiteJsonLd } from './lib/utils/structured-data';
 
 export default function Home() {
   const router = useRouter();
@@ -60,6 +62,22 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black">
+      {/* Structured Data for SEO */}
+      <Script
+        id="organization-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(generateOrganizationJsonLd()),
+        }}
+      />
+      <Script
+        id="website-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(generateWebsiteJsonLd()),
+        }}
+      />
+
       {/* Hero Section */}
       <HeroCarousel />
 

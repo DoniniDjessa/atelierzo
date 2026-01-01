@@ -1,0 +1,18 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /pilotage/
+
+# Sitemap
+Sitemap: https://lesatelierszo.com/sitemap.xml
+
+# Crawl delay (optional, to prevent overload)
+Crawl-delay: 1
+
+# Specific bot rules
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
