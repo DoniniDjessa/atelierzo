@@ -5,18 +5,18 @@ interface ProductJsonLdProps {
 }
 
 export function generateProductJsonLd(product: Product) {
-  const availableSizes = product.sizeAvailability 
-    ? Object.entries(product.sizeAvailability)
-        .filter(([_, isAvailable]) => isAvailable)
+  const availableSizes = product.sizeQuantities 
+    ? Object.entries(product.sizeQuantities)
+        .filter(([_, quantity]) => (quantity as number) > 0)
         .map(([size]) => size)
     : [];
 
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',
-    name: product.name,
-    description: product.description || `${product.name} - ${product.category}`,
-    image: product.images || [],
+    name: product.title,
+    description: product.description || `${product.title} - ${product.category || ''}`,
+    image: product.imageUrl ? [product.imageUrl] : [],
     sku: product.id,
     brand: {
       '@type': 'Brand',
@@ -29,11 +29,9 @@ export function generateProductJsonLd(product: Product) {
       price: product.price,
       priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       availability:
-        product.stock_status === 'rupture'
+        !product.inStock
           ? 'https://schema.org/OutOfStock'
-          : product.stock_status === 'stock'
-          ? 'https://schema.org/InStock'
-          : 'https://schema.org/PreOrder',
+          : 'https://schema.org/InStock',
       itemCondition: 'https://schema.org/NewCondition',
       seller: {
         '@type': 'Organization',

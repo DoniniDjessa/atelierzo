@@ -215,24 +215,36 @@ export default function ProductDetailPage() {
                 </label>
                 <div className="flex flex-wrap gap-4">
                   {product.sizes
-                    .filter(size => !product.sizeAvailability || product.sizeAvailability[size] !== false)
+                    .filter(size => !product.sizeQuantities || product.sizeQuantities[size] > 0)
                     .map((size) => {
                     const isSelected = selectedSizes.includes(size);
                     const qty = quantities[size] || 0;
+                    const availableQty = product.sizeQuantities?.[size] || 0;
                     
                     return (
                       <div key={size} className="flex flex-col items-center gap-2">
-                        <button
-                          onClick={() => toggleSize(size)}
-                          className={`px-4 py-2 text-xs border-2 rounded-lg font-medium transition-all ${
-                            isSelected
-                              ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
-                              : 'border-gray-300 dark:border-gray-600 text-black dark:text-white hover:border-gray-400 dark:hover:border-gray-500'
-                          }`}
-                          style={{ fontFamily: 'var(--font-poppins)' }}
-                        >
-                          {size}
-                        </button>
+                        <div className="relative">
+                          <button
+                            onClick={() => toggleSize(size)}
+                            className={`px-4 py-2 text-xs border-2 rounded-lg font-medium transition-all ${
+                              isSelected
+                                ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
+                                : 'border-gray-300 dark:border-gray-600 text-black dark:text-white hover:border-gray-400 dark:hover:border-gray-500'
+                            }`}
+                            style={{ fontFamily: 'var(--font-poppins)' }}
+                          >
+                            {size}
+                          </button>
+                          {/* Stock counter badge */}
+                          {availableQty > 0 && (
+                            <span 
+                              className="absolute -top-1 -right-1 bg-cyan-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full"
+                              style={{ fontFamily: 'var(--font-poppins)' }}
+                            >
+                              {availableQty}
+                            </span>
+                          )}
+                        </div>
                         
                         {isSelected && (
                           <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
@@ -298,7 +310,32 @@ export default function ProductDetailPage() {
             )}
 
             {/* Add to Cart / Pre-order Button */}
-            <button
+            {/* Preorder disabled - will be reactivated later */}
+            {product.inStock ? (
+              <button
+                onClick={handleAddToCart}
+                disabled={selectedSizes.length === 0}
+                className={`w-full py-3 px-4 rounded-xl text-xs font-semibold text-white transition-all transform ${
+                  selectedSizes.length === 0
+                    ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800 hover:scale-105 active:scale-95'
+                }`}
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                {selectedSizes.length === 0
+                  ? 'Sélectionnez une taille'
+                  : 'Ajouter au panier'}
+              </button>
+            ) : (
+              <button
+                disabled
+                className="w-full py-3 px-4 rounded-xl text-xs font-semibold bg-gray-400 dark:bg-gray-600 text-white cursor-not-allowed"
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                Rupture de stock
+              </button>
+            )}
+            {/* <button
               onClick={handleAddToCart}
               disabled={selectedSizes.length === 0}
               className={`w-full py-3 px-4 rounded-xl text-xs font-semibold text-white transition-all transform ${
@@ -315,7 +352,7 @@ export default function ProductDetailPage() {
                 : product.inStock
                 ? 'Ajouter au panier'
                 : 'Précommander'}
-            </button>
+            </button> */}
 
             {/* Additional Info */}
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">

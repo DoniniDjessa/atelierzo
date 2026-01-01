@@ -18,7 +18,7 @@ export interface Product {
   imageUrl: string;
   colors?: string[];
   sizes?: string[]; // For backward compatibility, kept as array
-  sizeAvailability?: Record<string, boolean>; // Object with size as key and availability (boolean) as value
+  sizeQuantities?: Record<string, number>; // Object with size as key and quantity as value
   inStock?: boolean;
   category?: string;
 }
@@ -81,7 +81,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         image_url: imageUrl,
         colors: product.colors || [],
         sizes: product.sizes || [],
-        sizeAvailability: product.sizeAvailability || {},
+        sizeQuantities: product.sizeQuantities || {},
         in_stock: product.inStock !== false,
         category: product.category || 'bermuda',
       };
@@ -118,7 +118,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
       if (product.imageUrl !== undefined) supabaseUpdates.image_url = product.imageUrl;
       if (product.colors !== undefined) supabaseUpdates.colors = product.colors;
       if (product.sizes !== undefined) supabaseUpdates.sizes = product.sizes;
-      if (product.sizeAvailability !== undefined) supabaseUpdates.sizeAvailability = product.sizeAvailability;
+      if (product.sizeQuantities !== undefined) supabaseUpdates.sizeQuantities = product.sizeQuantities;
       if (product.inStock !== undefined) supabaseUpdates.in_stock = product.inStock;
       if (product.category !== undefined) supabaseUpdates.category = product.category;
 

@@ -6,23 +6,24 @@ interface GenerateMetadataProps {
 }
 
 export async function generateMetadata({ params }: GenerateMetadataProps): Promise<Metadata> {
-  const product = await getProductById(params.id);
+  const result = await getProductById(params.id);
 
-  if (!product) {
+  if (result.error || !result.data) {
     return {
       title: 'Produit non trouvé',
       description: 'Le produit que vous recherchez n\'existe pas ou n\'est plus disponible.',
     };
   }
 
-  const title = `${product.name} - Les Ateliers Zo`;
-  const description = product.description || `Découvrez ${product.name} - ${product.category}. Prix: ${product.price.toLocaleString('fr-FR')} FCFA. Disponible en plusieurs tailles.`;
-  const images = product.images && product.images.length > 0 ? [product.images[0]] : [];
+  const product = result.data;
+  const title = `${product.title} - Les Ateliers Zo`;
+  const description = product.description || `Découvrez ${product.title} - ${product.category}. Prix: ${product.price.toLocaleString('fr-FR')} FCFA. Disponible en plusieurs tailles.`;
+  const images = product.image_url ? [product.image_url] : [];
   
   // Get available sizes
-  const availableSizes = product.sizeAvailability 
-    ? Object.entries(product.sizeAvailability)
-        .filter(([_, isAvailable]) => isAvailable)
+  const availableSizes = product.sizeQuantities 
+    ? Object.entries(product.sizeQuantities)
+        .filter(([_, quantity]) => (quantity as number) > 0)
         .map(([size]) => size)
     : [];
 
@@ -30,8 +31,8 @@ export async function generateMetadata({ params }: GenerateMetadataProps): Promi
     title,
     description,
     keywords: [
-      product.name,
-      product.category,
+      product.title,
+      product.category || '',
       'Les Ateliers Zo',
       'mode ivoirienne',
       'vêtements Côte d\'Ivoire',
@@ -40,13 +41,12 @@ export async function generateMetadata({ params }: GenerateMetadataProps): Promi
     openGraph: {
       title,
       description,
-      type: 'product',
       url: `https://lesatelierszo.com/product/${product.id}`,
       images: images.map(img => ({
         url: img,
         width: 800,
         height: 800,
-        alt: product.name,
+        alt: product.title,
       })),
       siteName: 'Les Ateliers Zo',
     },

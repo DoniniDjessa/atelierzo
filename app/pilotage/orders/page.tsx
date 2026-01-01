@@ -707,7 +707,7 @@ export default function OrdersPage() {
                 damping: 35,
                 mass: 0.8,
               }}
-              className="fixed top-0 right-0 h-full w-full max-w-2xl bg-white dark:bg-gray-800 shadow-xl z-[100] overflow-y-auto"
+              className="fixed top-0 right-0 h-full w-[95%] max-w-2xl bg-white dark:bg-gray-800 shadow-xl z-[100] overflow-y-auto"
             >
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -878,7 +878,7 @@ export default function OrdersPage() {
                 damping: 35,
                 mass: 0.8,
               }}
-              className="fixed top-0 right-0 h-full w-full max-w-2xl bg-white dark:bg-gray-800 shadow-xl z-[100] overflow-y-auto"
+              className="fixed top-0 right-0 h-full w-[95%] max-w-2xl bg-white dark:bg-gray-800 shadow-xl z-[100] overflow-y-auto"
             >
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">

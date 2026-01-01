@@ -4,6 +4,7 @@ import "./globals.css";
 import ConditionalNavbar from "./components/ConditionalNavbar";
 import Loader from "./components/Loader";
 import ScrollToTop from "./components/ScrollToTop";
+import FloatingCartButton from "./components/FloatingCartButton";
 import { UserProvider } from "./contexts/UserContext";
 import { ProductProvider } from "./contexts/ProductContext";
 import { FavoritesProvider } from "./contexts/FavoritesContext";
@@ -115,6 +116,7 @@ export default function RootLayout({
                 <ConditionalNavbar />
                 {children}
                 <ScrollToTop />
+                <FloatingCartButton />
                 <Toaster position="top-center" richColors />
               </CartProvider>
             </FavoritesProvider>

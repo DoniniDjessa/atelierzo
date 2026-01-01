@@ -49,13 +49,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     // Dynamic product pages
-    const products = await getAllProducts();
+    const result = await getAllProducts();
     
-    const productPages: MetadataRoute.Sitemap = products
-      .filter(product => product.stock_status !== 'rupture') // Only include in-stock products
+    if (result.error || !result.data) {
+      console.error('Error fetching products for sitemap:', result.error);
+      return staticPages;
+    }
+    
+    const productPages: MetadataRoute.Sitemap = result.data
+      .filter(product => product.in_stock) // Only include in-stock products
       .map((product) => ({
         url: `${baseUrl}/product/${product.id}`,
-        lastModified: product.updated_at ? new Date(product.updated_at) : new Date(),
+        lastModified: new Date(),
         changeFrequency: 'weekly' as const,
         priority: 0.7,
       }));
