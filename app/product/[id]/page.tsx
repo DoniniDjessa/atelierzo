@@ -212,11 +212,11 @@ export default function ProductDetailPage() {
                   className="block text-xs font-semibold text-black dark:text-white mb-2"
                   style={{ fontFamily: 'var(--font-poppins)' }}
                 >
-                  <span className="inline-flex items-center bg-slate-800 text-blue-400 px-3 py-1 rounded-2xl text-[10px] mb-2">
-                    Disponibilités actuelles
-                  </span>
+                  
                   <br />
-                  Tailles  {selectedSizes.length > 0 && <span className="text-gray-500">({selectedSizes.join(', ')})</span>}
+                  Tailles <span className="ml-2 inline-flex items-center bg-slate-800 text-blue-400 px-3 py-1 rounded-2xl text-[10px] mb-2">
+                    Disponibilités actuelles
+                  </span> {selectedSizes.length > 0 && <span className="text-gray-500">({selectedSizes.join(', ')})</span>}
                 </label>
                 <div className="flex flex-wrap gap-4">
                   {product.sizes
