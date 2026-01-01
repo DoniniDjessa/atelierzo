@@ -251,8 +251,7 @@ function ProductsPageContent() {
             className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3"
             style={{ fontFamily: 'var(--font-poppins)' }}
           >
-            Tailles
-          </label>
+            Tailles 
           <div className="flex flex-wrap gap-2">
             {availableSizes.map(size => (
               <button

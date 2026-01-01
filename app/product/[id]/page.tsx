@@ -212,7 +212,11 @@ export default function ProductDetailPage() {
                   className="block text-xs font-semibold text-black dark:text-white mb-2"
                   style={{ fontFamily: 'var(--font-poppins)' }}
                 >
-                  Tailles {selectedSizes.length > 0 && <span className="text-gray-500">({selectedSizes.join(', ')})</span>}
+                  <span className="inline-flex items-center bg-slate-800 text-blue-400 px-3 py-1 rounded-2xl text-[10px] mb-2">
+                    Disponibilités actuelles
+                  </span>
+                  <br />
+                  Tailles  {selectedSizes.length > 0 && <span className="text-gray-500">({selectedSizes.join(', ')})</span>}
                 </label>
                 <div className="flex flex-wrap gap-4">
                   {product.sizes
@@ -359,31 +363,11 @@ export default function ProductDetailPage() {
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
               <div className="space-y-3">
                 <div>
-                  <h3
-                    className="text-xs font-semibold text-black dark:text-white mb-1"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
-                  >
-                    Livraison
-                  </h3>
                   <p
-                    className="text-xs text-gray-600 dark:text-gray-400"
+                    className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed"
                     style={{ fontFamily: 'var(--font-poppins)' }}
                   >
-                    Livraison sous sous 1-3 jours
-                  </p>
-                </div>
-                <div>
-                  <h3
-                    className="text-xs font-semibold text-black dark:text-white mb-1"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
-                  >
-                    Retour
-                  </h3>
-                  <p
-                    className="text-xs text-gray-600 dark:text-gray-400"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
-                  >
-                  ne vous inquiétez pas si vous ne trouvez pas un produit en stock, Il y'aura de nouveaux stocks bientôt !
+                    En cas d'indisponibilité temporaire d'un produit, les stocks sont réapprovisionnés quotidiennement. La remise en ligne intervient généralement sous un délai de 48 heures.
                   </p>
                 </div>
               </div>
