@@ -21,6 +21,8 @@ export interface Order {
   status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   shipping_address?: string;
   shipping_phone?: string;
+  customer_name?: string;
+  customer_phone?: string;
   notes?: string;
   created_at: string;
   updated_at: string;

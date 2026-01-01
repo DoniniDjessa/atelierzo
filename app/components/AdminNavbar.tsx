@@ -3,8 +3,9 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Home } from 'lucide-react';
+import { Menu, X, Home, Bell } from 'lucide-react';
 import { getAllOrders } from '@/app/lib/supabase/orders';
+import { useAdminNotificationContext } from '@/app/contexts/AdminNotificationContext';
 
 interface AdminNavbarProps {
   onLogout: () => void;
@@ -24,6 +25,7 @@ export default function AdminNavbar({ onLogout }: AdminNavbarProps) {
   const router = useRouter();
   const [pendingCount, setPendingCount] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { hasNewNotification } = useAdminNotificationContext();
 
   useEffect(() => {
     const loadPendingCount = async () => {
@@ -46,7 +48,7 @@ export default function AdminNavbar({ onLogout }: AdminNavbarProps) {
 
   return (
     <>
-      <nav className="bg-slate-800/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-700 dark:border-slate-800 sticky top-0 z-[50] shadow-lg">
+      <nav className="bg-slate-800/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-700 dark:border-slate-800 sticky top-0 z-50 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             {/* Logo/Title and Menu Button */}
@@ -66,6 +68,17 @@ export default function AdminNavbar({ onLogout }: AdminNavbarProps) {
 
             {/* Actions */}
             <div className="flex items-center gap-2">
+              {/* Notification Bell */}
+              <button
+                onClick={() => router.push('/pilotage/orders')}
+                className="relative p-2 text-slate-300 hover:bg-slate-700 rounded-lg transition-colors"
+                title="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+                {hasNewNotification && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                )}
+              </button>
               <button
                 onClick={() => router.push('/')}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-slate-600 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors"
@@ -97,7 +110,7 @@ export default function AdminNavbar({ onLogout }: AdminNavbarProps) {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
               onClick={() => setSidebarOpen(false)}
-              className="fixed inset-0 bg-black/50 z-[60]"
+              className="fixed inset-0 bg-black/50 z-60"
             />
             <motion.div
               initial={{ x: '-100%' }}
@@ -109,7 +122,7 @@ export default function AdminNavbar({ onLogout }: AdminNavbarProps) {
                 damping: 35,
                 mass: 0.8,
               }}
-              className="fixed top-0 left-0 h-full w-64 bg-slate-800 dark:bg-slate-900 z-[60] shadow-2xl"
+              className="fixed top-0 left-0 h-full w-64 bg-slate-800 dark:bg-slate-900 z-60 shadow-2xl"
             >
               <div className="p-4 border-b border-slate-700 flex items-center justify-between">
                 <h2 className="text-base font-bold text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
@@ -140,7 +153,7 @@ export default function AdminNavbar({ onLogout }: AdminNavbarProps) {
                       <span className="text-base">{item.icon}</span>
                       <span className="font-medium flex-1 text-left">{item.name}</span>
                       {item.path === '/pilotage/orders' && pendingCount > 0 && (
-                        <span className="px-1.5 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded-full min-w-[18px] text-center">
+                        <span className="px-1.5 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded-full min-w-4.5 text-center">
                           {pendingCount}
                         </span>
                       )}

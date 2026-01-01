@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
 
       const success = await sendEmail({
         to: ADMIN_EMAIL,
-        subject: `Nouvelle commande #${orderId.substring(0, 8)} - ${totalAmount.toLocaleString('fr-FR')} XOF`,
+        subject: `Les Ateliers Zo - Nouvelle commande #${orderId.substring(0, 8)} - ${totalAmount.toLocaleString('fr-FR')} XOF`,
         html: htmlContent,
       });
 

@@ -17,7 +17,7 @@ export default function FloatingCartButton() {
   return (
     <button
       onClick={() => router.push('/cart')}
-      className="fixed bottom-20 right-6 bg-gradient-to-r from-cyan-500 to-cyan-700 text-white p-4 rounded-full shadow-2xl hover:shadow-3xl hover:scale-110 active:scale-95 transition-all duration-300 z-50 flex items-center justify-center group"
+      className="fixed bottom-20 right-6 bg-linear-to-r from-cyan-500 to-cyan-700 text-white p-4 rounded-full shadow-2xl hover:shadow-3xl hover:scale-110 active:scale-95 transition-all duration-300 z-50 flex items-center justify-center group"
       style={{ fontFamily: 'var(--font-poppins)' }}
       aria-label="Voir le panier"
     >
@@ -38,7 +38,7 @@ export default function FloatingCartButton() {
           />
         </svg>
         {/* Counter Badge */}
-        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5 animate-pulse">
+        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold min-w-5 h-5 rounded-full flex items-center justify-center px-1.5 animate-pulse">
           {itemCount}
         </span>
       </div>

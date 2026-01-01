@@ -1,0 +1,27 @@
+{
+  "name": "Les Ateliers Zo - Admin Dashboard",
+  "short_name": "Zo Admin",
+  "description": "Admin dashboard for Les Ateliers Zo",
+  "start_url": "/pilotage",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#8b5cf6",
+  "orientation": "portrait",
+  "scope": "/pilotage",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "screenshots": []
+}

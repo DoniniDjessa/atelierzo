@@ -50,6 +50,9 @@ export default function OrdersPage() {
   const [showOrderSidebar, setShowOrderSidebar] = useState(false);
   const [showPreorderSidebar, setShowPreorderSidebar] = useState(false);
   const [clientNames, setClientNames] = useState<Record<string, string>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [preorderCurrentPage, setPreorderCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 13;
 
   useEffect(() => {
     const auth = localStorage.getItem('atelierzo_admin_auth');
@@ -195,6 +198,29 @@ export default function OrdersPage() {
       (clientNames[preorder.user_id] && clientNames[preorder.user_id].toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesStatus && matchesSearch;
   });
+
+  // Pagination for orders
+  const totalOrderPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Pagination for preorders
+  const totalPreorderPages = Math.ceil(filteredPreorders.length / ITEMS_PER_PAGE);
+  const paginatedPreorders = filteredPreorders.slice(
+    (preorderCurrentPage - 1) * ITEMS_PER_PAGE,
+    preorderCurrentPage * ITEMS_PER_PAGE
+  );
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, searchQuery]);
+
+  useEffect(() => {
+    setPreorderCurrentPage(1);
+  }, [preorderStatusFilter, searchQuery]);
 
   const PREORDER_STATUS_COLORS: Record<Preorder['status'], string> = {
     pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -447,8 +473,8 @@ export default function OrdersPage() {
             </div>
           ) : activeTab === 'orders' ? (
             filteredOrders.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
@@ -472,7 +498,7 @@ export default function OrdersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredOrders.map((order) => (
+                  {paginatedOrders.map((order) => (
                     <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-xs font-mono text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
@@ -535,8 +561,8 @@ export default function OrdersPage() {
                 </tbody>
               </table>
             </div>
-            ) : (
-              <div className="p-12 text-center">
+          ) : (
+            <div className="p-12 text-center">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-12 w-12 mx-auto text-gray-400 dark:text-gray-600 mb-4"
@@ -556,7 +582,64 @@ export default function OrdersPage() {
                 </p>
               </div>
             )
-          ) : activeTab === 'preorders' ? (
+          ) : null}
+
+          {/* Pagination for Orders */}
+          {activeTab === 'orders' && filteredOrders.length > 0 && totalOrderPages > 1 && (
+            <div className="mt-6 flex items-center justify-between">
+              <p className="text-sm text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                Page {currentPage} sur {totalOrderPages} ({filteredOrders.length} commandes)
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  Précédent
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalOrderPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalOrderPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalOrderPages - 2) {
+                      pageNum = totalOrderPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-8 h-8 text-sm rounded-lg transition-colors ${
+                          currentPage === pageNum
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalOrderPages, prev + 1))}
+                  disabled={currentPage === totalOrderPages}
+                  className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  Suivant
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'preorders' ? (
             filteredPreorders.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -589,7 +672,7 @@ export default function OrdersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredPreorders.map((preorder) => {
+                  {paginatedPreorders.map((preorder) => {
                     const product = getProductById(preorder.product_id);
                     return (
                       <tr key={preorder.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
@@ -679,6 +762,61 @@ export default function OrdersPage() {
             </div>
             )
           ) : null}
+
+          {/* Pagination for Preorders */}
+          {activeTab === 'preorders' && filteredPreorders.length > 0 && totalPreorderPages > 1 && (
+            <div className="mt-6 flex items-center justify-between">
+              <p className="text-sm text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                Page {preorderCurrentPage} sur {totalPreorderPages} ({filteredPreorders.length} précommandes)
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPreorderCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={preorderCurrentPage === 1}
+                  className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  Précédent
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPreorderPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPreorderPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (preorderCurrentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (preorderCurrentPage >= totalPreorderPages - 2) {
+                      pageNum = totalPreorderPages - 4 + i;
+                    } else {
+                      pageNum = preorderCurrentPage - 2 + i;
+                    }
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => setPreorderCurrentPage(pageNum)}
+                        className={`w-8 h-8 text-sm rounded-lg transition-colors ${
+                          preorderCurrentPage === pageNum
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={() => setPreorderCurrentPage(prev => Math.min(totalPreorderPages, prev + 1))}
+                  disabled={preorderCurrentPage === totalPreorderPages}
+                  className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  Suivant
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -695,7 +833,7 @@ export default function OrdersPage() {
                 setShowPreorderSidebar(false);
                 setSelectedPreorder(null);
               }}
-              className="fixed inset-0 bg-black/50 z-[100]"
+              className="fixed inset-0 bg-black/50 z-100"
             />
             <motion.div
               initial={{ x: '100%' }}
@@ -707,7 +845,7 @@ export default function OrdersPage() {
                 damping: 35,
                 mass: 0.8,
               }}
-              className="fixed top-0 right-0 h-full w-[95%] max-w-2xl bg-white dark:bg-gray-800 shadow-xl z-[100] overflow-y-auto"
+              className="fixed top-0 right-0 h-full w-[95%] max-w-2xl bg-white dark:bg-gray-800 shadow-xl z-100 overflow-y-auto"
             >
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -803,7 +941,7 @@ export default function OrdersPage() {
                         <div className="space-y-3">
                           {product && (
                             <div className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                              <div className="relative w-16 h-16 flex-shrink-0 overflow-hidden rounded-lg">
+                              <div className="relative w-16 h-16 shrink-0 overflow-hidden rounded-lg">
                                 <Image
                                   src={product.imageUrl}
                                   alt={product.title}
@@ -866,7 +1004,7 @@ export default function OrdersPage() {
                 setShowOrderSidebar(false);
                 setSelectedOrder(null);
               }}
-              className="fixed inset-0 bg-black/50 z-[100]"
+              className="fixed inset-0 bg-black/50 z-100"
             />
             <motion.div
               initial={{ x: '100%' }}
@@ -878,7 +1016,7 @@ export default function OrdersPage() {
                 damping: 35,
                 mass: 0.8,
               }}
-              className="fixed top-0 right-0 h-full w-[95%] max-w-2xl bg-white dark:bg-gray-800 shadow-xl z-[100] overflow-y-auto"
+              className="fixed top-0 right-0 h-full w-[95%] max-w-2xl bg-white dark:bg-gray-800 shadow-xl z-100 overflow-y-auto"
             >
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -992,7 +1130,7 @@ export default function OrdersPage() {
                       <div className="space-y-3">
                         {selectedOrder.items.map((item) => (
                           <div key={item.id} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                            <div className="relative w-16 h-16 flex-shrink-0 overflow-hidden rounded-lg">
+                            <div className="relative w-16 h-16 shrink-0 overflow-hidden rounded-lg">
                               <Image
                                 src={item.image_url}
                                 alt={item.title}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { TrendingUp, TrendingDown, ArrowUpRight, DollarSign, ShoppingCart, Users, Heart, Package } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowUpRight, DollarSign, ShoppingCart, Users, Heart, Package, Calendar, Medal, Crown, Star } from 'lucide-react';
 import AdminNavbar from '@/app/components/AdminNavbar';
 import { getAllOrders, Order } from '@/app/lib/supabase/orders';
 import { getAllUsers } from '@/app/lib/supabase/users';
@@ -23,6 +23,14 @@ interface DashboardStats {
   ordersChange: number;
   clientsChange: number;
   profitChange: number;
+}
+
+interface TopClient {
+  userId: string;
+  email: string;
+  phone?: string;
+  totalSpent: number;
+  orderCount: number;
 }
 
 const COLORS = ['#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'];
@@ -48,8 +56,11 @@ export default function PilotageDashboard() {
   const [revenueData, setRevenueData] = useState<any[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
   const [ordersByStatus, setOrdersByStatus] = useState<Record<string, number>>({});
-  const [period, setPeriod] = useState<'week' | 'month' | 'year'>('month');
+  const [period, setPeriod] = useState<'custom' | 'today' | 'week' | 'month' | 'year'>('month');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [mostSoldProducts, setMostSoldProducts] = useState<Array<{ productId: string; sales: number; revenue: number }>>([]);
+  const [topClients, setTopClients] = useState<TopClient[]>([]);
 
   useEffect(() => {
     const auth = localStorage.getItem('atelierzo_admin_auth');
@@ -82,35 +93,46 @@ export default function PilotageDashboard() {
 
       // Calculate revenue by period for chart
       const now = new Date();
-      const periods: { [key: string]: { start: Date; label: string } } = {
-        week: {
-          start: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
-          label: '7 derniers jours',
-        },
-        month: {
-          start: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
-          label: '30 derniers jours',
-        },
-        year: {
-          start: new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000),
-          label: '12 derniers mois',
-        },
-      };
+      now.setHours(23, 59, 59, 999);
+      
+      let periodStart: Date;
+      let periodEnd: Date = now;
+      
+      if (period === 'custom' && startDate && endDate) {
+        periodStart = new Date(startDate);
+        periodStart.setHours(0, 0, 0, 0);
+        periodEnd = new Date(endDate);
+        periodEnd.setHours(23, 59, 59, 999);
+      } else if (period === 'today') {
+        periodStart = new Date();
+        periodStart.setHours(0, 0, 0, 0);
+      } else if (period === 'week') {
+        periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (period === 'month') {
+        // Current month
+        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        periodStart.setHours(0, 0, 0, 0);
+      } else { // year
+        periodStart = new Date(now.getFullYear(), 0, 1);
+        periodStart.setHours(0, 0, 0, 0);
+      }
 
-      const periodStart = periods[period].start;
-      const filteredOrders = orders.filter((order) => new Date(order.created_at) >= periodStart);
+      const filteredOrders = orders.filter((order) => {
+        const orderDate = new Date(order.created_at);
+        return orderDate >= periodStart && orderDate <= periodEnd;
+      });
 
       // Calculate revenue by day/month for bar chart
       const revenueByPeriod: { [key: string]: number } = {};
       filteredOrders.forEach((order) => {
         const date = new Date(order.created_at);
         let key: string;
-        if (period === 'week') {
-          key = date.toLocaleDateString('fr-FR', { weekday: 'short' });
-        } else if (period === 'month') {
+        if (period === 'today' || period === 'week') {
+          key = date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+        } else if (period === 'month' || period === 'custom') {
           key = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
         } else {
-          key = date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+          key = date.toLocaleDateString('fr-FR', { month: 'short' });
         }
         revenueByPeriod[key] = (revenueByPeriod[key] || 0) + order.total_amount;
       });
@@ -178,6 +200,34 @@ export default function PilotageDashboard() {
       const previousClients = users.filter((user) => new Date(user.created_at) < lastMonth).length;
       const clientsChange = previousClients > 0 ? ((totalClients - previousClients) / previousClients) * 100 : 0;
 
+      // Calculate top clients
+      const clientSpending: { [userId: string]: { totalSpent: number; orderCount: number; user: any } } = {};
+      filteredOrders.forEach((order) => {
+        if (!clientSpending[order.user_id]) {
+          const user = users.find(u => u.id === order.user_id);
+          clientSpending[order.user_id] = {
+            totalSpent: 0,
+            orderCount: 0,
+            user,
+          };
+        }
+        clientSpending[order.user_id].totalSpent += order.total_amount;
+        clientSpending[order.user_id].orderCount += 1;
+      });
+
+      const topClientsList = Object.entries(clientSpending)
+        .map(([userId, data]) => ({
+          userId,
+          email: data.user?.email || 'Client inconnu',
+          phone: data.user?.phone,
+          totalSpent: data.totalSpent,
+          orderCount: data.orderCount,
+        }))
+        .sort((a, b) => b.totalSpent - a.totalSpent)
+        .slice(0, 5);
+
+      setTopClients(topClientsList);
+
       setStats({
         totalRevenue,
         totalOrders,
@@ -190,8 +240,25 @@ export default function PilotageDashboard() {
         profitChange: revenueChange * 0.8, // Simplified profit (80% of revenue)
       });
 
-      // Load most sold products
-      const topProducts = await getMostSoldProducts(5);
+      // Load most sold products from filtered orders
+      const productSales: { [productId: string]: { sales: number; revenue: number } } = {};
+      filteredOrders.forEach((order) => {
+        if (order.items) {
+          order.items.forEach((item) => {
+            if (!productSales[item.product_id]) {
+              productSales[item.product_id] = { sales: 0, revenue: 0 };
+            }
+            productSales[item.product_id].sales += item.quantity;
+            productSales[item.product_id].revenue += item.price * item.quantity;
+          });
+        }
+      });
+
+      const topProducts = Object.entries(productSales)
+        .map(([productId, data]) => ({ productId, ...data }))
+        .sort((a, b) => b.sales - a.sales)
+        .slice(0, 5);
+
       setMostSoldProducts(topProducts);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -204,7 +271,7 @@ export default function PilotageDashboard() {
     if (isAuthenticated) {
       loadDashboardData();
     }
-  }, [period, isAuthenticated, products.length]);
+  }, [period, startDate, endDate, isAuthenticated, products.length]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -297,28 +364,54 @@ export default function PilotageDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <select
-              value={period}
-              onChange={(e) => setPeriod(e.target.value as 'week' | 'month' | 'year')}
-              className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-              style={{ fontFamily: 'var(--font-poppins)' }}
-            >
-              <option value="week">Cette semaine</option>
-              <option value="month">Ce mois</option>
-              <option value="year">Cette année</option>
-            </select>
-            <button className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-white dark:hover:bg-gray-800">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-xl px-3 py-2 shadow-sm border border-gray-200 dark:border-gray-700">
+              <Calendar className="h-4 w-4 text-slate-400" />
+              <select
+                value={period}
+                onChange={(e) => {
+                  const newPeriod = e.target.value as typeof period;
+                  setPeriod(newPeriod);
+                  if (newPeriod !== 'custom') {
+                    setStartDate('');
+                    setEndDate('');
+                  }
+                }}
+                className="text-sm border-none bg-transparent focus:outline-none focus:ring-0 dark:text-white cursor-pointer"
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                <option value="today">Aujourd'hui</option>
+                <option value="week">Cette semaine</option>
+                <option value="month">Ce mois</option>
+                <option value="year">Cette année</option>
+                <option value="custom">Période personnalisée</option>
+              </select>
+            </div>
+            {period === 'custom' && (
+              <>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                />
+                <span className="text-slate-400">→</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                />
+              </>
+            )}
           </div>
         </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Total Revenue - Highlighted */}
-          <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl shadow-lg p-6 text-white">
+          <div className="bg-linear-to-br from-indigo-600 to-purple-600 rounded-3xl shadow-lg p-6 text-white">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-white/80" style={{ fontFamily: 'var(--font-poppins)' }}>
                 Revenu Total
@@ -409,22 +502,22 @@ export default function PilotageDashboard() {
             </div>
           </div>
 
-          {/* Profit / Clients Satisfaits */}
+          {/* Products */}
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xs font-medium text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-                Clients Satisfaits
+                Produits
               </h3>
               <div className="p-2 bg-slate-100 dark:bg-gray-700 rounded-full">
-                <Heart className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+                <Package className="h-4 w-4 text-slate-600 dark:text-slate-300" />
               </div>
             </div>
             <p className="text-2xl font-bold text-black dark:text-white mb-2" style={{ fontFamily: 'var(--font-ubuntu)' }}>
-              {stats.totalSatisfiedClients}
+              {stats.totalProducts}
             </p>
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-                sur {stats.totalClients} clients
+                produits en ligne
               </span>
             </div>
           </div>
@@ -439,7 +532,7 @@ export default function PilotageDashboard() {
                 Revenus
               </h2>
               <span className="text-sm text-slate-500 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-                {period === 'week' ? '7 derniers jours' : period === 'month' ? '30 derniers jours' : '12 derniers mois'}
+                {period === 'today' ? "Aujourd'hui" : period === 'week' ? '7 derniers jours' : period === 'month' ? 'Ce mois' : period === 'year' ? 'Cette année' : 'Période personnalisée'}
               </span>
             </div>
             {revenueData.length > 0 ? (
@@ -461,7 +554,7 @@ export default function PilotageDashboard() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[300px] flex items-center justify-center text-slate-400">
+              <div className="h-75 flex items-center justify-center text-slate-400">
                 <p className="text-sm" style={{ fontFamily: 'var(--font-poppins)' }}>Aucune donnée pour cette période</p>
               </div>
             )}
@@ -515,7 +608,7 @@ export default function PilotageDashboard() {
                 </div>
               </>
             ) : (
-              <div className="h-[300px] flex items-center justify-center text-slate-400">
+              <div className="h-75 flex items-center justify-center text-slate-400">
                 <p className="text-sm" style={{ fontFamily: 'var(--font-poppins)' }}>Aucune donnée</p>
               </div>
             )}
@@ -604,8 +697,95 @@ export default function PilotageDashboard() {
           </div>
         </div>
 
-        {/* Most Sold Products */}
-        {mostSoldProducts.length > 0 && (
+        {/* Product Ranking and Best Clients */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+          {/* Product Ranking */}
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                🏆 Top Produits
+              </h2>
+              <Medal className="h-5 w-5 text-amber-500" />
+            </div>
+            {mostSoldProducts.length > 0 ? (
+              <div className="space-y-3">
+                {mostSoldProducts.map((item, index) => {
+                  const product = products.find((p) => p.id === item.productId);
+                  if (!product) return null;
+                  const medals = ['🥇', '🥈', '🥉'];
+                  return (
+                    <div key={item.productId} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-gray-700 rounded-xl hover:scale-[1.02] transition-transform">
+                      <div className="shrink-0 w-10 h-10 rounded-full bg-linear-to-br from-amber-400 to-amber-600 flex items-center justify-center text-xl">
+                        {medals[index] || `${index + 1}`}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-semibold text-black dark:text-white truncate" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                          {product.title}
+                        </h3>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-xs text-slate-600 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {item.sales} ventes
+                          </span>
+                          <span className="text-xs text-green-600 dark:text-green-400 font-semibold" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {formatCurrency(item.revenue)} FCFA
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="h-50 flex items-center justify-center text-slate-400">
+                <p className="text-sm" style={{ fontFamily: 'var(--font-poppins)' }}>Aucune donnée pour cette période</p>
+              </div>
+            )}
+          </div>
+
+          {/* Best Clients Ranking */}
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                👑 Meilleurs Clients
+              </h2>
+              <Crown className="h-5 w-5 text-purple-500" />
+            </div>
+            {topClients.length > 0 ? (
+              <div className="space-y-3">
+                {topClients.map((client, index) => {
+                  const medals = ['👑', '⭐', '💎'];
+                  return (
+                    <div key={client.userId} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-gray-700 rounded-xl hover:scale-[1.02] transition-transform">
+                      <div className="shrink-0 w-10 h-10 rounded-full bg-linear-to-br from-purple-400 to-purple-600 flex items-center justify-center text-xl">
+                        {medals[index] || `${index + 1}`}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-semibold text-black dark:text-white truncate" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                          {client.phone || client.email}
+                        </h3>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-xs text-slate-600 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {client.orderCount} commande{client.orderCount > 1 ? 's' : ''}
+                          </span>
+                          <span className="text-xs text-green-600 dark:text-green-400 font-semibold" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {formatCurrency(client.totalSpent)} FCFA
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="h-50 flex items-center justify-center text-slate-400">
+                <p className="text-sm" style={{ fontFamily: 'var(--font-poppins)' }}>Aucune donnée pour cette période</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Most Sold Products - Legacy Section (can be removed if not needed) */}
+        {false && mostSoldProducts.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
@@ -619,7 +799,7 @@ export default function PilotageDashboard() {
                 if (!product) return null;
                 return (
                   <div key={item.productId} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-gray-700 rounded-lg">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                    <div className="shrink-0 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
                       <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400" style={{ fontFamily: 'var(--font-ubuntu)' }}>
                         {index + 1}
                       </span>

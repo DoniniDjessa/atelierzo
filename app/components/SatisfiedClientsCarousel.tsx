@@ -60,7 +60,7 @@ export default function SatisfiedClientsCarousel() {
             unoptimized
           />
           <h2
-            className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-cyan-400 to-cyan-700 bg-clip-text text-transparent"
+            className="text-3xl sm:text-4xl font-bold bg-linear-to-r from-cyan-400 to-cyan-700 bg-clip-text text-transparent"
             style={{ fontFamily: 'var(--font-ubuntu)' }}
           >
             Clients satisfaits
@@ -68,7 +68,7 @@ export default function SatisfiedClientsCarousel() {
         </div>
         
         <div className="flex justify-center">
-          <div className="w-full sm:max-w-[50vw] 2xl:max-w-[1000px]">
+          <div className="w-full sm:max-w-[50vw] 2xl:max-w-250">
             <div className="relative">
           {/* Carousel Container */}
           <div className="relative overflow-hidden rounded-2xl">
@@ -78,7 +78,7 @@ export default function SatisfiedClientsCarousel() {
             >
               {clients.map((client) => (
                 <div key={client.id} className="min-w-full">
-                  <div className="relative w-full aspect-[4/3] max-h-[500px]">
+                  <div className="relative w-full aspect-3/4 sm:aspect-4/3 max-h-150 sm:max-h-125">
                     <Image
                       src={client.image_url}
                       alt={client.name}
