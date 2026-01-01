@@ -109,7 +109,7 @@ export default function ProductCard({
 
       {/* Color or Size Selector - Only show if not out of stock */}
       {!isOutOfStock && (colors.length > 0 || sizes.length > 0) && (
-        <div className="flex items-center justify-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+        <div className="flex items-center justify-center flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
           {colors.length > 0 &&
             colors.map((color, index) => (
               <div

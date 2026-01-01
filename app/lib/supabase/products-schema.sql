@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS "zo-products" (
   old_price DECIMAL(10, 2),
   image_url TEXT NOT NULL,
   colors TEXT[], -- Array of color hex codes
-  sizes JSONB NOT NULL DEFAULT '{}'::jsonb, -- Object with size as key and quantity as value, e.g. {"S": 10, "M": 15, "L": 20}
-  in_stock BOOLEAN DEFAULT true,
+  sizes JSONB NOT NULL DEFAULT '{"M": true, "L": true, "XL": true, "2XL": true, "3XL": true, "4XL": true, "5XL": true}'::jsonb, -- Object with size as key and availability (boolean) as value, e.g. {"M": true, "L": false, "XL": true}
+  in_stock BOOLEAN DEFAULT true, -- Global stock status - true if any size is available
   category TEXT NOT NULL CHECK (category IN ('bermuda', 'pantalon', 'tshirt-oversize-civ')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProducts, Product } from '@/app/contexts/ProductContext';
 import Image from 'next/image';
@@ -42,10 +42,11 @@ export default function ProductsPage() {
     oldPrice: '',
     imageUrl: '',
     colors: '',
-    inStock: true,
     category: 'bermuda',
   });
-  const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>({});
+  const [sizeAvailability, setSizeAvailability] = useState<Record<string, boolean>>({ M: true, L: true, XL: true, '2XL': true, '3XL': true, '4XL': true, '5XL': true });
+  const [editingSizeValues, setEditingSizeValues] = useState<Record<string, string>>({});
+  const sizeUpdateTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const [showFlashSaleModal, setShowFlashSaleModal] = useState(false);
   const [selectedProductForFlashSale, setSelectedProductForFlashSale] = useState<string | null>(null);
   const [venteFlashList, setVenteFlashList] = useState<any[]>([]);
@@ -120,20 +121,24 @@ export default function ProductsPage() {
         return;
       }
 
-      // Validate that at least one size with quantity > 0 is provided
-      const validSizes = Object.entries(sizeQuantities).filter(([size, qty]) => size.trim() !== '' && qty > 0);
+      // Validate that at least one size is provided
+      const validSizes = Object.entries(sizeAvailability).filter(([size]) => size.trim() !== '');
       if (validSizes.length === 0) {
-        toast.error('Veuillez ajouter au moins une taille avec une quantité supérieure à 0');
+        toast.error('Veuillez ajouter au moins une taille');
         setIsUploading(false);
         return;
       }
 
-      // Convert sizeQuantities to sizes array and sizeQuantities object (only valid sizes)
-      const filteredSizeQuantities: Record<string, number> = {};
-      validSizes.forEach(([size, qty]) => {
-        filteredSizeQuantities[size.trim()] = qty;
+      // Convert sizeAvailability to sizes array and sizeAvailability object (only valid sizes)
+      const filteredSizeAvailability: Record<string, boolean> = {};
+      validSizes.forEach(([size, available]) => {
+        filteredSizeAvailability[size.trim()] = available;
       });
-      const sizes = Object.keys(filteredSizeQuantities);
+      const sizes = Object.keys(filteredSizeAvailability);
+      
+      // Check if at least one size is available, if not, mark product as out of stock
+      const hasAvailableSize = Object.values(filteredSizeAvailability).some(available => available === true);
+      
       const newProduct: Omit<Product, 'id'> = {
         title: formData.title,
         description: formData.description,
@@ -141,9 +146,9 @@ export default function ProductsPage() {
         oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : undefined,
         imageUrl,
         sizes,
-        sizeQuantities: filteredSizeQuantities,
+        sizeAvailability: filteredSizeAvailability,
         colors: selectedColors.length > 0 ? selectedColors : (formData.colors ? formData.colors.split(',').map((c) => c.trim()).filter((c) => c.length > 0) : []),
-        inStock: formData.inStock,
+        inStock: hasAvailableSize,
         category: formData.category,
       };
       await addProduct(newProduct);
@@ -168,23 +173,22 @@ export default function ProductsPage() {
       oldPrice: product.oldPrice?.toString() || '',
       imageUrl: product.imageUrl,
       colors: product.colors?.join(', ') || '',
-      inStock: product.inStock ?? true,
       category: product.category || 'bermuda',
     });
     // Initialize selectedColors from product
     setSelectedColors(product.colors || []);
-    // Initialize sizeQuantities from product
-    if (product.sizeQuantities) {
-      setSizeQuantities(product.sizeQuantities);
+    // Initialize sizeAvailability from product
+    if (product.sizeAvailability) {
+      setSizeAvailability(product.sizeAvailability);
     } else if (product.sizes) {
-      // Convert sizes array to sizeQuantities object with default quantity 0
-      const initialQuantities: Record<string, number> = {};
+      // Convert sizes array to sizeAvailability object with all sizes available by default
+      const initialAvailability: Record<string, boolean> = {};
       product.sizes.forEach((size) => {
-        initialQuantities[size] = 0;
+        initialAvailability[size] = true;
       });
-      setSizeQuantities(initialQuantities);
+      setSizeAvailability(initialAvailability);
     } else {
-      setSizeQuantities({});
+      setSizeAvailability({ M: true, L: true, XL: true, '2XL': true, '3XL': true, '4XL': true, '5XL': true });
     }
     setImageFile(null);
     setImagePreview(product.imageUrl);
@@ -229,20 +233,24 @@ export default function ProductsPage() {
         }
       }
 
-      // Validate that at least one size with quantity > 0 is provided
-      const validSizes = Object.entries(sizeQuantities).filter(([size, qty]) => size.trim() !== '' && qty > 0);
+      // Validate that at least one size is provided
+      const validSizes = Object.entries(sizeAvailability).filter(([size]) => size.trim() !== '');
       if (validSizes.length === 0) {
-        toast.error('Veuillez ajouter au moins une taille avec une quantité supérieure à 0');
+        toast.error('Veuillez ajouter au moins une taille');
         setIsUploading(false);
         return;
       }
 
-      // Convert sizeQuantities to sizes array and sizeQuantities object (only valid sizes)
-      const filteredSizeQuantities: Record<string, number> = {};
-      validSizes.forEach(([size, qty]) => {
-        filteredSizeQuantities[size.trim()] = qty;
+      // Convert sizeAvailability to sizes array and sizeAvailability object (only valid sizes)
+      const filteredSizeAvailability: Record<string, boolean> = {};
+      validSizes.forEach(([size, available]) => {
+        filteredSizeAvailability[size.trim()] = available;
       });
-      const sizes = Object.keys(filteredSizeQuantities);
+      const sizes = Object.keys(filteredSizeAvailability);
+      
+      // Check if at least one size is available, if not, mark product as out of stock
+      const hasAvailableSize = Object.values(filteredSizeAvailability).some(available => available === true);
+      
       await updateProduct(editingProduct.id, {
         title: formData.title,
         description: formData.description,
@@ -250,9 +258,9 @@ export default function ProductsPage() {
         oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : undefined,
         imageUrl,
         sizes,
-        sizeQuantities: filteredSizeQuantities,
+        sizeAvailability: filteredSizeAvailability,
         colors: selectedColors.length > 0 ? selectedColors : (formData.colors ? formData.colors.split(',').map((c) => c.trim()).filter((c) => c.length > 0) : []),
-        inStock: formData.inStock,
+        inStock: hasAvailableSize,
         category: formData.category,
       });
       resetForm();
@@ -282,10 +290,13 @@ export default function ProductsPage() {
       oldPrice: '',
       imageUrl: '',
       colors: '',
-      inStock: true,
       category: 'bermuda',
     });
-    setSizeQuantities({});
+    setSizeAvailability({ M: true, L: true, XL: true, '2XL': true, '3XL': true, '4XL': true, '5XL': true });
+    setEditingSizeValues({});
+    // Clear all timers
+    Object.values(sizeUpdateTimers.current).forEach(timer => clearTimeout(timer));
+    sizeUpdateTimers.current = {};
     setSelectedColors([]);
     setImageFile(null);
     setImagePreview(null);
@@ -441,14 +452,6 @@ export default function ProductsPage() {
                       </span>
                     </div>
                   )}
-                  {/* Quantity Counter Badge */}
-                  {product.sizeQuantities && Object.keys(product.sizeQuantities).length > 0 && (
-                    <div className="absolute top-2 right-2 bg-gradient-to-r from-cyan-400 to-cyan-700 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg z-10">
-                      <span className="text-xs font-bold" style={{ fontFamily: 'var(--font-poppins)' }}>
-                        {Object.values(product.sizeQuantities).reduce((sum, qty) => sum + (qty || 0), 0)}
-                      </span>
-                    </div>
-                  )}
                 </div>
                 <div className="p-2">
                   <h3 className="text-[11px] font-bold text-black dark:text-white mb-0.5 line-clamp-1" style={{ fontFamily: 'var(--font-fira-sans)' }}>
@@ -535,16 +538,23 @@ export default function ProductsPage() {
       {showAddForm && (
         <>
           {/* Overlay */}
-          <div
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             onClick={handleCancel}
             className="fixed inset-0 bg-black/50 z-[99]"
+            style={{ willChange: 'opacity' }}
           />
 
           {/* Sidebar */}
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
-            className="fixed top-0 right-0 h-full w-[98%] md:w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
+            exit={{ x: '100%' }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="fixed top-0 right-0 h-full w-[95%] max-w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col overflow-hidden"
+            style={{ touchAction: 'pan-y' }}
           >
               {/* Header */}
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -572,7 +582,7 @@ export default function ProductsPage() {
               </div>
 
               {/* Form */}
-              <div className="flex-1 overflow-y-auto p-4">
+              <div className="flex-1 overflow-y-auto p-4" style={{ WebkitOverflowScrolling: 'touch' }}>
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
@@ -693,45 +703,100 @@ export default function ProductsPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
-                      Tailles et quantités
+                      Tailles et disponibilité
                     </label>
                     <div className="space-y-2">
-                      {Object.entries(sizeQuantities).map(([size, quantity]) => (
+                      {Object.entries(sizeAvailability).map(([size, available]) => (
                         <div key={size} className="flex items-center gap-2">
                           <input
                             type="text"
-                            value={size}
+                            value={editingSizeValues[size] !== undefined ? editingSizeValues[size] : size}
                             maxLength={5}
                             onChange={(e) => {
-                              const newSizeQuantities = { ...sizeQuantities };
-                              delete newSizeQuantities[size];
-                              newSizeQuantities[e.target.value] = quantity;
-                              setSizeQuantities(newSizeQuantities);
+                              const newValue = e.target.value;
+                              
+                              // Update the editing value immediately for smooth typing
+                              setEditingSizeValues(prev => ({
+                                ...prev,
+                                [size]: newValue
+                              }));
+                              
+                              // Clear existing timer for this size
+                              if (sizeUpdateTimers.current[size]) {
+                                clearTimeout(sizeUpdateTimers.current[size]);
+                              }
+                              
+                              // Set new timer to update after 3 seconds of inactivity
+                              sizeUpdateTimers.current[size] = setTimeout(() => {
+                                const newSizeAvailability = { ...sizeAvailability };
+                                delete newSizeAvailability[size];
+                                newSizeAvailability[newValue] = available;
+                                setSizeAvailability(newSizeAvailability);
+                                
+                                // Clear the editing value
+                                setEditingSizeValues(prev => {
+                                  const updated = { ...prev };
+                                  delete updated[size];
+                                  return updated;
+                                });
+                                
+                                // Clear the timer reference
+                                delete sizeUpdateTimers.current[size];
+                              }, 3000);
+                            }}
+                            onBlur={(e) => {
+                              const newValue = e.target.value;
+                              
+                              // Clear timer on blur
+                              if (sizeUpdateTimers.current[size]) {
+                                clearTimeout(sizeUpdateTimers.current[size]);
+                                delete sizeUpdateTimers.current[size];
+                              }
+                              
+                              // Update immediately on blur
+                              if (newValue !== size) {
+                                const newSizeAvailability = { ...sizeAvailability };
+                                delete newSizeAvailability[size];
+                                newSizeAvailability[newValue] = available;
+                                setSizeAvailability(newSizeAvailability);
+                              }
+                              
+                              // Clear the editing value
+                              setEditingSizeValues(prev => {
+                                const updated = { ...prev };
+                                delete updated[size];
+                                return updated;
+                              });
                             }}
                             className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
                             style={{ fontFamily: 'var(--font-poppins)' }}
-                            placeholder="Taille (ex: S, M, L, XXXXL)"
+                            placeholder="Taille (ex: S, M, L, XL)"
                           />
-                          <input
-                            type="number"
-                            min="0"
-                            value={quantity}
-                            onChange={(e) => {
-                              setSizeQuantities({
-                                ...sizeQuantities,
-                                [size]: parseInt(e.target.value) || 0,
-                              });
-                            }}
-                            className="w-20 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-                            style={{ fontFamily: 'var(--font-poppins)' }}
-                            placeholder="Qté"
-                          />
+                          <div className="flex items-center gap-2">
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={available}
+                                onChange={(e) => {
+                                  setSizeAvailability({
+                                    ...sizeAvailability,
+                                    [size]: e.target.checked,
+                                  });
+                                }}
+                                className="sr-only peer"
+                              />
+                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+                              <span className="ms-2 text-xs font-medium text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>
+                                {available ? 'Disponible' : 'Rupture'}
+                              </span>
+                            </label>
+                          </div>
                           <button
                             type="button"
                             onClick={() => {
-                              const newSizeQuantities = { ...sizeQuantities };
-                              delete newSizeQuantities[size];
-                              setSizeQuantities(newSizeQuantities);
+                              const newSizeAvailability = { ...sizeAvailability };
+                              delete newSizeAvailability[size];
+                              setSizeAvailability(newSizeAvailability);
                             }}
                             className="px-2 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           >
@@ -751,9 +816,9 @@ export default function ProductsPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          setSizeQuantities({
-                            ...sizeQuantities,
-                            ['']: 0,
+                          setSizeAvailability({
+                            ...sizeAvailability,
+                            ['']: true,
                           });
                         }}
                         className="w-full px-3 py-2 text-sm border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
@@ -849,17 +914,11 @@ export default function ProductsPage() {
                       />
                     </details>
                   </div>
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="inStock"
-                      checked={formData.inStock}
-                      onChange={(e) => setFormData({ ...formData, inStock: e.target.checked })}
-                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                    />
-                    <label htmlFor="inStock" className="ml-2 text-xs text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>
-                      En stock
-                    </label>
+                  {/* Stock status info - read-only, automatically determined by size availability */}
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-xs text-blue-700 dark:text-blue-300 font-medium" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      💡 Le statut "En stock" est automatiquement déterminé : si au moins une taille est disponible, le produit est en stock.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1031,26 +1090,25 @@ export default function ProductsPage() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
               onClick={() => {
                 setShowProductDetails(false);
                 setSelectedProductForDetails(null);
                 setProductStats(null);
               }}
               className="fixed inset-0 bg-black/50 z-[100]"
+              style={{ willChange: 'opacity' }}
             />
 
             {/* Sidebar */}
             <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
-              transition={{
-                type: 'spring',
-                stiffness: 400,
-                damping: 35,
-                mass: 0.8,
-              }}
-              className="fixed top-0 right-0 h-full w-[98%] md:w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col"
+              exit={{ x: '100%' }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="fixed top-0 right-0 h-full w-[95%] max-w-[500px] bg-white dark:bg-gray-800 z-[100] shadow-2xl flex flex-col overflow-hidden"
+              style={{ touchAction: 'pan-y' }}
             >
               {/* Header */}
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -1073,7 +1131,7 @@ export default function ProductsPage() {
               </div>
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto p-4">
+              <div className="flex-1 overflow-y-auto p-4" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {selectedProductForDetails && (
                   <div className="space-y-4">
                     {/* Product Image */}
@@ -1124,20 +1182,20 @@ export default function ProductsPage() {
                         </span>
                       </div>
 
-                      {/* Sizes and Quantities */}
-                      {selectedProductForDetails.sizeQuantities && Object.keys(selectedProductForDetails.sizeQuantities).length > 0 && (
+                      {/* Sizes and Availability */}
+                      {selectedProductForDetails.sizeAvailability && Object.keys(selectedProductForDetails.sizeAvailability).length > 0 && (
                         <div className="mb-4">
                           <h4 className="text-sm font-semibold text-black dark:text-white mb-2" style={{ fontFamily: 'var(--font-ubuntu)' }}>
-                            Tailles et quantités :
+                            Tailles et disponibilité :
                           </h4>
                           <div className="grid grid-cols-3 gap-2">
-                            {Object.entries(selectedProductForDetails.sizeQuantities).map(([size, qty]) => (
-                              <div key={size} className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
+                            {Object.entries(selectedProductForDetails.sizeAvailability).map(([size, available]) => (
+                              <div key={size} className={`p-2 rounded-lg text-center ${available ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
                                 <div className="text-xs text-gray-600 dark:text-gray-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
                                   Taille {size}
                                 </div>
-                                <div className="text-sm font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
-                                  {qty} unités
+                                <div className={`text-sm font-bold ${available ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                                  {available ? 'Disponible' : 'Rupture'}
                                 </div>
                               </div>
                             ))}

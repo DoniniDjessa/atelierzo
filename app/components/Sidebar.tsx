@@ -98,9 +98,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
               onClick={onClose}
               className="fixed inset-0 bg-black/50 z-50"
+              style={{ willChange: 'opacity' }}
             />
 
             {/* Sidebar */}
@@ -109,12 +110,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{
-                type: 'spring',
-                stiffness: 400,
-                damping: 35,
-                mass: 0.8,
+                duration: 0.2,
+                ease: 'easeOut',
               }}
-              className="fixed top-0 left-0 h-full w-80 bg-white dark:bg-black z-50 shadow-2xl flex flex-col"
+              className="fixed top-0 left-0 h-full w-80 max-w-[95vw] bg-white dark:bg-black z-50 shadow-2xl flex flex-col overflow-hidden"
+              style={{ touchAction: 'pan-y' }}
             >
               {/* Header */}
               <div className="p-6 border-b border-gray-200 dark:border-gray-800">
@@ -177,7 +177,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               </div>
 
               {/* Main Navigation */}
-              <div className="flex-1 overflow-y-auto py-6">
+              <div className="flex-1 overflow-y-auto py-6" style={{ WebkitOverflowScrolling: 'touch' }}>
                 <nav className="space-y-1 px-6">
                   <button
                     onClick={() => handleNavigate('/')}

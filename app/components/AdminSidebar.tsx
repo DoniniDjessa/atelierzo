@@ -1,6 +1,8 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface AdminSidebarProps {
   isOpen: boolean;
@@ -23,15 +25,43 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
     onClose();
   };
 
-  if (!isOpen) return null;
+  // Prevent body scroll when sidebar is open on mobile
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
 
   return (
-    <div className="fixed inset-0 z-50 lg:static lg:z-auto lg:block">
-      {/* Overlay for mobile */}
-      <div className="fixed inset-0 bg-black/50 lg:hidden" onClick={onClose} />
+    <div className="lg:block lg:static">
+      <AnimatePresence mode="wait">
+        {isOpen && (
+          <>
+            {/* Overlay for mobile */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+              onClick={onClose}
+              style={{ willChange: 'opacity' }}
+            />
 
-      {/* Sidebar */}
-      <div className="fixed top-0 left-0 h-full w-64 bg-slate-800 dark:bg-slate-900 border-r border-slate-700 dark:border-slate-800 z-50 lg:static lg:z-auto overflow-y-auto">
+            {/* Sidebar */}
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="fixed top-0 left-0 h-full w-64 max-w-[95vw] bg-slate-800 dark:bg-slate-900 border-r border-slate-700 dark:border-slate-800 z-50 overflow-y-auto lg:static lg:z-auto"
+              style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
+            >
         <div className="p-4">
           <div className="mb-8">
             <h2
@@ -63,7 +93,10 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
             })}
           </nav>
         </div>
-      </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

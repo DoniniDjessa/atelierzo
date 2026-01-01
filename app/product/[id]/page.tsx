@@ -214,7 +214,9 @@ export default function ProductDetailPage() {
                   Tailles {selectedSizes.length > 0 && <span className="text-gray-500">({selectedSizes.join(', ')})</span>}
                 </label>
                 <div className="flex flex-wrap gap-4">
-                  {product.sizes.map((size) => {
+                  {product.sizes
+                    .filter(size => !product.sizeAvailability || product.sizeAvailability[size] !== false)
+                    .map((size) => {
                     const isSelected = selectedSizes.includes(size);
                     const qty = quantities[size] || 0;
                     
