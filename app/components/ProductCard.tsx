@@ -53,7 +53,7 @@ export default function ProductCard({
       onClick={onClick}
     >
       {/* Product Image - Square on mobile, larger on desktop */}
-      <div className="relative w-full aspect-square sm:flex-1 sm:min-h-[320px] bg-gray-100 dark:bg-gray-700 rounded-t-xl sm:rounded-t-2xl overflow-hidden">
+      <div className="relative w-full aspect-square sm:flex-1 sm:min-h-80 bg-gray-100 dark:bg-gray-700 rounded-t-xl sm:rounded-t-2xl overflow-hidden">
         <Image
           src={imageUrl}
           alt={title}
@@ -98,7 +98,7 @@ export default function ProductCard({
       </button>
 
       {/* Content Section */}
-      <div className="p-3.5 sm:p-4 flex flex-col flex-shrink-0">
+      <div className="p-3.5 sm:p-4 flex flex-col shrink-0">
         {/* Product Title */}
       <h3
         className="text-sm sm:text-base font-bold text-black dark:text-white mb-2 sm:mb-3 line-clamp-1"
@@ -152,22 +152,18 @@ export default function ProductCard({
           </span>
         </div>
 
-        {/* Add to Cart / Pre-order Button */}
-        {!hideAddToCart && (
+        {/* Add to Cart Button */}
+        {!hideAddToCart && !isOutOfStock && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               onAddToCart?.();
             }}
-            className={`w-full mt-2 sm:mt-3 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg flex items-center justify-center gap-1 sm:gap-1.5 transition-all transform hover:scale-105 active:scale-95 ${
-              isOutOfStock
-                ? 'bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600'
-                : 'bg-gradient-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800'
-            }`}
+            className="w-full mt-2 sm:mt-3 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg flex items-center justify-center gap-1 sm:gap-1.5 transition-all transform hover:scale-105 active:scale-95 bg-linear-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800"
             style={{ fontFamily: 'var(--font-poppins)' }}
           >
             <span className="text-[10px] sm:text-xs font-medium">
-              {isOutOfStock ? 'Précommander' : 'Ajouter au panier'}
+              Ajouter au panier
             </span>
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -183,37 +179,6 @@ export default function ProductCard({
         )}
       </div>
       </div>
-
-      {/* Out of Stock Gradient Button with Pre-order */}
-      {isOutOfStock && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (productId) {
-              window.location.href = `/preorder/${productId}`;
-            } else {
-              onClick?.();
-            }
-          }}
-          className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-cyan-400 to-cyan-700 p-3 sm:p-4 rounded-b-xl sm:rounded-b-2xl z-20 cursor-pointer hover:from-cyan-500 hover:to-cyan-800 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-white text-xs sm:text-sm font-semibold" style={{ fontFamily: 'var(--font-poppins)' }}>
-              Précommander
-            </span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </div>
-        </button>
-      )}
     </div>
   );
 }
