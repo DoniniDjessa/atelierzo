@@ -368,7 +368,7 @@ export default function ProductDetailPage() {
                     className="text-xs text-gray-600 dark:text-gray-400"
                     style={{ fontFamily: 'var(--font-poppins)' }}
                   >
-                    Livraison gratuite à partir de 50 000 FCFA
+                    Livraison sous sous 1-3 jours
                   </p>
                 </div>
                 <div>
@@ -382,7 +382,7 @@ export default function ProductDetailPage() {
                     className="text-xs text-gray-600 dark:text-gray-400"
                     style={{ fontFamily: 'var(--font-poppins)' }}
                   >
-                    Retour gratuit sous 14 jours
+                  ne vous inquiétez pas si vous ne trouvez pas un produit en stock, Il y'aura de nouveaux stocks bientôt !
                   </p>
                 </div>
               </div>
