@@ -6,8 +6,9 @@ import { toast } from 'sonner';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import AdminNavbar from '@/app/components/AdminNavbar';
-import { getAllOrders, updateOrderStatus, getOrderById, Order } from '@/app/lib/supabase/orders';
+import { getAllOrders, updateOrderStatus, getOrderById, deleteOrder, Order } from '@/app/lib/supabase/orders';
 import { getAllPreorders, updatePreorderStatus, Preorder } from '@/app/lib/supabase/preorders';
+import { updateProduct } from '@/app/lib/supabase/products';
 import { useProducts } from '@/app/contexts/ProductContext';
 import { getUserById } from '@/app/lib/supabase/users';
 import { getColorName } from '@/app/lib/utils/colors';
@@ -140,19 +141,25 @@ export default function OrdersPage() {
     if (newStatus === 'cancelled' && previousStatus !== 'cancelled') {
       const { data: orderWithItems } = await getOrderById(orderId, true);
       if (orderWithItems?.items) {
-        orderWithItems.items.forEach((item) => {
-          const product = getProductById(item.product_id);
-          if (product && product.sizeQuantities && item.size) {
-            // Restore quantities for the size
-            const currentQty = product.sizeQuantities[item.size] || 0;
-            updateProduct(item.product_id, {
-              sizeQuantities: {
+        for (const item of orderWithItems.items) {
+          try {
+            const product = getProductById(item.product_id);
+            if (product && product.sizeQuantities && item.size) {
+              // Restore quantities for the size in the database
+              const currentQty = product.sizeQuantities[item.size] || 0;
+              const updatedSizeQuantities = {
                 ...product.sizeQuantities,
                 [item.size]: currentQty + item.quantity,
-              },
-            });
+              };
+              
+              await updateProduct(item.product_id, {
+                sizeQuantities: updatedSizeQuantities,
+              });
+            }
+          } catch (error) {
+            console.error(`Error restoring quantity for product ${item.product_id}:`, error);
           }
-        });
+        }
       }
     }
 
@@ -162,6 +169,23 @@ export default function OrdersPage() {
     } else {
       toast.success(`Statut de la commande mis à jour: ${STATUS_LABELS[newStatus]}`);
       fetchOrders(); // Refresh orders
+    }
+  };
+
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette commande ?')) return;
+
+    try {
+      const { error } = await deleteOrder(orderId);
+      if (error) {
+        toast.error(`Erreur: ${error}`);
+      } else {
+        toast.success('Commande supprimée avec succès');
+        fetchOrders(); // Refresh orders
+      }
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      toast.error('Erreur lors de la suppression');
     }
   };
 
@@ -548,13 +572,29 @@ export default function OrdersPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleViewOrderDetails(order.id)}
-                          className="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
-                          style={{ fontFamily: 'var(--font-poppins)' }}
-                        >
-                          Détails
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleViewOrderDetails(order.id)}
+                            className="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                            style={{ fontFamily: 'var(--font-poppins)' }}
+                          >
+                            Détails
+                          </button>
+                          {order.status === 'cancelled' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteOrder(order.id);
+                              }}
+                              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              title="Supprimer"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
