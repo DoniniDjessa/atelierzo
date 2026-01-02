@@ -28,27 +28,30 @@ export default function ReceiptModal({ isOpen, onClose, orderData }: ReceiptModa
   const receiptRef = useRef<HTMLDivElement>(null);
 
   const handleDownload = async () => {
-    if (!receiptRef.current) return;
+    if (!receiptRef.current) {
+      console.error('Receipt element not found');
+      return;
+    }
 
     try {
       const canvas = await html2canvas(receiptRef.current, {
-        scale: 3,
+        scale: 2,
         backgroundColor: '#ffffff',
         logging: false,
         useCORS: true,
-        allowTaint: true,
-        ignoreElements: (element) => {
-          // Ignore elements that might cause color parsing issues
-          return false;
-        },
+        allowTaint: false,
       });
 
+      const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
-      link.download = `recu-${orderData.id}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.download = `recu-${orderData.id.substring(0, 8)}.png`;
+      link.href = dataUrl;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     } catch (error) {
       console.error('Error generating receipt:', error);
+      alert('Erreur lors de la génération du reçu. Veuillez réessayer.');
     }
   };
 

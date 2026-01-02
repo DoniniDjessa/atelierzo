@@ -65,24 +65,32 @@ export default function OrderDetailsPage() {
 
   const handleDownloadReceipt = async () => {
     const element = document.getElementById('order-receipt');
-    if (!element || !order) return;
+    if (!element || !order) {
+      toast.error('Impossible de trouver le reçu');
+      return;
+    }
 
     try {
+      toast.info('Génération du reçu en cours...');
       const canvas = await html2canvas(element, {
         backgroundColor: '#ffffff',
         scale: 2,
-        useCORS: true, // Important for images
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
       });
       
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.href = dataUrl;
       link.download = `recu-commande-${order.id.substring(0, 8)}.png`;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
       toast.success('Reçu téléchargé avec succès');
     } catch (error) {
       console.error('Error generating receipt:', error);
-      toast.error('Erreur lors de la génération du reçu');
+      toast.error(`Erreur lors de la génération du reçu: ${error}`);
     }
   };
 

@@ -943,6 +943,24 @@ export default function OrdersPage() {
                       {getStatusCount('delivered')}
                     </span>
                   </button>
+                  <button
+                    onClick={() => setStatusFilter('cancelled')}
+                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium flex items-center gap-1.5 ${
+                      statusFilter === 'cancelled'
+                        ? 'bg-red-500 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    Annulés
+                    <span className={`px-1.5 py-0.5 text-xs rounded-full ${
+                      statusFilter === 'cancelled'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                    }`}>
+                      {getStatusCount('cancelled')}
+                    </span>
+                  </button>
                   {/* Duplicates Filter Button */}
                   <button
                     onClick={() => setShowDuplicatesOnly(!showDuplicatesOnly)}

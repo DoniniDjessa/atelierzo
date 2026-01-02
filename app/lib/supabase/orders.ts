@@ -52,6 +52,40 @@ export interface CreateOrderInput {
  */
 export async function createOrder(input: CreateOrderInput): Promise<{ data: Order | null; error: string | null }> {
   try {
+    // Validate stock availability before creating order
+    for (const item of input.items) {
+      const { data: product, error: productError } = await supabase
+        .from('zo-products')
+        .select('sizes, title')
+        .eq('id', item.product_id)
+        .single();
+
+      if (productError || !product) {
+        console.error(`Error fetching product ${item.product_id}:`, productError);
+        return { data: null, error: 'Erreur lors de la vérification du stock' };
+      }
+
+      if (product.sizes && typeof product.sizes === 'object' && !Array.isArray(product.sizes)) {
+        const sizes = product.sizes as Record<string, number>;
+        const availableQty = sizes[item.size] || 0;
+        
+        if (availableQty < item.quantity) {
+          const productTitle = product.title || 'Ce produit';
+          if (availableQty === 0) {
+            return { 
+              data: null, 
+              error: `${productTitle} (taille ${item.size}) n'est plus disponible en stock. Veuillez retirer cet article de votre panier.` 
+            };
+          } else {
+            return { 
+              data: null, 
+              error: `${productTitle} (taille ${item.size}) n'a plus que ${availableQty} article(s) en stock au lieu de ${item.quantity}. Veuillez ajuster votre panier.` 
+            };
+          }
+        }
+      }
+    }
+
     // Calculate total amount
     const totalAmount = input.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
