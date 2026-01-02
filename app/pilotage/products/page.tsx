@@ -805,7 +805,6 @@ export default function ProductsPage() {
                                   <div className="flex items-center gap-1">
                                     <input
                                       type="number"
-                                      min="0"
                                       value={incrementAmounts[size] || ''}
                                       onChange={(e) => {
                                         setIncrementAmounts({
@@ -813,29 +812,35 @@ export default function ProductsPage() {
                                           [size]: e.target.value,
                                         });
                                       }}
-                                      placeholder="Ajouter"
-                                      className="w-24 px-2 py-1 text-sm text-center border border-green-500 dark:border-green-600 rounded focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                                      placeholder="+10 ou -5"
+                                      className="w-24 px-2 py-1 text-sm text-center border border-gray-500 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
                                       style={{ fontFamily: 'var(--font-poppins)' }}
                                     />
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        const addAmount = parseInt(incrementAmounts[size] || '0');
-                                        if (addAmount > 0) {
+                                        const adjustAmount = parseInt(incrementAmounts[size] || '0');
+                                        if (adjustAmount !== 0) {
                                           const currentQty = sizeQuantities[size] || 0;
+                                          const newQty = Math.max(0, currentQty + adjustAmount);
                                           setSizeQuantities({
                                             ...sizeQuantities,
-                                            [size]: currentQty + addAmount,
+                                            [size]: newQty,
                                           });
                                           setIncrementAmounts({
                                             ...incrementAmounts,
                                             [size]: '',
                                           });
-                                          toast.success(`+${addAmount} ajouté à ${size}`);
+                                          if (adjustAmount > 0) {
+                                            toast.success(`+${adjustAmount} ajouté à ${size}`);
+                                          } else {
+                                            const actualDecrease = Math.min(currentQty, Math.abs(adjustAmount));
+                                            toast.success(`-${actualDecrease} retiré de ${size}`);
+                                          }
                                         }
                                       }}
-                                      className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors font-medium"
-                                      title="Ajouter au stock"
+                                      className="px-3 py-1 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors font-medium"
+                                      title="Ajuster le stock (+ pour ajouter, - pour retirer)"
                                     >
                                       OK
                                     </button>

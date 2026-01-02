@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import AdminNavbar from '@/app/components/AdminNavbar';
-import { getAllOrders, getPaginatedOrders, getOrdersCountByStatus, updateOrderStatus, getOrderById, deleteOrder, Order } from '@/app/lib/supabase/orders';
+import { getAllOrders, getPaginatedOrders, getOrdersCountByStatus, updateOrderStatus, getOrderById, deleteOrder, deleteDuplicateOrder, Order } from '@/app/lib/supabase/orders';
 import { getAllPreorders, updatePreorderStatus, Preorder } from '@/app/lib/supabase/preorders';
 import { updateProduct } from '@/app/lib/supabase/products';
 import { useProducts } from '@/app/contexts/ProductContext';
@@ -45,7 +45,7 @@ export default function OrdersPage() {
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [preorders, setPreorders] = useState<Preorder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'orders' | 'preorders' | 'detailed'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'preorders' | 'detailed' | 'tailles'>('orders');
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<string | null>(null);
   const [searchSuggestions, setSearchSuggestions] = useState<Array<{id: string; title: string}>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -71,6 +71,8 @@ export default function OrdersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [preorderCurrentPage, setPreorderCurrentPage] = useState(1);
   const [detailedCurrentPage, setDetailedCurrentPage] = useState(1);
+  const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
+  const [duplicateOrderIds, setDuplicateOrderIds] = useState<Set<string>>(new Set());
   const ITEMS_PER_PAGE = 13;
   const DETAILED_ITEMS_PER_PAGE = 20;
 
@@ -88,28 +90,28 @@ export default function OrdersPage() {
     if (isAuthenticated) {
       fetchOrders();
     }
-  }, [currentPage, statusFilter, searchQuery, dateFilterType, selectedDate, dateRangeStart, dateRangeEnd, amountSort]);
+  }, [currentPage, statusFilter, searchQuery, dateFilterType, selectedDate, dateRangeStart, dateRangeEnd, amountSort, showDuplicatesOnly]);
 
-  // Refetch status counts when any filter changes (but not for product searches)
+  // Refetch status counts when any filter changes (but not for client-side searches or duplicates filter)
   useEffect(() => {
     if (isAuthenticated) {
-      // Check if search query might be a product name
-      const isProductSearch = searchQuery && 
+      // Check if search query might be a product name or client name
+      const isClientSideSearch = searchQuery && 
         searchQuery.trim() !== '' && 
         !searchQuery.match(/^[0-9+\-\s()]+$/) && // Not a phone number
         !searchQuery.match(/^[0-9a-f\-]+$/i); // Not an ID
       
-      // Only fetch status counts from server if not doing a product search
-      // (product search calculates counts client-side in fetchOrders)
-      if (!isProductSearch) {
+      // Only fetch status counts from server if not doing a client-side search or showing duplicates
+      // (client-side search and duplicates filter calculate counts client-side in fetchOrders)
+      if (!isClientSideSearch && !showDuplicatesOnly) {
         fetchStatusCounts();
       }
     }
-  }, [dateFilterType, selectedDate, dateRangeStart, dateRangeEnd, searchQuery, isAuthenticated]);
+  }, [dateFilterType, selectedDate, dateRangeStart, dateRangeEnd, searchQuery, isAuthenticated, showDuplicatesOnly]);
 
-  // Fetch all orders when switching to detailed tab
+  // Fetch all orders when switching to detailed tab or tailles tab
   useEffect(() => {
-    if (isAuthenticated && activeTab === 'detailed') {
+    if (isAuthenticated && (activeTab === 'detailed' || activeTab === 'tailles')) {
       fetchAllOrdersForDetailed();
     }
   }, [activeTab, isAuthenticated]);
@@ -119,24 +121,88 @@ export default function OrdersPage() {
     setDetailedCurrentPage(1);
   }, [selectedProductForDetails]);
 
+  // Detect duplicate orders based on: same client, same items, created within 3 minutes
+  const detectDuplicates = (ordersList: Order[]) => {
+    const duplicateIds = new Set<string>();
+    const THREE_MINUTES = 3 * 60 * 1000; // 3 minutes in milliseconds
+    
+    for (let i = 0; i < ordersList.length; i++) {
+      for (let j = i + 1; j < ordersList.length; j++) {
+        const order1 = ordersList[i];
+        const order2 = ordersList[j];
+        
+        // Check if same user
+        if (order1.user_id !== order2.user_id) continue;
+        
+        // Check if within 3 minutes
+        const time1 = new Date(order1.created_at).getTime();
+        const time2 = new Date(order2.created_at).getTime();
+        const timeDiff = Math.abs(time1 - time2);
+        if (timeDiff > THREE_MINUTES) continue;
+        
+        // Check if same total amount (quick check before comparing items)
+        if (order1.total_amount !== order2.total_amount) continue;
+        
+        // Check if same items (product_id, size, quantity)
+        if (order1.items && order2.items) {
+          const items1 = [...order1.items].sort((a, b) => 
+            `${a.product_id}-${a.size}-${a.quantity}`.localeCompare(`${b.product_id}-${b.size}-${b.quantity}`)
+          );
+          const items2 = [...order2.items].sort((a, b) => 
+            `${a.product_id}-${a.size}-${a.quantity}`.localeCompare(`${b.product_id}-${b.size}-${b.quantity}`)
+          );
+          
+          if (items1.length === items2.length) {
+            const itemsMatch = items1.every((item1, idx) => {
+              const item2 = items2[idx];
+              return item1.product_id === item2.product_id &&
+                     item1.size === item2.size &&
+                     item1.quantity === item2.quantity;
+            });
+            
+            if (itemsMatch) {
+              // Mark both as duplicates
+              duplicateIds.add(order1.id);
+              duplicateIds.add(order2.id);
+            }
+          }
+        }
+      }
+    }
+    
+    setDuplicateOrderIds(duplicateIds);
+  };
+
   const fetchOrders = async () => {
     setLoading(true);
     
-    // Check if search query might be a product name (not a phone, ID, or pickup number)
-    const isProductSearch = searchQuery && 
+    // Check if search query might be a product name or client name (not a phone, ID, or pickup number)
+    const isClientSideSearch = searchQuery && 
       searchQuery.trim() !== '' && 
       !searchQuery.match(/^[0-9+\-\s()]+$/) && // Not a phone number
       !searchQuery.match(/^[0-9a-f\-]+$/i); // Not an ID
     
-    // If searching by product, fetch all orders and filter client-side
-    if (isProductSearch) {
+    // If searching by product/client name OR showing duplicates only, fetch all orders and filter client-side
+    if (isClientSideSearch || showDuplicatesOnly) {
       const { data: allOrdersData, error } = await getAllOrders();
       if (error) {
         console.error('Error fetching orders:', error);
         setOrders([]);
         setTotalOrders(0);
       } else {
-        // Filter by product name client-side
+        // Fetch all client names first for filtering
+        const allClientNames: Record<string, string> = {};
+        const uniqueUserIds = [...new Set(allOrdersData?.map(o => o.user_id).filter(Boolean))];
+        for (const userId of uniqueUserIds) {
+          if (userId && !allClientNames[userId]) {
+            const { data: user } = await getUserById(userId);
+            if (user) {
+              allClientNames[userId] = user.name || user.phone;
+            }
+          }
+        }
+        
+        // Filter by product name or client name client-side
         const search = searchQuery.toLowerCase();
         let filtered = (allOrdersData || []).filter(order => {
           // Apply status filter
@@ -156,11 +222,72 @@ export default function OrdersPage() {
             if (orderDate < startDate || orderDate > endDate) return false;
           }
           
-          // Check if any item matches the search
-          return order.items && order.items.some(item => 
-            item.title.toLowerCase().includes(search)
-          );
+          // Check if any item matches the search OR client name matches (only if doing client-side search)
+          if (isClientSideSearch) {
+            const clientName = order.user_id ? allClientNames[order.user_id] : '';
+            const matchesClientName = clientName && clientName.toLowerCase().includes(search);
+            const matchesProduct = order.items && order.items.some(item => 
+              item.title.toLowerCase().includes(search)
+            );
+            return matchesClientName || matchesProduct;
+          }
+          
+          return true; // If not client-side search, keep the order (other filters already applied)
         });
+        
+        // Detect duplicates first (need to do this before filtering by duplicates)
+        detectDuplicates(filtered);
+        
+        // Apply duplicates filter if active
+        if (showDuplicatesOnly) {
+          // Wait for duplicateOrderIds to be set, then filter
+          // We'll filter after detection in the next render, so let's just store all filtered for now
+          // Actually, we need to filter synchronously, so let's detect inline
+          const duplicateIds = new Set<string>();
+          const THREE_MINUTES = 3 * 60 * 1000;
+          
+          for (let i = 0; i < filtered.length; i++) {
+            for (let j = i + 1; j < filtered.length; j++) {
+              const order1 = filtered[i];
+              const order2 = filtered[j];
+              
+              if (order1.user_id !== order2.user_id) continue;
+              
+              const time1 = new Date(order1.created_at).getTime();
+              const time2 = new Date(order2.created_at).getTime();
+              const timeDiff = Math.abs(time1 - time2);
+              if (timeDiff > THREE_MINUTES) continue;
+              
+              if (order1.total_amount !== order2.total_amount) continue;
+              
+              if (order1.items && order2.items) {
+                const items1 = [...order1.items].sort((a, b) => 
+                  `${a.product_id}-${a.size}-${a.quantity}`.localeCompare(`${b.product_id}-${b.size}-${b.quantity}`)
+                );
+                const items2 = [...order2.items].sort((a, b) => 
+                  `${a.product_id}-${a.size}-${a.quantity}`.localeCompare(`${b.product_id}-${b.size}-${b.quantity}`)
+                );
+                
+                if (items1.length === items2.length) {
+                  const itemsMatch = items1.every((item1, idx) => {
+                    const item2 = items2[idx];
+                    return item1.product_id === item2.product_id &&
+                           item1.size === item2.size &&
+                           item1.quantity === item2.quantity;
+                  });
+                  
+                  if (itemsMatch) {
+                    duplicateIds.add(order1.id);
+                    duplicateIds.add(order2.id);
+                  }
+                }
+              }
+            }
+          }
+          
+          setDuplicateOrderIds(duplicateIds);
+          filtered = filtered.filter(order => duplicateIds.has(order.id));
+        }
         
         // Apply sorting
         if (amountSort === 'high-to-low') {
@@ -194,17 +321,20 @@ export default function OrdersPage() {
         });
         setStatusCounts(counts);
         
-        // Fetch client names
+        // Fetch client names for paginated orders (we already have all names from above)
         const names: Record<string, string> = {};
         for (const order of paginated) {
-          if (order.user_id && !names[order.user_id]) {
-            const { data: user } = await getUserById(order.user_id);
-            if (user) {
-              names[order.user_id] = user.name || user.phone;
-            }
+          if (order.user_id) {
+            names[order.user_id] = allClientNames[order.user_id] || order.shipping_phone || 'N/A';
           }
         }
         setClientNames(names);
+        
+        // Detect duplicates in all filtered orders (not just paginated) - but only if not showing duplicates only
+        // (if showing duplicates only, we already detected them inline above)
+        if (!showDuplicatesOnly) {
+          detectDuplicates(filtered);
+        }
       }
     } else {
       // Use server-side pagination for non-product searches
@@ -236,6 +366,13 @@ export default function OrdersPage() {
             }
           }
           setClientNames(names);
+          
+          // Detect duplicates in server-side data
+          // Need to fetch all orders to properly detect duplicates
+          const { data: allOrdersData } = await getAllOrders();
+          if (allOrdersData) {
+            detectDuplicates(allOrdersData);
+          }
         }
       }
     }
@@ -388,6 +525,29 @@ export default function OrdersPage() {
     }
   };
 
+  const handleDeleteDuplicateOrder = async (orderId: string) => {
+    if (!confirm('⚠️ SUPPRIMER CE DOUBLON?\n\nCette action va:\n✓ Marquer la commande comme supprimée\n✓ Exclure le montant des statistiques\n✗ NE PAS restaurer les quantités en stock\n\nUtilisez cette option uniquement pour les doublons créés par erreur.')) return;
+
+    try {
+      const { error } = await deleteDuplicateOrder(orderId);
+      if (error) {
+        toast.error(`Erreur: ${error}`);
+      } else {
+        toast.success('Doublon supprimé avec succès (stock non modifié)');
+        // Refresh orders to reflect the change
+        fetchOrders();
+        // Close sidebar if this order was selected
+        if (selectedOrder?.id === orderId) {
+          setShowOrderSidebar(false);
+          setSelectedOrder(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting duplicate order:', error);
+      toast.error('Erreur lors de la suppression du doublon');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('fr-FR', {
       year: 'numeric',
@@ -399,10 +559,11 @@ export default function OrdersPage() {
   };
 
   // Filter orders by status, search query, and date (now filtering on current page only)
-  // Since we moved filtering to server-side (or client-side for product searches), we can use orders directly
+  // Since we moved filtering to server-side (or client-side for product searches and duplicates), we can use orders directly
+  // No need to filter again here - filtering is done in fetchOrders()
   const filteredOrders = orders;
 
-  // No need to sort here since it's done server-side
+  // No need to sort here since it's done server-side or in fetchOrders
   const sortedOrders = filteredOrders;
 
   // Get status count from fetched counts
@@ -436,7 +597,7 @@ export default function OrdersPage() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, searchQuery, dateFilterType, selectedDate, dateRangeStart, dateRangeEnd, amountSort]);
+  }, [statusFilter, searchQuery, dateFilterType, selectedDate, dateRangeStart, dateRangeEnd, amountSort, showDuplicatesOnly]);
 
   useEffect(() => {
     setPreorderCurrentPage(1);
@@ -597,6 +758,17 @@ export default function OrdersPage() {
               Commandes détaillées
             </button>
             <button
+              onClick={() => setActiveTab('tailles')}
+              className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 ${
+                activeTab === 'tailles'
+                  ? 'border-black dark:border-white text-black dark:text-white'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+              style={{ fontFamily: 'var(--font-poppins)' }}
+            >
+              Tailles
+            </button>
+            <button
               onClick={() => setActiveTab('preorders')}
               className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 ${
                 activeTab === 'preorders'
@@ -612,20 +784,22 @@ export default function OrdersPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-xl font-bold text-black dark:text-white mb-1" style={{ fontFamily: 'var(--font-ubuntu)' }}>
-                {activeTab === 'orders' ? 'Commandes' : activeTab === 'detailed' ? 'Commandes détaillées' : 'Précommandes'}
+                {activeTab === 'orders' ? 'Commandes' : activeTab === 'detailed' ? 'Commandes détaillées' : activeTab === 'tailles' ? 'Tailles par produit' : 'Précommandes'}
               </h1>
               <p className="text-xs text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
                 {activeTab === 'orders'
                   ? `${totalOrders} commande(s) ${statusFilter !== 'all' ? `(${STATUS_LABELS[statusFilter]})` : ''}`
                   : activeTab === 'detailed'
                   ? 'Cliquez sur un produit pour voir toutes ses commandes'
+                  : activeTab === 'tailles'
+                  ? 'Quantités commandées par taille pour chaque produit'
                   : `Page ${preorderCurrentPage} : ${filteredPreorders.length} précommande(s) ${preorderStatusFilter !== 'all' ? `(${PREORDER_STATUS_LABELS[preorderStatusFilter]})` : ''}`}
               </p>
             </div>
           </div>
 
           {/* Search and Filters */}
-          {activeTab !== 'detailed' && (
+          {activeTab !== 'detailed' && activeTab !== 'tailles' && (
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
             {/* Search Bar */}
             <div className="flex-1 relative">
@@ -635,7 +809,7 @@ export default function OrdersPage() {
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => searchQuery.trim().length > 0 && setShowSuggestions(searchSuggestions.length > 0)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                placeholder={activeTab === 'orders' ? 'Rechercher par ID, téléphone, produit...' : 'Rechercher par ID, produit, taille...'}
+                placeholder={activeTab === 'orders' ? 'Rechercher par client, téléphone, produit...' : 'Rechercher par ID, produit, taille...'}
                 className="w-full px-4 py-2 pl-10 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
                 style={{ fontFamily: 'var(--font-poppins)' }}
               />
@@ -757,6 +931,29 @@ export default function OrdersPage() {
                         : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
                     }`}>
                       {getStatusCount('delivered')}
+                    </span>
+                  </button>
+                  {/* Duplicates Filter Button */}
+                  <button
+                    onClick={() => setShowDuplicatesOnly(!showDuplicatesOnly)}
+                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium flex items-center gap-1.5 ${
+                      showDuplicatesOnly
+                        ? 'bg-red-500 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                    title="Afficher uniquement les commandes en doublon (même client, même commande, ≤ 3 min)"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Doublons
+                    <span className={`px-1.5 py-0.5 text-xs rounded-full ${
+                      showDuplicatesOnly
+                        ? 'bg-white/20 text-white'
+                        : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                    }`}>
+                      {duplicateOrderIds.size}
                     </span>
                   </button>
                 </>
@@ -952,6 +1149,36 @@ export default function OrdersPage() {
           )}
         </div>
 
+        {/* Duplicates Filter Info Banner */}
+        {activeTab === 'orders' && showDuplicatesOnly && (
+          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-start gap-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-red-800 dark:text-red-300 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                  Affichage des commandes en doublon
+                </h4>
+                <p className="text-xs text-red-700 dark:text-red-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                  Les commandes affichées ci-dessous sont considérées comme des doublons car elles ont :
+                  <span className="font-medium"> le même client, les mêmes articles commandés et ont été créées dans un intervalle de 3 minutes maximum</span>.
+                  Les lignes en rouge peuvent être supprimées en utilisant le bouton orange "Doublon" pour éviter de restaurer le stock.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowDuplicatesOnly(false)}
+                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                title="Fermer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="overflow-hidden">
           {loading ? (
             <div className="p-12 text-center">
@@ -999,29 +1226,47 @@ export default function OrdersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {paginatedOrders.map((order) => (
-                    <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                  {paginatedOrders.map((order) => {
+                    const isDuplicate = duplicateOrderIds.has(order.id);
+                    return (
+                    <tr 
+                      key={order.id} 
+                      className={`transition-colors ${
+                        isDuplicate 
+                          ? 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 border-l-4 border-red-500'
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                    >
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <button
-                          onClick={() => order.user_id && handleViewClientDetails(order.user_id)}
-                          className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer text-left"
-                          style={{ fontFamily: 'var(--font-poppins)' }}
-                        >
-                          {clientNames[order.user_id] || order.shipping_phone || 'N/A'}
-                        </button>
-                        {order.shipping_phone && (
-                          <a 
-                            href={`tel:${order.shipping_phone}`}
-                            className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5 hover:underline flex items-center gap-1" 
-                            style={{ fontFamily: 'var(--font-poppins)' }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                        <div className="flex items-center gap-2">
+                          {isDuplicate && (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" title="Commande en doublon">
+                              <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" />
                             </svg>
-                            {order.shipping_phone}
-                          </a>
-                        )}
+                          )}
+                          <div>
+                            <button
+                              onClick={() => order.user_id && handleViewClientDetails(order.user_id)}
+                              className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer text-left"
+                              style={{ fontFamily: 'var(--font-poppins)' }}
+                            >
+                              {clientNames[order.user_id] || order.shipping_phone || 'N/A'}
+                            </button>
+                            {order.shipping_phone && (
+                              <a 
+                                href={`tel:${order.shipping_phone}`}
+                                className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5 hover:underline flex items-center gap-1" 
+                                style={{ fontFamily: 'var(--font-poppins)' }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                                </svg>
+                                {order.shipping_phone}
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-poppins)' }}>
@@ -1100,6 +1345,19 @@ export default function OrdersPage() {
                           >
                             Détails
                           </button>
+                          {/* Duplicate deletion button - for orders created by mistake */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteDuplicateOrder(order.id);
+                            }}
+                            className="p-1.5 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
+                            title="Supprimer doublon (sans restaurer le stock)"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
                           {order.status === 'cancelled' && (
                             <button
                               onClick={(e) => {
@@ -1117,7 +1375,8 @@ export default function OrdersPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1333,6 +1592,101 @@ export default function OrdersPage() {
                     )}
                   </>
                 );
+              })()}
+            </div>
+          ) : activeTab === 'tailles' ? (
+            // Tailles view - Show size quantities by product
+            <div className="space-y-4">
+              {(() => {
+                // Use allOrders if available, otherwise use orders
+                const ordersToUse = allOrders.length > 0 ? allOrders : orders;
+                
+                // Group by product and aggregate sizes
+                const productSizes: { 
+                  [productId: string]: { 
+                    product: any; 
+                    sizes: { [size: string]: number };
+                    totalQuantity: number;
+                  } 
+                } = {};
+                
+                ordersToUse.forEach(order => {
+                  if (order.status !== 'cancelled' && order.items) {
+                    order.items.forEach(item => {
+                      const product = getProductById(item.product_id);
+                      if (product) {
+                        if (!productSizes[item.product_id]) {
+                          productSizes[item.product_id] = {
+                            product,
+                            sizes: {},
+                            totalQuantity: 0
+                          };
+                        }
+                        productSizes[item.product_id].sizes[item.size] = 
+                          (productSizes[item.product_id].sizes[item.size] || 0) + item.quantity;
+                        productSizes[item.product_id].totalQuantity += item.quantity;
+                      }
+                    });
+                  }
+                });
+
+                return Object.entries(productSizes)
+                  .sort((a, b) => b[1].totalQuantity - a[1].totalQuantity) // Sort by total quantity descending
+                  .map(([productId, data]) => (
+                    <div 
+                      key={productId} 
+                      className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                            {data.product.title}
+                          </h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            Total commandé: {data.totalQuantity} unité(s)
+                          </p>
+                        </div>
+                        {data.product.image_url && (
+                          <div className="relative w-16 h-16 shrink-0 overflow-hidden rounded-lg ml-4">
+                            <Image
+                              src={data.product.image_url}
+                              alt={data.product.title}
+                              fill
+                              className="object-cover"
+                              sizes="64px"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(data.sizes)
+                          .sort((a, b) => {
+                            // Sort sizes in standard order
+                            const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+                            const indexA = sizeOrder.indexOf(a[0]);
+                            const indexB = sizeOrder.indexOf(b[0]);
+                            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                            if (indexA !== -1) return -1;
+                            if (indexB !== -1) return 1;
+                            return a[0].localeCompare(b[0]);
+                          })
+                          .map(([size, quantity]) => (
+                            <div 
+                              key={size}
+                              className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg border border-indigo-200 dark:border-indigo-700"
+                            >
+                              <span className="text-sm font-semibold text-indigo-900 dark:text-indigo-300" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                                {size}:
+                              </span>
+                              <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                                {quantity}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  ));
               })()}
             </div>
           ) : null}

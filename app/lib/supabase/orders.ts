@@ -117,40 +117,62 @@ export async function createOrder(input: CreateOrderInput): Promise<{ data: Orde
     // Decrease product quantities for each order item
     for (const item of input.items) {
       try {
-        // Get current product
-        const { data: product, error: productError } = await supabase
-          .from('zo-products')
-          .select('sizes')
-          .eq('id', item.product_id)
-          .single();
-
-        if (productError || !product) {
-          console.error(`Error fetching product ${item.product_id}:`, productError);
-          continue; // Skip this product but continue with others
-        }
-
-        // Update sizes with decreased quantities
-        if (product.sizes && typeof product.sizes === 'object' && !Array.isArray(product.sizes)) {
-          const sizes = product.sizes as Record<string, number>;
-          const currentQty = sizes[item.size] || 0;
-          const newQty = Math.max(0, currentQty - item.quantity); // Ensure quantity doesn't go below 0
-          
-          const updatedSizes = {
-            ...sizes,
-            [item.size]: newQty,
-          };
-
-          // Calculate total quantity to determine if product is in stock
-          const totalQuantity = Object.values(updatedSizes).reduce((sum, qty) => sum + qty, 0);
-
-          // Update product with new quantities and stock status
-          await supabase
+        // Use a retry mechanism to handle race conditions
+        let retries = 3;
+        let success = false;
+        
+        while (retries > 0 && !success) {
+          // Get current product with updated_at for optimistic locking
+          const { data: product, error: productError } = await supabase
             .from('zo-products')
-            .update({
-              sizes: updatedSizes,
-              in_stock: totalQuantity > 0,
-            })
-            .eq('id', item.product_id);
+            .select('sizes, updated_at')
+            .eq('id', item.product_id)
+            .single();
+
+          if (productError || !product) {
+            console.error(`Error fetching product ${item.product_id}:`, productError);
+            break; // Skip this product
+          }
+
+          // Update sizes with decreased quantities
+          if (product.sizes && typeof product.sizes === 'object' && !Array.isArray(product.sizes)) {
+            const sizes = product.sizes as Record<string, number>;
+            const currentQty = sizes[item.size] || 0;
+            const newQty = Math.max(0, currentQty - item.quantity); // Ensure quantity doesn't go below 0
+            
+            const updatedSizes = {
+              ...sizes,
+              [item.size]: newQty,
+            };
+
+            // Calculate total quantity to determine if product is in stock
+            const totalQuantity = Object.values(updatedSizes).reduce((sum, qty) => sum + qty, 0);
+
+            // Update product with new quantities and stock status
+            // Use updated_at for optimistic locking
+            const { error: updateError } = await supabase
+              .from('zo-products')
+              .update({
+                sizes: updatedSizes,
+                in_stock: totalQuantity > 0,
+              })
+              .eq('id', item.product_id)
+              .eq('updated_at', product.updated_at); // Optimistic locking
+            
+            if (updateError) {
+              console.error(`Error updating product ${item.product_id}:`, updateError);
+              retries--;
+              if (retries > 0) {
+                // Wait a bit before retrying
+                await new Promise(resolve => setTimeout(resolve, 100));
+                continue;
+              }
+            } else {
+              success = true;
+            }
+          } else {
+            break;
+          }
         }
       } catch (error) {
         console.error(`Error updating product ${item.product_id} quantity:`, error);
@@ -529,3 +551,29 @@ export async function deleteOrder(orderId: string): Promise<{ error: string | nu
   }
 }
 
+/**
+ * Delete duplicate order without restoring inventory
+ * Use this for duplicate orders that were created due to bugs
+ */
+export async function deleteDuplicateOrder(orderId: string): Promise<{ error: string | null }> {
+  try {
+    // Just soft delete without any inventory restoration
+    const { error } = await supabase
+      .from('zo-orders')
+      .update({ 
+        is_deleted: true,
+        status: 'cancelled' // Mark as cancelled too
+      })
+      .eq('id', orderId);
+
+    if (error) {
+      console.error('Error deleting duplicate order:', error);
+      return { error: error.message };
+    }
+
+    return { error: null };
+  } catch (error: any) {
+    console.error('Unexpected error deleting duplicate order:', error);
+    return { error: error.message || 'Unknown error' };
+  }
+}
