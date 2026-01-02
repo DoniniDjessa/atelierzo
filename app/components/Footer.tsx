@@ -89,13 +89,19 @@ export default function Footer() {
                 className="text-sm text-gray-300"
                 style={{ fontFamily: 'var(--font-poppins)' }}
               >
-                0707070707
+                +225 07 49 235 896
               </li>
               <li
                 className="text-sm text-gray-300"
                 style={{ fontFamily: 'var(--font-poppins)' }}
               >
-                contact@contact@atelierzo.com
+                +225 05 55 486 130
+              </li>
+              <li
+                className="text-sm text-gray-300"
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                Cocody Riviera CIAD rue F44, 1099
               </li>
             </ul>
           </div>
