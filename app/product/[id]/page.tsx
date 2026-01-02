@@ -219,20 +219,22 @@ export default function ProductDetailPage() {
                   </span> {selectedSizes.length > 0 && <span className="text-gray-500">({selectedSizes.join(', ')})</span>}
                 </label>
                 <div className="flex flex-wrap gap-4">
-                  {product.sizes
-                    .filter(size => !product.sizeQuantities || product.sizeQuantities[size] > 0)
-                    .map((size) => {
+                  {product.sizes.map((size) => {
                     const isSelected = selectedSizes.includes(size);
                     const qty = quantities[size] || 0;
                     const availableQty = product.sizeQuantities?.[size] || 0;
+                    const isOutOfStock = availableQty === 0;
                     
                     return (
                       <div key={size} className="flex flex-col items-center gap-2">
                         <div className="relative">
                           <button
-                            onClick={() => toggleSize(size)}
+                            onClick={() => !isOutOfStock && toggleSize(size)}
+                            disabled={isOutOfStock}
                             className={`px-4 py-2 text-xs border-2 rounded-lg font-medium transition-all ${
-                              isSelected
+                              isOutOfStock
+                                ? 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50'
+                                : isSelected
                                 ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
                                 : 'border-gray-300 dark:border-gray-600 text-black dark:text-white hover:border-gray-400 dark:hover:border-gray-500'
                             }`}
@@ -240,8 +242,8 @@ export default function ProductDetailPage() {
                           >
                             {size}
                           </button>
-                          {/* Stock counter badge */}
-                          {availableQty > 0 && (
+                          {/* Stock counter badge - only show if in stock */}
+                          {!isOutOfStock && (
                             <span 
                               className="absolute -top-1 -right-1 bg-blue-300 text-black text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-gray-300"
                               style={{ fontFamily: 'var(--font-poppins)' }}
@@ -251,7 +253,8 @@ export default function ProductDetailPage() {
                           )}
                         </div>
                         
-                        {isSelected && (
+                        {/* Quantity controls - only show if selected and in stock */}
+                        {isSelected && !isOutOfStock && (
                           <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
                             <button 
                               onClick={() => updateQty(size, -1)}
