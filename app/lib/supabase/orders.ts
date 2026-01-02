@@ -314,7 +314,7 @@ export async function getPaginatedOrders(
   page: number = 1,
   itemsPerPage: number = 13,
   filters?: {
-    statusFilter?: Order['status'] | 'all';
+    statusFilter?: Order['status'] | 'all' | 'active';
     searchQuery?: string;
     dateFilterType?: 'all' | 'day' | 'range';
     selectedDate?: string;
@@ -340,8 +340,14 @@ export async function getPaginatedOrders(
 
     // Apply status filter
     if (filters?.statusFilter && filters.statusFilter !== 'all') {
-      countQuery = countQuery.eq('status', filters.statusFilter);
-      dataQuery = dataQuery.eq('status', filters.statusFilter);
+      if (filters.statusFilter === 'active') {
+        // Active means not delivered and not cancelled
+        countQuery = countQuery.neq('status', 'delivered').neq('status', 'cancelled');
+        dataQuery = dataQuery.neq('status', 'delivered').neq('status', 'cancelled');
+      } else {
+        countQuery = countQuery.eq('status', filters.statusFilter);
+        dataQuery = dataQuery.eq('status', filters.statusFilter);
+      }
     }
 
     // Apply date filters

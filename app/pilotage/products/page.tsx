@@ -792,7 +792,6 @@ export default function ProductsPage() {
                             }}
                             className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
                             style={{ fontFamily: 'var(--font-poppins)' }}
-                            placeholder="Taille (ex: S, M, L, XL)"
                           />
                           <div className="flex items-center gap-2">
                             {isEditing ? (
@@ -812,7 +811,6 @@ export default function ProductsPage() {
                                           [size]: e.target.value,
                                         });
                                       }}
-                                      placeholder="+10 ou -5"
                                       className="w-24 px-2 py-1 text-sm text-center border border-gray-500 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
                                       style={{ fontFamily: 'var(--font-poppins)' }}
                                     />

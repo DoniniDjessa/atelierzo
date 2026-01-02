@@ -19,6 +19,7 @@ interface DashboardStats {
   totalClients: number;
   totalSatisfiedClients: number;
   totalProducts: number;
+  totalProductsOrdered: number;
   revenueChange: number;
   ordersChange: number;
   clientsChange: number;
@@ -48,6 +49,7 @@ export default function PilotageDashboard() {
     totalClients: 0,
     totalSatisfiedClients: 0,
     totalProducts: 0,
+    totalProductsOrdered: 0,
     revenueChange: 0,
     ordersChange: 0,
     clientsChange: 0,
@@ -100,6 +102,14 @@ export default function PilotageDashboard() {
       const totalClients = users.length;
       const totalSatisfiedClients = satisfiedClients.length;
       const totalProducts = products.length;
+      
+      // Calculate total products ordered (sum of all quantities in all orders)
+      const totalProductsOrdered = activeOrders.reduce((sum, order) => {
+        if (order.items) {
+          return sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0);
+        }
+        return sum;
+      }, 0);
 
       // Calculate revenue by period for chart
       const now = new Date();
@@ -270,6 +280,7 @@ export default function PilotageDashboard() {
         totalClients,
         totalSatisfiedClients,
         totalProducts,
+        totalProductsOrdered,
         revenueChange,
         ordersChange,
         clientsChange,
@@ -580,6 +591,26 @@ export default function PilotageDashboard() {
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
                 produits en ligne
+              </span>
+            </div>
+          </div>
+
+          {/* Products Ordered */}
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-medium text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                Produits commandés
+              </h3>
+              <div className="p-2 bg-slate-100 dark:bg-gray-700 rounded-full">
+                <ShoppingCart className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-black dark:text-white mb-2" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+              {stats.totalProductsOrdered.toLocaleString('fr-FR')}
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                quantité totale
               </span>
             </div>
           </div>

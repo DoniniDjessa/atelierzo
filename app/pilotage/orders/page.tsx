@@ -10,7 +10,7 @@ import { getAllOrders, getPaginatedOrders, getOrdersCountByStatus, updateOrderSt
 import { getAllPreorders, updatePreorderStatus, Preorder } from '@/app/lib/supabase/preorders';
 import { updateProduct } from '@/app/lib/supabase/products';
 import { useProducts } from '@/app/contexts/ProductContext';
-import { getUserById } from '@/app/lib/supabase/users';
+import { getUserById, getAllUsers } from '@/app/lib/supabase/users';
 import { getColorName } from '@/app/lib/utils/colors';
 
 const ADMIN_PASSWORD = '0044';
@@ -49,7 +49,7 @@ export default function OrdersPage() {
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<string | null>(null);
   const [searchSuggestions, setSearchSuggestions] = useState<Array<{id: string; title: string}>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all' | 'active'>('active');
   const [preorderStatusFilter, setPreorderStatusFilter] = useState<Preorder['status'] | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   // New date and amount filters
@@ -190,23 +190,26 @@ export default function OrdersPage() {
         setOrders([]);
         setTotalOrders(0);
       } else {
-        // Fetch all client names first for filtering
+        // Fetch all users at once (much faster than one by one)
+        const { data: allUsers } = await getAllUsers();
         const allClientNames: Record<string, string> = {};
-        const uniqueUserIds = [...new Set(allOrdersData?.map(o => o.user_id).filter(Boolean))];
-        for (const userId of uniqueUserIds) {
-          if (userId && !allClientNames[userId]) {
-            const { data: user } = await getUserById(userId);
-            if (user) {
-              allClientNames[userId] = user.name || user.phone;
-            }
-          }
+        
+        if (allUsers) {
+          allUsers.forEach(user => {
+            allClientNames[user.id] = user.name || user.phone;
+          });
         }
         
         // Filter by product name or client name client-side
         const search = searchQuery.toLowerCase();
         let filtered = (allOrdersData || []).filter(order => {
           // Apply status filter
-          if (statusFilter !== 'all' && order.status !== statusFilter) {
+          if (statusFilter === 'active') {
+            // Active means not delivered and not cancelled
+            if (order.status === 'delivered' || order.status === 'cancelled') {
+              return false;
+            }
+          } else if (statusFilter !== 'all' && order.status !== statusFilter) {
             return false;
           }
           
@@ -402,16 +405,14 @@ export default function OrdersPage() {
       setAllOrders([]);
     } else {
       setAllOrders(data || []);
-      // Fetch client names for all orders
+      // Fetch client names for all orders using batch fetch
       if (data) {
+        const { data: allUsers } = await getAllUsers();
         const names: Record<string, string> = {};
-        for (const order of data) {
-          if (order.user_id && !names[order.user_id] && !clientNames[order.user_id]) {
-            const { data: user } = await getUserById(order.user_id);
-            if (user) {
-              names[order.user_id] = user.name || user.phone;
-            }
-          }
+        if (allUsers) {
+          allUsers.forEach(user => {
+            names[user.id] = user.name || user.phone;
+          });
         }
         setClientNames((prev) => ({ ...prev, ...names }));
       }
@@ -425,16 +426,14 @@ export default function OrdersPage() {
       setPreorders([]);
     } else {
       setPreorders(data || []);
-      // Fetch client names for preorders
+      // Fetch client names for preorders using batch fetch
       if (data) {
+        const { data: allUsers } = await getAllUsers();
         const names: Record<string, string> = {};
-        for (const preorder of data) {
-          if (preorder.user_id && !names[preorder.user_id]) {
-            const { data: user } = await getUserById(preorder.user_id);
-            if (user) {
-              names[preorder.user_id] = user.name || user.phone;
-            }
-          }
+        if (allUsers) {
+          allUsers.forEach(user => {
+            names[user.id] = user.name || user.phone;
+          });
         }
         setClientNames((prev) => ({ ...prev, ...names }));
       }
@@ -850,6 +849,17 @@ export default function OrdersPage() {
             <div className="flex items-center gap-2 flex-wrap">
               {activeTab === 'orders' ? (
                 <>
+                  <button
+                    onClick={() => setStatusFilter('active')}
+                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
+                      statusFilter === 'active'
+                        ? 'bg-black dark:bg-white text-white dark:text-black'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    En cours
+                  </button>
                   <button
                     onClick={() => setStatusFilter('all')}
                     className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
@@ -1423,7 +1433,7 @@ export default function OrdersPage() {
                 const productOrders: { [productId: string]: { product: any; orders: { order: Order; item: any }[] } } = {};
                 
                 allOrders.forEach(order => {
-                  if (order.status !== 'cancelled' && order.items) {
+                  if (order.status !== 'cancelled' && order.status !== 'delivered' && order.items) {
                     order.items.forEach(item => {
                       const product = getProductById(item.product_id);
                       if (product) {
@@ -1500,7 +1510,7 @@ export default function OrdersPage() {
                           {data.orders.map(({ order, item }, idx) => (
                             <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                               <td className="px-4 py-2 text-xs text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-poppins)' }}>
-                                {clientNames[order.user_id] || 'N/A'}
+                                {clientNames[order.user_id] || order.shipping_phone || 'Client inconnu'}
                               </td>
                               <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
                                 {order.shipping_phone || 'N/A'}
@@ -1611,7 +1621,7 @@ export default function OrdersPage() {
                 } = {};
                 
                 ordersToUse.forEach(order => {
-                  if (order.status !== 'cancelled' && order.items) {
+                  if (order.status !== 'cancelled' && order.status !== 'delivered' && order.items) {
                     order.items.forEach(item => {
                       const product = getProductById(item.product_id);
                       if (product) {
