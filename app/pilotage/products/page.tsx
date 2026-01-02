@@ -46,6 +46,7 @@ export default function ProductsPage() {
   });
   const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>({ M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0, '4XL': 0, '5XL': 0 });
   const [editingSizeValues, setEditingSizeValues] = useState<Record<string, string>>({});
+  const [incrementAmounts, setIncrementAmounts] = useState<Record<string, string>>({});
   const sizeUpdateTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const [showFlashSaleModal, setShowFlashSaleModal] = useState(false);
   const [selectedProductForFlashSale, setSelectedProductForFlashSale] = useState<string | null>(null);
@@ -294,6 +295,7 @@ export default function ProductsPage() {
     });
     setSizeQuantities({ M: 10, L: 10, XL: 10, '2XL': 10, '3XL': 10, '4XL': 10, '5XL': 10 });
     setEditingSizeValues({});
+    setIncrementAmounts({});
     // Clear all timers
     Object.values(sizeUpdateTimers.current).forEach(timer => clearTimeout(timer));
     sizeUpdateTimers.current = {};
@@ -793,24 +795,106 @@ export default function ProductsPage() {
                             placeholder="Taille (ex: S, M, L, XL)"
                           />
                           <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              min="0"
-                              value={quantity}
-                              onChange={(e) => {
-                                const newQuantity = Math.max(0, parseInt(e.target.value) || 0);
-                                setSizeQuantities({
-                                  ...sizeQuantities,
-                                  [size]: newQuantity,
-                                });
-                              }}
-                              className="w-20 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-                              style={{ fontFamily: 'var(--font-poppins)' }}
-                              placeholder="Qté"
-                            />
-                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap" style={{ fontFamily: 'var(--font-poppins)' }}>
-                              {quantity === 0 ? 'Rupture' : `${quantity} en stock`}
-                            </span>
+                            {isEditing ? (
+                              // Edit mode: Show current stock + input to add more
+                              <>
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>
+                                    Stock actuel: {quantity}
+                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={incrementAmounts[size] || ''}
+                                      onChange={(e) => {
+                                        setIncrementAmounts({
+                                          ...incrementAmounts,
+                                          [size]: e.target.value,
+                                        });
+                                      }}
+                                      placeholder="Ajouter"
+                                      className="w-24 px-2 py-1 text-sm text-center border border-green-500 dark:border-green-600 rounded focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                                      style={{ fontFamily: 'var(--font-poppins)' }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const addAmount = parseInt(incrementAmounts[size] || '0');
+                                        if (addAmount > 0) {
+                                          const currentQty = sizeQuantities[size] || 0;
+                                          setSizeQuantities({
+                                            ...sizeQuantities,
+                                            [size]: currentQty + addAmount,
+                                          });
+                                          setIncrementAmounts({
+                                            ...incrementAmounts,
+                                            [size]: '',
+                                          });
+                                          toast.success(`+${addAmount} ajouté à ${size}`);
+                                        }
+                                      }}
+                                      className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors font-medium"
+                                      title="Ajouter au stock"
+                                    >
+                                      OK
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              // Add mode: Show +/- buttons and direct input
+                              <>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const currentQty = sizeQuantities[size] || 0;
+                                      setSizeQuantities({
+                                        ...sizeQuantities,
+                                        [size]: Math.max(0, currentQty - 1),
+                                      });
+                                    }}
+                                    className="px-2 py-1 text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                                    title="Diminuer de 1"
+                                  >
+                                    -
+                                  </button>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={quantity}
+                                    onChange={(e) => {
+                                      const newQuantity = Math.max(0, parseInt(e.target.value) || 0);
+                                      setSizeQuantities({
+                                        ...sizeQuantities,
+                                        [size]: newQuantity,
+                                      });
+                                    }}
+                                    className="w-20 px-3 py-2 text-sm text-center border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                                    style={{ fontFamily: 'var(--font-poppins)' }}
+                                    placeholder="Qté"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const currentQty = sizeQuantities[size] || 0;
+                                      setSizeQuantities({
+                                        ...sizeQuantities,
+                                        [size]: currentQty + 1,
+                                      });
+                                    }}
+                                    className="px-2 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                                    title="Augmenter de 1"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                                <span className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap" style={{ fontFamily: 'var(--font-poppins)' }}>
+                                  {quantity === 0 ? 'Rupture' : `${quantity} en stock`}
+                                </span>
+                              </>
+                            )}
                           </div>
                           <button
                             type="button"

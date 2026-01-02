@@ -226,7 +226,8 @@ export async function getUserOrders(userId: string): Promise<{ data: Order[] | n
       .from('zo-orders')
       .select('*, items:zo-order-items(*)')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: true });
 
     if (error) {
       console.error('Error fetching user orders:', error);
@@ -248,7 +249,8 @@ export async function getAllOrders(): Promise<{ data: Order[] | null; error: str
     const { data, error } = await supabase
       .from('zo-orders')
       .select('*, items:zo-order-items(*)')
-      .order('created_at', { ascending: false });
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: true });
 
     if (error) {
       console.error('Error fetching all orders:', error);
@@ -258,6 +260,99 @@ export async function getAllOrders(): Promise<{ data: Order[] | null; error: str
     return { data: data as unknown as Order[], error: null };
   } catch (error: any) {
     console.error('Unexpected error fetching all orders:', error);
+    return { data: null, error: error.message || 'Unknown error' };
+  }
+}
+
+/**
+ * Get paginated orders (admin)
+ */
+export async function getPaginatedOrders(
+  page: number = 1,
+  itemsPerPage: number = 13
+): Promise<{ data: Order[] | null; total: number; error: string | null }> {
+  try {
+    const from = (page - 1) * itemsPerPage;
+    const to = from + itemsPerPage - 1;
+
+    // Get total count (excluding deleted)
+    const { count } = await supabase
+      .from('zo-orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_deleted', false);
+
+    // Get paginated data (excluding deleted)
+    const { data, error } = await supabase
+      .from('zo-orders')
+      .select('*, items:zo-order-items(*)')
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: true })
+      .range(from, to);
+
+    if (error) {
+      console.error('Error fetching paginated orders:', error);
+      return { data: null, total: 0, error: error.message };
+    }
+
+    return { data: data as unknown as Order[], total: count || 0, error: null };
+  } catch (error: any) {
+    console.error('Unexpected error fetching paginated orders:', error);
+    return { data: null, total: 0, error: error.message || 'Unknown error' };
+  }
+}
+
+/**
+ * Get count of orders by status with optional filters
+ */
+export async function getOrdersCountByStatus(filters?: {
+  searchQuery?: string;
+  dateFilterType?: 'all' | 'day' | 'range';
+  selectedDate?: string;
+  dateRangeStart?: string;
+  dateRangeEnd?: string;
+}): Promise<{ data: Record<string, number> | null; error: string | null }> {
+  try {
+    const statuses: Order['status'][] = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+    const counts: Record<string, number> = {};
+
+    for (const status of statuses) {
+      let query = supabase
+        .from('zo-orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_deleted', false)
+        .eq('status', status);
+
+      // Apply date filters
+      if (filters?.dateFilterType === 'day' && filters.selectedDate) {
+        const startOfDay = new Date(filters.selectedDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(filters.selectedDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        query = query.gte('created_at', startOfDay.toISOString()).lte('created_at', endOfDay.toISOString());
+      } else if (filters?.dateFilterType === 'range' && filters.dateRangeStart && filters.dateRangeEnd) {
+        const startDate = new Date(filters.dateRangeStart);
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(filters.dateRangeEnd);
+        endDate.setHours(23, 59, 59, 999);
+        query = query.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
+      }
+
+      // Note: Search filter would require fetching data to check phone/address/user names
+      // For now, we'll only apply date filters to counts for performance
+
+      const { count, error } = await query;
+
+      if (error) {
+        console.error(`Error fetching count for status ${status}:`, error);
+        counts[status] = 0;
+      } else {
+        counts[status] = count || 0;
+      }
+    }
+
+    return { data: counts, error: null };
+  } catch (error: any) {
+    console.error('Unexpected error fetching order counts by status:', error);
     return { data: null, error: error.message || 'Unknown error' };
   }
 }
@@ -329,23 +424,15 @@ export async function updateOrderStatus(
 /**
  * Delete an order
  */
+/**
+ * Delete an order (soft delete by setting is_deleted = true)
+ */
 export async function deleteOrder(orderId: string): Promise<{ error: string | null }> {
   try {
-    // First delete order items
-    const { error: itemsError } = await supabase
-      .from('zo-order-items')
-      .delete()
-      .eq('order_id', orderId);
-
-    if (itemsError) {
-      console.error('Error deleting order items:', itemsError);
-      return { error: itemsError.message };
-    }
-
-    // Then delete the order
+    // Soft delete: mark as deleted instead of actually deleting
     const { error } = await supabase
       .from('zo-orders')
-      .delete()
+      .update({ is_deleted: true })
       .eq('id', orderId);
 
     if (error) {

@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import AdminNavbar from '@/app/components/AdminNavbar';
-import { getAllOrders, updateOrderStatus, getOrderById, deleteOrder, Order } from '@/app/lib/supabase/orders';
+import { getAllOrders, getPaginatedOrders, getOrdersCountByStatus, updateOrderStatus, getOrderById, deleteOrder, Order } from '@/app/lib/supabase/orders';
 import { getAllPreorders, updatePreorderStatus, Preorder } from '@/app/lib/supabase/preorders';
 import { updateProduct } from '@/app/lib/supabase/products';
 import { useProducts } from '@/app/contexts/ProductContext';
@@ -40,12 +40,21 @@ export default function OrdersPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [preorders, setPreorders] = useState<Preorder[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'orders' | 'preorders'>('orders');
   const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
   const [preorderStatusFilter, setPreorderStatusFilter] = useState<Preorder['status'] | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  // New date and amount filters
+  const [dateFilterType, setDateFilterType] = useState<'all' | 'day' | 'range'>('all');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [dateRangeStart, setDateRangeStart] = useState('');
+  const [dateRangeEnd, setDateRangeEnd] = useState('');
+  const [amountSort, setAmountSort] = useState<'none' | 'high-to-low' | 'low-to-high'>('none');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedPreorder, setSelectedPreorder] = useState<Preorder | null>(null);
   const [showOrderSidebar, setShowOrderSidebar] = useState(false);
@@ -64,14 +73,30 @@ export default function OrdersPage() {
     }
   }, []);
 
+  // Refetch orders when page changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchOrders();
+    }
+  }, [currentPage]);
+
+  // Refetch status counts when date filters change
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchStatusCounts();
+    }
+  }, [dateFilterType, selectedDate, dateRangeStart, dateRangeEnd, isAuthenticated]);
+
   const fetchOrders = async () => {
     setLoading(true);
-    const { data, error } = await getAllOrders();
+    const { data, total, error } = await getPaginatedOrders(currentPage, ITEMS_PER_PAGE);
     if (error) {
       console.error('Error fetching orders:', error);
       setOrders([]);
+      setTotalOrders(0);
     } else {
       setOrders(data || []);
+      setTotalOrders(total);
       // Fetch client names
       if (data) {
         const names: Record<string, string> = {};
@@ -87,6 +112,21 @@ export default function OrdersPage() {
       }
     }
     setLoading(false);
+  };
+
+  const fetchStatusCounts = async () => {
+    const { data, error } = await getOrdersCountByStatus({
+      dateFilterType,
+      selectedDate,
+      dateRangeStart,
+      dateRangeEnd,
+    });
+    if (error) {
+      console.error('Error fetching status counts:', error);
+      setStatusCounts({});
+    } else {
+      setStatusCounts(data || {});
+    }
   };
 
   const fetchPreorders = async () => {
@@ -181,7 +221,14 @@ export default function OrdersPage() {
         toast.error(`Erreur: ${error}`);
       } else {
         toast.success('Commande supprimée avec succès');
-        fetchOrders(); // Refresh orders
+        // Remove order from local state immediately
+        setOrders(prev => prev.filter(order => order.id !== orderId));
+        setTotalOrders(prev => prev - 1);
+        // Close sidebar if this order was selected
+        if (selectedOrder?.id === orderId) {
+          setShowOrderSidebar(false);
+          setSelectedOrder(null);
+        }
       }
     } catch (error) {
       console.error('Error deleting order:', error);
@@ -199,7 +246,7 @@ export default function OrdersPage() {
     });
   };
 
-  // Filter orders by status and search query
+  // Filter orders by status, search query, and date (now filtering on current page only)
   const filteredOrders = orders.filter((order) => {
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     const matchesSearch =
@@ -208,8 +255,37 @@ export default function OrdersPage() {
       (order.shipping_phone && order.shipping_phone.includes(searchQuery)) ||
       (order.shipping_address && order.shipping_address.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (clientNames[order.user_id] && clientNames[order.user_id].toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesStatus && matchesSearch;
+    
+    // Date filter
+    let matchesDate = true;
+    if (dateFilterType === 'day' && selectedDate) {
+      const orderDate = new Date(order.created_at).toISOString().split('T')[0];
+      matchesDate = orderDate === selectedDate;
+    } else if (dateFilterType === 'range' && dateRangeStart && dateRangeEnd) {
+      const orderDate = new Date(order.created_at);
+      const startDate = new Date(dateRangeStart);
+      const endDate = new Date(dateRangeEnd);
+      endDate.setHours(23, 59, 59, 999); // Include full end day
+      matchesDate = orderDate >= startDate && orderDate <= endDate;
+    }
+    
+    return matchesStatus && matchesSearch && matchesDate;
   });
+
+  // Sort filtered orders by amount if needed
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    if (amountSort === 'high-to-low') {
+      return b.total_amount - a.total_amount;
+    } else if (amountSort === 'low-to-high') {
+      return a.total_amount - b.total_amount;
+    }
+    return 0; // No sorting
+  });
+
+  // Get status count from fetched counts
+  const getStatusCount = (status: Order['status']) => {
+    return statusCounts[status] || 0;
+  };
 
   // Filter preorders by status and search query
   const filteredPreorders = preorders.filter((preorder) => {
@@ -223,12 +299,9 @@ export default function OrdersPage() {
     return matchesStatus && matchesSearch;
   });
 
-  // Pagination for orders
-  const totalOrderPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
-  const paginatedOrders = filteredOrders.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  // Pagination for orders (server-side pagination, so no slicing needed)
+  const totalOrderPages = Math.ceil(totalOrders / ITEMS_PER_PAGE);
+  const paginatedOrders = sortedOrders; // Already paginated from server and sorted
 
   // Pagination for preorders
   const totalPreorderPages = Math.ceil(filteredPreorders.length / ITEMS_PER_PAGE);
@@ -240,7 +313,7 @@ export default function OrdersPage() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, searchQuery]);
+  }, [statusFilter, searchQuery, dateFilterType, selectedDate, dateRangeStart, dateRangeEnd, amountSort]);
 
   useEffect(() => {
     setPreorderCurrentPage(1);
@@ -334,7 +407,7 @@ export default function OrdersPage() {
               }`}
               style={{ fontFamily: 'var(--font-poppins)' }}
             >
-              Commandes ({orders.length})
+              Commandes ({totalOrders})
             </button>
             <button
               onClick={() => setActiveTab('preorders')}
@@ -356,8 +429,8 @@ export default function OrdersPage() {
               </h1>
               <p className="text-xs text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
                 {activeTab === 'orders'
-                  ? `${filteredOrders.length} commande(s) ${statusFilter !== 'all' ? `(${STATUS_LABELS[statusFilter]})` : 'au total'}`
-                  : `${filteredPreorders.length} précommande(s) ${preorderStatusFilter !== 'all' ? `(${PREORDER_STATUS_LABELS[preorderStatusFilter]})` : 'au total'}`}
+                  ? `Page ${currentPage} : ${filteredOrders.length} commande(s) ${statusFilter !== 'all' ? `(${STATUS_LABELS[statusFilter]})` : ''}`
+                  : `Page ${preorderCurrentPage} : ${filteredPreorders.length} précommande(s) ${preorderStatusFilter !== 'all' ? `(${PREORDER_STATUS_LABELS[preorderStatusFilter]})` : ''}`}
               </p>
             </div>
           </div>
@@ -403,7 +476,7 @@ export default function OrdersPage() {
                   </button>
                   <button
                     onClick={() => setStatusFilter('pending')}
-                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
+                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium flex items-center gap-1.5 ${
                       statusFilter === 'pending'
                         ? 'bg-yellow-500 text-white'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
@@ -411,10 +484,17 @@ export default function OrdersPage() {
                     style={{ fontFamily: 'var(--font-poppins)' }}
                   >
                     En attente
+                    <span className={`px-1.5 py-0.5 text-xs rounded-full ${
+                      statusFilter === 'pending'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                    }`}>
+                      {getStatusCount('pending')}
+                    </span>
                   </button>
                   <button
                     onClick={() => setStatusFilter('processing')}
-                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
+                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium flex items-center gap-1.5 ${
                       statusFilter === 'processing'
                         ? 'bg-indigo-500 text-white'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
@@ -422,10 +502,17 @@ export default function OrdersPage() {
                     style={{ fontFamily: 'var(--font-poppins)' }}
                   >
                     En traitement
+                    <span className={`px-1.5 py-0.5 text-xs rounded-full ${
+                      statusFilter === 'processing'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                    }`}>
+                      {getStatusCount('processing')}
+                    </span>
                   </button>
                   <button
                     onClick={() => setStatusFilter('delivered')}
-                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium ${
+                    className={`px-3 py-2 text-xs rounded-lg transition-colors font-medium flex items-center gap-1.5 ${
                       statusFilter === 'delivered'
                         ? 'bg-green-500 text-white'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
@@ -433,6 +520,13 @@ export default function OrdersPage() {
                     style={{ fontFamily: 'var(--font-poppins)' }}
                   >
                     Terminées
+                    <span className={`px-1.5 py-0.5 text-xs rounded-full ${
+                      statusFilter === 'delivered'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                    }`}>
+                      {getStatusCount('delivered')}
+                    </span>
                   </button>
                 </>
               ) : (
@@ -485,9 +579,148 @@ export default function OrdersPage() {
               )}
             </div>
           </div>
+
+          {/* Advanced Filters - Only for Orders */}
+          {activeTab === 'orders' && (
+            <>
+              <button
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="mb-3 px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+                Filtres avancés
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showAdvancedFilters && (
+                <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Date Filter */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        Filtrer par date
+                      </label>
+                      <div className="space-y-2">
+                        <select
+                          value={dateFilterType}
+                          onChange={(e) => {
+                            setDateFilterType(e.target.value as 'all' | 'day' | 'range');
+                            // Reset date values when changing type
+                            setSelectedDate('');
+                            setDateRangeStart('');
+                            setDateRangeEnd('');
+                          }}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                          style={{ fontFamily: 'var(--font-poppins)' }}
+                        >
+                          <option value="all">Toutes les dates</option>
+                          <option value="day">Jour spécifique</option>
+                          <option value="range">Plage de dates</option>
+                        </select>
+
+                        {dateFilterType === 'day' && (
+                          <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                            style={{ fontFamily: 'var(--font-poppins)' }}
+                          />
+                        )}
+
+                        {dateFilterType === 'range' && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>Du</label>
+                              <input
+                                type="date"
+                                value={dateRangeStart}
+                                onChange={(e) => setDateRangeStart(e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                                style={{ fontFamily: 'var(--font-poppins)' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>Au</label>
+                              <input
+                                type="date"
+                                value={dateRangeEnd}
+                                onChange={(e) => setDateRangeEnd(e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                                style={{ fontFamily: 'var(--font-poppins)' }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Amount Sort */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        Trier par montant
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setAmountSort(amountSort === 'high-to-low' ? 'none' : 'high-to-low')}
+                          className={`flex-1 px-3 py-2 text-xs rounded-lg transition-colors font-medium flex items-center justify-center gap-2 ${
+                            amountSort === 'high-to-low'
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                          }`}
+                          style={{ fontFamily: 'var(--font-poppins)' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
+                          </svg>
+                          Plus cher → Moins cher
+                        </button>
+                        <button
+                          onClick={() => setAmountSort(amountSort === 'low-to-high' ? 'none' : 'low-to-high')}
+                          className={`flex-1 px-3 py-2 text-xs rounded-lg transition-colors font-medium flex items-center justify-center gap-2 ${
+                            amountSort === 'low-to-high'
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                          }`}
+                          style={{ fontFamily: 'var(--font-poppins)' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                          </svg>
+                          Moins cher → Plus cher
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Clear Filters Button */}
+                  {(dateFilterType !== 'all' || amountSort !== 'none') && (
+                    <button
+                      onClick={() => {
+                        setDateFilterType('all');
+                        setSelectedDate('');
+                        setDateRangeStart('');
+                        setDateRangeEnd('');
+                        setAmountSort('none');
+                      }}
+                      className="mt-3 px-4 py-2 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    >
+                      Réinitialiser les filtres avancés
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+        <div className="overflow-hidden">
           {loading ? (
             <div className="p-12 text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
@@ -628,7 +861,7 @@ export default function OrdersPage() {
           {activeTab === 'orders' && filteredOrders.length > 0 && totalOrderPages > 1 && (
             <div className="mt-6 flex items-center justify-between">
               <p className="text-sm text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-                Page {currentPage} sur {totalOrderPages} ({filteredOrders.length} commandes)
+                Page {currentPage} sur {totalOrderPages} — {totalOrders} commandes au total
               </p>
               <div className="flex items-center gap-2">
                 <button

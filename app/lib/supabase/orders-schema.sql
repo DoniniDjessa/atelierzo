@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS "zo-orders" (
   shipping_address TEXT,
   shipping_phone TEXT,
   notes TEXT,
+  is_deleted BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -51,7 +52,7 @@ CREATE POLICY "Allow public read orders"
   FOR SELECT
   USING (true);
 
--- Policy: Allow public to update orders (for status updates)
+-- Policy: Allow public to update orders (for status updates and soft delete)
 CREATE POLICY "Allow public update orders"
   ON "zo-orders"
   FOR UPDATE
@@ -72,6 +73,7 @@ CREATE POLICY "Allow public read order-items"
 -- Create indexes for faster lookups
 CREATE INDEX IF NOT EXISTS "zo-orders_user_id_idx" ON "zo-orders"(user_id);
 CREATE INDEX IF NOT EXISTS "zo-orders_status_idx" ON "zo-orders"(status);
+CREATE INDEX IF NOT EXISTS "zo-orders_is_deleted_idx" ON "zo-orders"(is_deleted);
 CREATE INDEX IF NOT EXISTS "zo-orders_created_at_idx" ON "zo-orders"(created_at DESC);
 CREATE INDEX IF NOT EXISTS "zo-order-items_order_id_idx" ON "zo-order-items"(order_id);
 CREATE INDEX IF NOT EXISTS "zo-order-items_product_id_idx" ON "zo-order-items"(product_id);
