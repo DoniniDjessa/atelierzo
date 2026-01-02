@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { ArrowLeft } from 'lucide-react';
-import Navbar from '@/app/components/Navbar';
 import Footer from '@/app/components/Footer';
 import ProductCard from '@/app/components/ProductCard';
 import { getActiveVenteFlash, calculateFlashSalePrice } from '@/app/lib/supabase/vente-flash';
@@ -60,7 +59,6 @@ export default function VenteFlashPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-black">
-        <Navbar />
         <div className="flex items-center justify-center py-32">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
         </div>
@@ -72,7 +70,6 @@ export default function VenteFlashPage() {
   if (flashSaleProducts.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-black">
-        <Navbar />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <button
             onClick={() => router.push('/')}
@@ -115,7 +112,6 @@ export default function VenteFlashPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black">
-      <Navbar />
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-12">
         <button
           onClick={() => router.push('/')}

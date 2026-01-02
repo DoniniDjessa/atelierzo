@@ -91,12 +91,12 @@ export default function Footer() {
               >
                 +225 07 49 235 896
               </li>
-              <li
+              {/* <li
                 className="text-sm text-gray-300"
                 style={{ fontFamily: 'var(--font-poppins)' }}
               >
                 +225 05 55 486 130
-              </li>
+              </li> */}
               <li
                 className="text-sm text-gray-300"
                 style={{ fontFamily: 'var(--font-poppins)' }}
