@@ -152,6 +152,7 @@ export default function ReceiptModal({ isOpen, onClose, orderData }: ReceiptModa
           <div className="text-center text-xs mt-4" style={{ color: '#6b7280' }}>
             <p className="mb-1">Merci pour votre commande !</p>
             <p>Elle est en cours de traitement.</p>
+            <p>Vous serez livré(e) sous 1 à 3 jours ouvrés.</p>
             <div className="mt-3 pt-3" style={{ borderTop: '1px dashed #d1d5db' }}>
               <p className="text-xs" style={{ lineHeight: '1.4' }}>📍 Riviera CIAD après la Pharmacie des jardins d&apos;Eden, immeuble de la Société générale, Cocody Rue F44</p>
             </div>

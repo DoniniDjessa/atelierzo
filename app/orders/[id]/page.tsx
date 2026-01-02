@@ -9,6 +9,7 @@ import { useUser } from '@/app/contexts/UserContext';
 import { getOrderById, deleteOrder, Order } from '@/app/lib/supabase/orders';
 import { getColorName } from '@/app/lib/utils/colors';
 import PageTitle from '@/app/components/PageTitle';
+import ReceiptModal from '@/app/components/ReceiptModal';
 
 const STATUS_COLORS: Record<Order['status'], string> = {
   pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -42,6 +43,8 @@ export default function OrderDetailsPage() {
   const orderId = params.id as string;
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [receiptData, setReceiptData] = useState<any>(null);
 
   useEffect(() => {
     if (!user) {
@@ -63,35 +66,32 @@ export default function OrderDetailsPage() {
     setLoading(false);
   };
 
-  const handleDownloadReceipt = async () => {
-    const element = document.getElementById('order-receipt');
-    if (!element || !order) {
-      toast.error('Impossible de trouver le reçu');
+  const handleDownloadReceipt = () => {
+    if (!order) {
+      toast.error('Commande introuvable');
       return;
     }
 
-    try {
-      toast.info('Génération du reçu en cours...');
-      const canvas = await html2canvas(element, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-      });
-      
-      const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = `recu-commande-${order.id.substring(0, 8)}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success('Reçu téléchargé avec succès');
-    } catch (error) {
-      console.error('Error generating receipt:', error);
-      toast.error(`Erreur lors de la génération du reçu: ${error}`);
-    }
+    // Prepare receipt data in the format expected by ReceiptModal
+    const receipt = {
+      id: order.id,
+      items: (order.items || []).map((item) => ({
+        title: item.title,
+        size: item.size,
+        color: getColorName(item.color) || item.color || 'N/A',
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      total: order.total_amount,
+      shipping_address: order.shipping_address || '',
+      shipping_phone: order.shipping_phone || '',
+      created_at: order.created_at,
+      customerName: user?.name || user?.email || 'Client',
+      notes: order.notes,
+    };
+
+    setReceiptData(receipt);
+    setShowReceipt(true);
   };
 
   const handleDeleteOrder = async () => {
@@ -289,7 +289,7 @@ export default function OrderDetailsPage() {
             </div>
           )}
 
-          <div className="flex justify-center items-center bg-cyan-600 text-white py-2 my-6 rounded-xl">Vous serez livré(e) sous <span className="font-bold ml-2">1-2 jours</span></div>
+          <div className="flex justify-center items-center bg-cyan-600 text-white py-2 my-6 rounded-xl">Vous serez livré(e) sous <span className="font-bold ml-2">1-3 jours ouvrés</span></div>
 
           {/* Order Items */}
           {order.items && order.items.length > 0 && (
@@ -387,6 +387,15 @@ export default function OrderDetailsPage() {
           </div>
         </div>
       </div>
+
+      {/* Receipt Modal */}
+      {showReceipt && receiptData && (
+        <ReceiptModal
+          isOpen={showReceipt}
+          onClose={() => setShowReceipt(false)}
+          orderData={receiptData}
+        />
+      )}
     </div>
   );
 }

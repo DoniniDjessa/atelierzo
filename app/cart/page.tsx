@@ -62,6 +62,22 @@ export default function CartPage() {
       return;
     }
 
+    // Validate stock availability before checkout
+    for (const item of items) {
+      const product = getProductById(item.productId);
+      if (product && product.sizeQuantities) {
+        const availableQty = product.sizeQuantities[item.size] || 0;
+        if (availableQty < item.quantity) {
+          if (availableQty === 0) {
+            toast.error(`${item.title} (taille ${item.size}) n'est plus disponible en stock. Veuillez retirer cet article de votre panier.`);
+          } else {
+            toast.error(`${item.title} (taille ${item.size}) n'a plus que ${availableQty} article(s) disponible(s). Vous en avez sélectionné ${item.quantity}. Veuillez ajuster la quantité.`);
+          }
+          return;
+        }
+      }
+    }
+
     setIsProcessing(true);
 
     try {
@@ -121,11 +137,9 @@ export default function CartPage() {
         notes: notes || undefined,
       };
 
-      // Clear cart immediately after successful order creation
-      clearCart();
       setOrderCreated(true);
       
-      // Show receipt modal
+      // Show receipt modal BEFORE clearing cart
       setReceiptData(receipt);
       setShowReceipt(true);
       setIsProcessing(false);
@@ -140,10 +154,11 @@ export default function CartPage() {
 
   const handleCloseReceipt = () => {
     setShowReceipt(false);
+    clearCart(); // Clear cart when closing receipt modal
     router.push(`/orders/${receiptData?.id}`);
   };
 
-  if (items.length === 0) {
+  if (items.length === 0 && !showReceipt) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-black flex items-center justify-center px-4">
         <div className="text-center">
