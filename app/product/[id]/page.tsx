@@ -214,7 +214,7 @@ export default function ProductDetailPage() {
                 >
                   
                   <br />
-                  Tailles <span className="ml-2 inline-flex items-center bg-slate-800 text-blue-400 px-3 py-1 rounded-2xl text-[10px] mb-2">
+                  Tailles <span className="ml-2 Ninline-flex items-center bg-slate-800 text-blue-400 px-3 py-1 rounded-2xl text-[10px] mb-2">
                     Disponibilités actuelles
                   </span> {selectedSizes.length > 0 && <span className="text-gray-500">({selectedSizes.join(', ')})</span>}
                 </label>
