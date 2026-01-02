@@ -19,13 +19,23 @@ export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart, getTotal } = useCart();
   const { getProductById, updateProduct } = useProducts();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [orderCreated, setOrderCreated] = useState(false);
   const [shippingAddress, setShippingAddress] = useState('');
   const [shippingPhone, setShippingPhone] = useState(user?.phone || '');
+  const [pickupNumber, setPickupNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
 
   const handleCheckout = async () => {
+    // Prevent multiple simultaneous submissions or resubmission after order created
+    if (isProcessing || orderCreated) {
+      if (orderCreated) {
+        toast.error('Votre commande a déjà été créée. Consultez vos commandes.');
+      }
+      return;
+    }
+
     if (!user) {
       toast.error('Veuillez vous connecter pour passer une commande');
       router.push('/');
@@ -47,6 +57,11 @@ export default function CartPage() {
       return;
     }
 
+    if (!pickupNumber.trim()) {
+      toast.error('Veuillez entrer votre numéro de récupération');
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
@@ -63,6 +78,7 @@ export default function CartPage() {
         })),
         shipping_address: shippingAddress,
         shipping_phone: shippingPhone,
+        pickup_number: pickupNumber,
         notes: notes || undefined,
       });
 
@@ -105,7 +121,11 @@ export default function CartPage() {
         notes: notes || undefined,
       };
 
-      // Show receipt modal (don't clear cart yet)
+      // Clear cart immediately after successful order creation
+      clearCart();
+      setOrderCreated(true);
+      
+      // Show receipt modal
       setReceiptData(receipt);
       setShowReceipt(true);
       setIsProcessing(false);
@@ -120,7 +140,6 @@ export default function CartPage() {
 
   const handleCloseReceipt = () => {
     setShowReceipt(false);
-    clearCart();
     router.push(`/orders/${receiptData?.id}`);
   };
 
@@ -497,6 +516,22 @@ export default function CartPage() {
                     className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2"
                     style={{ fontFamily: 'var(--font-poppins)' }}
                   >
+                    Numéro de récupération *
+                  </label>
+                  <input
+                    type="text"
+                    value={pickupNumber}
+                    onChange={(e) => setPickupNumber(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                    placeholder="Entrez votre numéro de récupération"
+                  />
+                </div>
+                <div>
+                  <label
+                    className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
                     Notes (optionnel)
                   </label>
                   <textarea
@@ -545,11 +580,11 @@ export default function CartPage() {
               {/* Checkout Button */}
               <button
                 onClick={handleCheckout}
-                disabled={isProcessing || !user}
+                disabled={isProcessing || !user || orderCreated}
                 className="w-full px-6 py-3 bg-gradient-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800 text-white rounded-lg transition-all transform hover:scale-105 active:scale-95 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 style={{ fontFamily: 'var(--font-poppins)' }}
               >
-                {isProcessing ? 'Traitement...' : !user ? 'Connectez-vous pour commander' : 'Passer la commande'}
+                {orderCreated ? 'Commande créée' : isProcessing ? 'Traitement...' : !user ? 'Connectez-vous pour commander' : 'Passer la commande'}
               </button>
 
               {!user && (

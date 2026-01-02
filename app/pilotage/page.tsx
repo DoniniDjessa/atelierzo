@@ -93,9 +93,10 @@ export default function PilotageDashboard() {
       const users = usersResult.data || [];
       const satisfiedClients = satisfiedClientsResult.data || [];
 
-      // Calculate stats - use all orders for totals
-      const totalRevenue = orders.reduce((sum, order) => sum + order.total_amount, 0);
-      const totalOrders = orders.length;
+      // Calculate stats - exclude cancelled orders from totals
+      const activeOrders = orders.filter(order => order.status !== 'cancelled');
+      const totalRevenue = activeOrders.reduce((sum, order) => sum + order.total_amount, 0);
+      const totalOrders = activeOrders.length;
       const totalClients = users.length;
       const totalSatisfiedClients = satisfiedClients.length;
       const totalProducts = products.length;
@@ -128,7 +129,7 @@ export default function PilotageDashboard() {
 
       const filteredOrders = orders.filter((order) => {
         const orderDate = new Date(order.created_at);
-        return orderDate >= periodStart && orderDate <= periodEnd;
+        return orderDate >= periodStart && orderDate <= periodEnd && order.status !== 'cancelled';
       });
 
       // Calculate revenue - either by time period or by product within category
@@ -181,9 +182,9 @@ export default function PilotageDashboard() {
 
       setRevenueData(chartData);
 
-      // Calculate category sales
+      // Calculate category sales (exclude cancelled orders)
       const categorySales: { [key: string]: number } = {};
-      orders.forEach((order) => {
+      activeOrders.forEach((order) => {
         if (order.items) {
           order.items.forEach((item) => {
             const product = products.find((p) => p.id === item.product_id);
@@ -219,10 +220,10 @@ export default function PilotageDashboard() {
       const previousPeriodStart = new Date(periodStart.getTime() - periodDuration);
       const previousPeriodEnd = periodStart;
 
-      const currentPeriodOrders = filteredOrders;
+      const currentPeriodOrders = filteredOrders.filter(order => order.status !== 'cancelled');
       const previousOrders = orders.filter((order) => {
         const orderDate = new Date(order.created_at);
-        return orderDate >= previousPeriodStart && orderDate < previousPeriodEnd;
+        return orderDate >= previousPeriodStart && orderDate < previousPeriodEnd && order.status !== 'cancelled';
       });
 
       const currentPeriodRevenue = currentPeriodOrders.reduce((sum, order) => sum + order.total_amount, 0);
@@ -235,9 +236,9 @@ export default function PilotageDashboard() {
       const previousClients = users.filter((user) => new Date(user.created_at) < lastMonth).length;
       const clientsChange = previousClients > 0 ? ((totalClients - previousClients) / previousClients) * 100 : 0;
 
-      // Calculate top clients
+      // Calculate top clients (exclude cancelled orders)
       const clientSpending: { [userId: string]: { totalSpent: number; orderCount: number; user: any } } = {};
-      filteredOrders.forEach((order) => {
+      filteredOrders.filter(order => order.status !== 'cancelled').forEach((order) => {
         if (!clientSpending[order.user_id]) {
           const user = users.find(u => u.id === order.user_id);
           clientSpending[order.user_id] = {
@@ -275,9 +276,9 @@ export default function PilotageDashboard() {
         profitChange: revenueChange * 0.8, // Simplified profit (80% of revenue)
       });
 
-      // Load most sold products from filtered orders
+      // Load most sold products from filtered orders (exclude cancelled)
       const productSales: { [productId: string]: { sales: number; revenue: number } } = {};
-      filteredOrders.forEach((order) => {
+      filteredOrders.filter(order => order.status !== 'cancelled').forEach((order) => {
         if (order.items) {
           order.items.forEach((item) => {
             if (!productSales[item.product_id]) {

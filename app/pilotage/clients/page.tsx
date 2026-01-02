@@ -24,6 +24,9 @@ export default function ClientsPage() {
   const [clientOrders, setClientOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [showClientSidebar, setShowClientSidebar] = useState(false);
+  const [orderDateFilter, setOrderDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   const STATUS_COLORS: Record<Order['status'], string> = {
     pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -109,6 +112,47 @@ export default function ClientsPage() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  // Filter orders based on date filter
+  const getFilteredOrders = () => {
+    if (orderDateFilter === 'all') return clientOrders;
+
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date = now;
+
+    switch (orderDateFilter) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'custom':
+        if (!customStartDate || !customEndDate) return clientOrders;
+        startDate = new Date(customStartDate);
+        endDate = new Date(customEndDate);
+        endDate.setHours(23, 59, 59, 999);
+        break;
+      default:
+        return clientOrders;
+    }
+
+    return clientOrders.filter(order => {
+      const orderDate = new Date(order.created_at);
+      return orderDate >= startDate && orderDate <= endDate;
+    });
+  };
+
+  // Calculate total amount from filtered orders
+  const getTotalAmount = (orders: Order[]) => {
+    return orders
+      .filter(order => order.status !== 'cancelled')
+      .reduce((sum, order) => sum + order.total_amount, 0);
   };
 
   if (!isAuthenticated) {
@@ -257,6 +301,9 @@ export default function ClientsPage() {
                           onClick={async () => {
                             setSelectedClient(user);
                             setShowClientSidebar(true);
+                            setOrderDateFilter('all');
+                            setCustomStartDate('');
+                            setCustomEndDate('');
                             setLoadingOrders(true);
                             const { data, error } = await getClientOrders(user.id);
                             if (error) {
@@ -453,18 +500,137 @@ export default function ClientsPage() {
                   </div>
                 </div>
 
+                {/* Statistics */}
+                <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-lg p-4 mb-6">
+                  <h3 className="text-sm font-bold text-black dark:text-white mb-3" style={{ fontFamily: 'var(--font-fira-sans)' }}>
+                    Statistiques
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        Total commandes
+                      </p>
+                      <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400" style={{ fontFamily: 'var(--font-fira-sans)' }}>
+                        {getFilteredOrders().length}
+                      </p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        Montant total
+                      </p>
+                      <p className="text-lg font-bold text-green-600 dark:text-green-400" style={{ fontFamily: 'var(--font-fira-sans)' }}>
+                        {getTotalAmount(getFilteredOrders()).toLocaleString('fr-FR')} F
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Orders */}
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                  <h3 className="text-sm font-bold text-black dark:text-white mb-4" style={{ fontFamily: 'var(--font-fira-sans)' }}>
-                    Commandes ({clientOrders.length})
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-fira-sans)' }}>
+                      Commandes ({getFilteredOrders().length})
+                    </h3>
+                  </div>
+
+                  {/* Date Filter */}
+                  <div className="mb-4">
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <button
+                        onClick={() => setOrderDateFilter('all')}
+                        className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                          orderDateFilter === 'all'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      >
+                        Toutes
+                      </button>
+                      <button
+                        onClick={() => setOrderDateFilter('today')}
+                        className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                          orderDateFilter === 'today'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      >
+                        Aujourd'hui
+                      </button>
+                      <button
+                        onClick={() => setOrderDateFilter('week')}
+                        className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                          orderDateFilter === 'week'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      >
+                        7 jours
+                      </button>
+                      <button
+                        onClick={() => setOrderDateFilter('month')}
+                        className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                          orderDateFilter === 'month'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      >
+                        Ce mois
+                      </button>
+                      <button
+                        onClick={() => setOrderDateFilter('custom')}
+                        className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                          orderDateFilter === 'custom'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      >
+                        Période
+                      </button>
+                    </div>
+
+                    {/* Custom Date Range */}
+                    {orderDateFilter === 'custom' && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            Du
+                          </label>
+                          <input
+                            type="date"
+                            value={customStartDate}
+                            onChange={(e) => setCustomStartDate(e.target.value)}
+                            className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            style={{ fontFamily: 'var(--font-poppins)' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            Au
+                          </label>
+                          <input
+                            type="date"
+                            value={customEndDate}
+                            onChange={(e) => setCustomEndDate(e.target.value)}
+                            className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            style={{ fontFamily: 'var(--font-poppins)' }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {loadingOrders ? (
                     <div className="text-center py-4">
                       <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 dark:border-white"></div>
                     </div>
-                  ) : clientOrders.length > 0 ? (
+                  ) : getFilteredOrders().length > 0 ? (
                     <div className="space-y-2">
-                      {clientOrders.map((order) => (
+                      {getFilteredOrders().map((order) => (
                         <div
                           key={order.id}
                           className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"

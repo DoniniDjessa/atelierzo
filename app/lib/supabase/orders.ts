@@ -21,6 +21,7 @@ export interface Order {
   status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   shipping_address?: string;
   shipping_phone?: string;
+  pickup_number?: string;
   customer_name?: string;
   customer_phone?: string;
   notes?: string;
@@ -42,6 +43,7 @@ export interface CreateOrderInput {
   }>;
   shipping_address?: string;
   shipping_phone?: string;
+  pickup_number: string;
   notes?: string;
 }
 
@@ -53,6 +55,24 @@ export async function createOrder(input: CreateOrderInput): Promise<{ data: Orde
     // Calculate total amount
     const totalAmount = input.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
+    // Check for duplicate orders within the last 10 seconds
+    const tenSecondsAgo = new Date(Date.now() - 10000).toISOString();
+    const { data: recentOrders, error: checkError } = await supabase
+      .from('zo-orders')
+      .select('id, created_at, total_amount')
+      .eq('user_id', input.user_id)
+      .eq('total_amount', totalAmount)
+      .eq('shipping_phone', input.shipping_phone || '')
+      .gte('created_at', tenSecondsAgo)
+      .limit(1);
+
+    if (checkError) {
+      console.error('Error checking for duplicate orders:', checkError);
+    } else if (recentOrders && recentOrders.length > 0) {
+      console.warn('Duplicate order attempt detected within 10 seconds');
+      return { data: null, error: 'Une commande identique a déjà été créée. Veuillez patienter.' };
+    }
+
     // Create order
     const { data: order, error: orderError } = await supabase
       .from('zo-orders')
@@ -62,6 +82,7 @@ export async function createOrder(input: CreateOrderInput): Promise<{ data: Orde
         status: 'pending',
         shipping_address: input.shipping_address,
         shipping_phone: input.shipping_phone,
+        pickup_number: input.pickup_number,
         notes: input.notes,
       })
       .select()
@@ -269,25 +290,82 @@ export async function getAllOrders(): Promise<{ data: Order[] | null; error: str
  */
 export async function getPaginatedOrders(
   page: number = 1,
-  itemsPerPage: number = 13
+  itemsPerPage: number = 13,
+  filters?: {
+    statusFilter?: Order['status'] | 'all';
+    searchQuery?: string;
+    dateFilterType?: 'all' | 'day' | 'range';
+    selectedDate?: string;
+    dateRangeStart?: string;
+    dateRangeEnd?: string;
+    amountSort?: 'none' | 'high-to-low' | 'low-to-high';
+  }
 ): Promise<{ data: Order[] | null; total: number; error: string | null }> {
   try {
     const from = (page - 1) * itemsPerPage;
     const to = from + itemsPerPage - 1;
 
-    // Get total count (excluding deleted)
-    const { count } = await supabase
+    // Build base query
+    let countQuery = supabase
       .from('zo-orders')
       .select('*', { count: 'exact', head: true })
       .eq('is_deleted', false);
 
-    // Get paginated data (excluding deleted)
-    const { data, error } = await supabase
+    let dataQuery = supabase
       .from('zo-orders')
       .select('*, items:zo-order-items(*)')
-      .eq('is_deleted', false)
-      .order('created_at', { ascending: true })
-      .range(from, to);
+      .eq('is_deleted', false);
+
+    // Apply status filter
+    if (filters?.statusFilter && filters.statusFilter !== 'all') {
+      countQuery = countQuery.eq('status', filters.statusFilter);
+      dataQuery = dataQuery.eq('status', filters.statusFilter);
+    }
+
+    // Apply date filters
+    if (filters?.dateFilterType === 'day' && filters.selectedDate) {
+      const startOfDay = new Date(filters.selectedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(filters.selectedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      countQuery = countQuery.gte('created_at', startOfDay.toISOString()).lte('created_at', endOfDay.toISOString());
+      dataQuery = dataQuery.gte('created_at', startOfDay.toISOString()).lte('created_at', endOfDay.toISOString());
+    } else if (filters?.dateFilterType === 'range' && filters.dateRangeStart && filters.dateRangeEnd) {
+      const startDate = new Date(filters.dateRangeStart);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(filters.dateRangeEnd);
+      endDate.setHours(23, 59, 59, 999);
+      countQuery = countQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
+      dataQuery = dataQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
+    }
+
+    // Apply search filter (basic - only ID and phone for now, as addresses require joining)
+    if (filters?.searchQuery && filters.searchQuery.trim() !== '') {
+      const search = filters.searchQuery.toLowerCase();
+      // Note: We need to fetch all data first and filter client-side for product names
+      // since they are in a related table. For now, filter by order fields only.
+      // Client-side filtering will handle product names after fetching.
+      dataQuery = dataQuery.or(`shipping_phone.ilike.%${search}%,shipping_address.ilike.%${search}%,id.ilike.%${search}%,pickup_number.ilike.%${search}%`);
+      countQuery = countQuery.or(`shipping_phone.ilike.%${search}%,shipping_address.ilike.%${search}%,id.ilike.%${search}%,pickup_number.ilike.%${search}%`);
+    }
+
+    // Get total count
+    const { count } = await countQuery;
+
+    // Apply sorting
+    if (filters?.amountSort === 'high-to-low') {
+      dataQuery = dataQuery.order('total_amount', { ascending: false });
+    } else if (filters?.amountSort === 'low-to-high') {
+      dataQuery = dataQuery.order('total_amount', { ascending: true });
+    } else {
+      dataQuery = dataQuery.order('created_at', { ascending: false });
+    }
+
+    // Apply pagination
+    dataQuery = dataQuery.range(from, to);
+
+    // Execute query
+    const { data, error } = await dataQuery;
 
     if (error) {
       console.error('Error fetching paginated orders:', error);
@@ -337,7 +415,11 @@ export async function getOrdersCountByStatus(filters?: {
         query = query.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
       }
 
-      // Note: Search filter would require fetching data to check phone/address/user names
+      // Apply search filter
+      if (filters?.searchQuery && filters.searchQuery.trim() !== '') {
+        const search = filters.searchQuery.toLowerCase();
+        query = query.or(`shipping_phone.ilike.%${search}%,shipping_address.ilike.%${search}%,id.ilike.%${search}%`);
+      }
       // For now, we'll only apply date filters to counts for performance
 
       const { count, error } = await query;
