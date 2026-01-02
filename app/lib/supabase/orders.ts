@@ -326,3 +326,37 @@ export async function updateOrderStatus(
   }
 }
 
+/**
+ * Delete an order
+ */
+export async function deleteOrder(orderId: string): Promise<{ error: string | null }> {
+  try {
+    // First delete order items
+    const { error: itemsError } = await supabase
+      .from('zo-order-items')
+      .delete()
+      .eq('order_id', orderId);
+
+    if (itemsError) {
+      console.error('Error deleting order items:', itemsError);
+      return { error: itemsError.message };
+    }
+
+    // Then delete the order
+    const { error } = await supabase
+      .from('zo-orders')
+      .delete()
+      .eq('id', orderId);
+
+    if (error) {
+      console.error('Error deleting order:', error);
+      return { error: error.message };
+    }
+
+    return { error: null };
+  } catch (error: any) {
+    console.error('Unexpected error deleting order:', error);
+    return { error: error.message || 'Unknown error' };
+  }
+}
+

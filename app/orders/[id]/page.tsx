@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
 import { useUser } from '@/app/contexts/UserContext';
-import { getOrderById, Order } from '@/app/lib/supabase/orders';
+import { getOrderById, deleteOrder, Order } from '@/app/lib/supabase/orders';
 import { getColorName } from '@/app/lib/utils/colors';
 import PageTitle from '@/app/components/PageTitle';
 
@@ -86,6 +86,39 @@ export default function OrderDetailsPage() {
     }
   };
 
+  const handleDeleteOrder = async () => {
+    if (!order) return;
+
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette commande ?')) return;
+
+    try {
+      const { error } = await deleteOrder(order.id);
+      if (error) {
+        toast.error(`Erreur: ${error}`);
+      } else {
+        toast.success('Commande supprimée avec succès');
+        router.push('/profile/history');
+      }
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      toast.error('Erreur lors de la suppression');
+    }
+  };
+
+  const canDeleteOrder = () => {
+    if (!order) return false;
+    
+    // Can delete immediately if cancelled
+    if (order.status === 'cancelled') return true;
+    
+    // Can delete after one week for other statuses
+    const orderDate = new Date(order.created_at);
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    return orderDate <= oneWeekAgo;
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('fr-FR', {
       year: 'numeric',
@@ -151,16 +184,30 @@ export default function OrderDetailsPage() {
             Retour
           </button>
 
-          <button
-            onClick={handleDownloadReceipt}
-            className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors text-sm font-medium"
-            style={{ fontFamily: 'var(--font-poppins)' }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Télécharger le reçu
-          </button>
+          <div className="flex items-center gap-2">
+            {canDeleteOrder() && (
+              <button
+                onClick={handleDeleteOrder}
+                className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm font-medium"
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Supprimer
+              </button>
+            )}
+            <button
+              onClick={handleDownloadReceipt}
+              className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors text-sm font-medium"
+              style={{ fontFamily: 'var(--font-poppins)' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Télécharger le reçu
+            </button>
+          </div>
         </div>
 
         <PageTitle title={`Commande #${order.id.substring(0, 8)}`} />
