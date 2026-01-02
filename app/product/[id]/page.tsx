@@ -243,7 +243,7 @@ export default function ProductDetailPage() {
                           {/* Stock counter badge */}
                           {availableQty > 0 && (
                             <span 
-                              className="absolute -top-1 -right-1 bg-cyan-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full"
+                              className="absolute -top-1 -right-1 bg-white text-black text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-gray-300"
                               style={{ fontFamily: 'var(--font-poppins)' }}
                             >
                               {availableQty}
