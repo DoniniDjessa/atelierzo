@@ -214,7 +214,7 @@ export default function ProductDetailPage() {
                 >
                   
                   <br />
-                  Tailles <span className="ml-2 Ninline-flex items-center text-black bg-blue-400 px-3 py-1 rounded-2xl text-[10px] mb-2">
+                  Tailles <span className="ml-2 Ninline-flex items-center text-black bg-blue-300 px-3 py-1 rounded-2xl text-[10px] mb-2">
                     Disponibilités actuelles
                   </span> {selectedSizes.length > 0 && <span className="text-gray-500">({selectedSizes.join(', ')})</span>}
                 </label>
@@ -243,7 +243,7 @@ export default function ProductDetailPage() {
                           {/* Stock counter badge */}
                           {availableQty > 0 && (
                             <span 
-                              className="absolute -top-1 -right-1 bg-blue-400 text-black text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-gray-300"
+                              className="absolute -top-1 -right-1 bg-blue-300 text-black text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-gray-300"
                               style={{ fontFamily: 'var(--font-poppins)' }}
                             >
                               {availableQty}
