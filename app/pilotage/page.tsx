@@ -59,8 +59,10 @@ export default function PilotageDashboard() {
   const [period, setPeriod] = useState<'custom' | 'today' | 'week' | 'month' | 'year'>('month');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [revenueFilterCategory, setRevenueFilterCategory] = useState<string>('all');
   const [mostSoldProducts, setMostSoldProducts] = useState<Array<{ productId: string; sales: number; revenue: number }>>([]);
   const [topClients, setTopClients] = useState<TopClient[]>([]);
+  const [tshirtProductsData, setTshirtProductsData] = useState<Array<{ name: string; revenue: number; sales: number }>>([]);
 
   useEffect(() => {
     const auth = localStorage.getItem('atelierzo_admin_auth');
@@ -69,6 +71,13 @@ export default function PilotageDashboard() {
       loadDashboardData();
     }
   }, []);
+
+  // Reload data when period or revenue filter changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadDashboardData();
+    }
+  }, [period, startDate, endDate, revenueFilterCategory]);
 
   const loadDashboardData = async () => {
     setLoading(true);
@@ -122,27 +131,53 @@ export default function PilotageDashboard() {
         return orderDate >= periodStart && orderDate <= periodEnd;
       });
 
-      // Calculate revenue by day/month for bar chart
-      const revenueByPeriod: { [key: string]: number } = {};
-      filteredOrders.forEach((order) => {
-        const date = new Date(order.created_at);
-        let key: string;
-        if (period === 'today' || period === 'week') {
-          key = date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
-        } else if (period === 'month' || period === 'custom') {
-          key = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-        } else {
-          key = date.toLocaleDateString('fr-FR', { month: 'short' });
-        }
-        revenueByPeriod[key] = (revenueByPeriod[key] || 0) + order.total_amount;
-      });
-
-      const chartData = Object.entries(revenueByPeriod)
-        .map(([name, value]) => ({ name, value: Math.round(value) }))
-        .sort((a, b) => {
-          // Sort by date (simplified, you might want better date parsing)
-          return a.name.localeCompare(b.name);
+      // Calculate revenue - either by time period or by product within category
+      let chartData: { name: string; value: number }[] = [];
+      
+      if (revenueFilterCategory === 'all') {
+        // Show revenue by time period (default behavior)
+        const revenueByPeriod: { [key: string]: number } = {};
+        filteredOrders.forEach((order) => {
+          const date = new Date(order.created_at);
+          let key: string;
+          if (period === 'today' || period === 'week') {
+            key = date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+          } else if (period === 'month' || period === 'custom') {
+            key = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+          } else {
+            key = date.toLocaleDateString('fr-FR', { month: 'short' });
+          }
+          revenueByPeriod[key] = (revenueByPeriod[key] || 0) + order.total_amount;
         });
+
+        chartData = Object.entries(revenueByPeriod)
+          .map(([name, value]) => ({ name, value: Math.round(value) }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+      } else {
+        // Show revenue by product within selected category
+        const revenueByProduct: { [productId: string]: { name: string; revenue: number } } = {};
+        
+        filteredOrders.forEach((order) => {
+          if (order.items) {
+            order.items.forEach((item) => {
+              const product = products.find((p) => p.id === item.product_id);
+              if (product && product.category === revenueFilterCategory) {
+                if (!revenueByProduct[product.id]) {
+                  revenueByProduct[product.id] = {
+                    name: product.title,
+                    revenue: 0,
+                  };
+                }
+                revenueByProduct[product.id].revenue += item.price * item.quantity;
+              }
+            });
+          }
+        });
+
+        chartData = Object.values(revenueByProduct)
+          .map(({ name, revenue }) => ({ name, value: Math.round(revenue) }))
+          .sort((a, b) => b.value - a.value); // Sort by revenue descending
+      }
 
       setRevenueData(chartData);
 
@@ -260,6 +295,32 @@ export default function PilotageDashboard() {
         .slice(0, 5);
 
       setMostSoldProducts(topProducts);
+
+      // Calculate Tshirt Oversize CIV products revenue
+      const tshirtProducts = products.filter(p => p.category === 'tshirt-oversize-civ');
+      const tshirtRevenue: { [productId: string]: { name: string; revenue: number; sales: number } } = {};
+      
+      filteredOrders.forEach((order) => {
+        if (order.items) {
+          order.items.forEach((item) => {
+            const product = tshirtProducts.find((p) => p.id === item.product_id);
+            if (product) {
+              if (!tshirtRevenue[product.id]) {
+                tshirtRevenue[product.id] = {
+                  name: product.title,
+                  revenue: 0,
+                  sales: 0,
+                };
+              }
+              tshirtRevenue[product.id].revenue += item.price * item.quantity;
+              tshirtRevenue[product.id].sales += item.quantity;
+            }
+          });
+        }
+      });
+
+      const tshirtData = Object.values(tshirtRevenue).sort((a, b) => b.revenue - a.revenue);
+      setTshirtProductsData(tshirtData);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -527,13 +588,60 @@ export default function PilotageDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Revenue Bar Chart */}
           <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
-                Revenus
+                {revenueFilterCategory === 'all' ? 'Revenus' : 'Revenus par Produit'}
               </h2>
               <span className="text-sm text-slate-500 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
                 {period === 'today' ? "Aujourd'hui" : period === 'week' ? '7 derniers jours' : period === 'month' ? 'Ce mois' : period === 'year' ? 'Cette année' : 'Période personnalisée'}
               </span>
+            </div>
+            {/* Category Filter */}
+            <div className="mb-4 flex gap-2 flex-wrap">
+              <button
+                onClick={() => setRevenueFilterCategory('all')}
+                className={`px-3 py-1.5 text-xs rounded-lg transition-colors font-medium ${
+                  revenueFilterCategory === 'all'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                Tous les produits
+              </button>
+              <button
+                onClick={() => setRevenueFilterCategory('tshirt-oversize-civ')}
+                className={`px-3 py-1.5 text-xs rounded-lg transition-colors font-medium ${
+                  revenueFilterCategory === 'tshirt-oversize-civ'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                Tshirt Oversize CIV Champions d'Afrique
+              </button>
+              <button
+                onClick={() => setRevenueFilterCategory('bermuda')}
+                className={`px-3 py-1.5 text-xs rounded-lg transition-colors font-medium ${
+                  revenueFilterCategory === 'bermuda'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                Chemise Bermuda
+              </button>
+              <button
+                onClick={() => setRevenueFilterCategory('pantalon')}
+                className={`px-3 py-1.5 text-xs rounded-lg transition-colors font-medium ${
+                  revenueFilterCategory === 'pantalon'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                Chemise Pantalon
+              </button>
             </div>
             {revenueData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
@@ -697,6 +805,117 @@ export default function PilotageDashboard() {
           </div>
         </div>
 
+        {/* Tshirt Oversize CIV Products Chart - Hidden for now */}
+        {false && (
+        <div className="mt-8 bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+              📊 Produits Tshirt Oversize CIV Champions d'Afrique
+            </h2>
+            <Package className="h-5 w-5 text-purple-500" />
+          </div>
+          {(() => {
+            const tshirtProducts = products.filter(p => p.category === 'tshirt-oversize-civ');
+            const productRevenue: { [productId: string]: { name: string; revenue: number; sales: number } } = {};
+            
+            // Use the same period filtering as the main revenue chart
+            const now = new Date();
+            now.setHours(23, 59, 59, 999);
+            
+            let periodStart: Date;
+            let periodEnd: Date = now;
+            
+            if (period === 'custom' && startDate && endDate) {
+              periodStart = new Date(startDate);
+              periodStart.setHours(0, 0, 0, 0);
+              periodEnd = new Date(endDate);
+              periodEnd.setHours(23, 59, 59, 999);
+            } else if (period === 'today') {
+              periodStart = new Date();
+              periodStart.setHours(0, 0, 0, 0);
+            } else if (period === 'week') {
+              periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            } else if (period === 'month') {
+              periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+              periodStart.setHours(0, 0, 0, 0);
+            } else {
+              periodStart = new Date(now.getFullYear(), 0, 1);
+              periodStart.setHours(0, 0, 0, 0);
+            }
+
+            if (tshirtProductsData.length === 0) {
+              return (
+                <div className="h-75 flex items-center justify-center text-slate-400">
+                  <p className="text-sm" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    Aucune donnée pour le moment
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={tshirtProductsData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis
+                    dataKey="name"
+                    stroke="#9CA3AF"
+                    style={{ fontSize: '12px', fontFamily: 'var(--font-poppins)' }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                  />
+                  <YAxis
+                    stroke="#9CA3AF"
+                    style={{ fontSize: '12px', fontFamily: 'var(--font-poppins)' }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1F2937',
+                      border: 'none',
+                      borderRadius: '12px',
+                      fontFamily: 'var(--font-poppins)',
+                    }}
+                    formatter={(value: number) => [`${value.toLocaleString()} FCFA`, 'Revenus']}
+                  />
+                  <Bar dataKey="revenue" fill="#10B981" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            );
+          })()}
+          
+          {/* Summary stats for Tshirt products */}
+          {tshirtProductsData.length > 0 && (
+            <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="bg-slate-50 dark:bg-gray-700 rounded-xl p-4">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                  Produits
+                </p>
+                <p className="text-2xl font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                  {tshirtProductsData.length}
+                </p>
+              </div>
+              <div className="bg-slate-50 dark:bg-gray-700 rounded-xl p-4">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                  Ventes totales
+                </p>
+                <p className="text-2xl font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                  {tshirtProductsData.reduce((sum, p) => sum + p.sales, 0)}
+                </p>
+              </div>
+              <div className="bg-slate-50 dark:bg-gray-700 rounded-xl p-4">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                  Revenus totaux
+                </p>
+                <p className="text-2xl font-bold text-emerald-600" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                  {tshirtProductsData.reduce((sum, p) => sum + p.revenue, 0).toLocaleString()} FCFA
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+        )}
+
         {/* Product Ranking and Best Clients */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
           {/* Product Ranking */}
@@ -724,7 +943,7 @@ export default function PilotageDashboard() {
                         </h3>
                         <div className="flex items-center gap-3 mt-1">
                           <span className="text-xs text-slate-600 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-                            {item.sales} ventes
+                            {item.sales} commandes
                           </span>
                           <span className="text-xs text-green-600 dark:text-green-400 font-semibold" style={{ fontFamily: 'var(--font-poppins)' }}>
                             {formatCurrency(item.revenue)} FCFA
@@ -810,7 +1029,7 @@ export default function PilotageDashboard() {
                       </h3>
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-xs text-slate-600 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-                          {item.sales} ventes
+                          {item.sales} commandes
                         </span>
                         <span className="text-xs text-green-600 dark:text-green-400 font-medium" style={{ fontFamily: 'var(--font-poppins)' }}>
                           {item.revenue.toLocaleString('fr-FR')} XOF

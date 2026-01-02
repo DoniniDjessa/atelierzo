@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminNavbar from '@/app/components/AdminNavbar';
-import { getAllUsers, User } from '@/app/lib/supabase/users';
+import { getAllUsers, getPaginatedUsers, User } from '@/app/lib/supabase/users';
 import { getClientOrders, Order } from '@/app/lib/supabase/orders';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -15,8 +15,11 @@ export default function ClientsPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [users, setUsers] = useState<User[]>([]);
+  const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
   const [selectedClient, setSelectedClient] = useState<User | null>(null);
   const [clientOrders, setClientOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
@@ -49,14 +52,23 @@ export default function ClientsPage() {
     }
   }, []);
 
+  // Reload users when page changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadUsers();
+    }
+  }, [currentPage]);
+
   const loadUsers = async () => {
     setLoading(true);
-    const { data, error } = await getAllUsers();
+    const { data, total, error } = await getPaginatedUsers(currentPage, ITEMS_PER_PAGE);
     if (error) {
       console.error('Error loading users:', error);
       setUsers([]);
+      setTotalUsers(0);
     } else {
       setUsers(data || []);
+      setTotalUsers(total);
     }
     setLoading(false);
   };
@@ -146,10 +158,10 @@ export default function ClientsPage() {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-xl font-bold text-black dark:text-white mb-1" style={{ fontFamily: 'var(--font-fira-sans)' }}>
-            Clients
+            Clients ({totalUsers})
           </h1>
           <p className="text-xs text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-            {filteredUsers.length} client(s) {searchQuery ? 'trouvé(s)' : 'au total'}
+            Page {currentPage} : {filteredUsers.length} client(s)
           </p>
         </div>
 
@@ -178,7 +190,7 @@ export default function ClientsPage() {
         </div>
 
         {/* Clients List */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+        <div className="overflow-hidden">
           {loading ? (
             <div className="p-12 text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
@@ -288,6 +300,60 @@ export default function ClientsPage() {
             </div>
           )}
         </div>
+
+        {/* Pagination for Clients */}
+        {filteredUsers.length > 0 && Math.ceil(totalUsers / ITEMS_PER_PAGE) > 1 && (
+          <div className="mt-6 flex items-center justify-between">
+            <p className="text-sm text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+              Page {currentPage} sur {Math.ceil(totalUsers / ITEMS_PER_PAGE)} — {totalUsers} clients au total
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                Précédent
+              </button>
+              {[...Array(Math.min(5, Math.ceil(totalUsers / ITEMS_PER_PAGE)))].map((_, i) => {
+                const totalPages = Math.ceil(totalUsers / ITEMS_PER_PAGE);
+                let pageNum: number;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                      currentPage === pageNum
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                    style={{ fontFamily: 'var(--font-poppins)' }}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalUsers / ITEMS_PER_PAGE), prev + 1))}
+                disabled={currentPage === Math.ceil(totalUsers / ITEMS_PER_PAGE)}
+                className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                Suivant
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Right Sidebar for Client Details */}

@@ -38,6 +38,45 @@ export async function getAllUsers(): Promise<{ data: User[] | null; error: strin
 }
 
 /**
+ * Get paginated users from zo-users table
+ */
+export async function getPaginatedUsers(
+  page: number = 1,
+  itemsPerPage: number = 20
+): Promise<{ data: User[] | null; total: number; error: string | null }> {
+  try {
+    const from = (page - 1) * itemsPerPage;
+    const to = from + itemsPerPage - 1;
+
+    // Get total count
+    const { count } = await supabase
+      .from('zo-users')
+      .select('*', { count: 'exact', head: true });
+
+    // Get paginated data
+    const { data, error } = await supabase
+      .from('zo-users')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error('Error fetching paginated users:', error);
+      return { data: null, total: 0, error: error.message };
+    }
+
+    return { data: data || [], total: count || 0, error: null };
+  } catch (error) {
+    console.error('Error fetching paginated users:', error);
+    return {
+      data: null,
+      total: 0,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
  * Get a user by ID
  */
 export async function getUserById(id: string): Promise<{ data: User | null; error: string | null }> {
