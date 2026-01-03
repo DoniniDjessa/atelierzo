@@ -3,6 +3,13 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Black_Ops_One } from 'next/font/google';
+
+const blackOps = Black_Ops_One({
+  weight: '400',
+  subsets: ['latin'],
+  display: 'swap',
+});
 
 const slides = [
   { id: 1, image: '/carousel/1.jpeg' },
@@ -17,6 +24,22 @@ const slides = [
 
 export default function HeroCarousel() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [showRestockBanner, setShowRestockBanner] = useState(false);
+
+  // Check if we should show the restock banner
+  useEffect(() => {
+    const checkRestockBanner = () => {
+      const now = new Date();
+      // Restock date: January 6, 2026 at 10:00 AM GMT
+      const restockDate = new Date('2026-01-06T10:00:00Z');
+      setShowRestockBanner(now < restockDate);
+    };
+    
+    checkRestockBanner();
+    // Check every minute to update the banner visibility
+    const interval = setInterval(checkRestockBanner, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -35,6 +58,40 @@ export default function HeroCarousel() {
 
   return (
     <section className="relative w-full h-[60vh] min-h-[500px] max-h-[700px] mb-24 bg-gray-900">
+      {/* Restock Announcement Banner */}
+      {showRestockBanner && (
+        <div className="absolute top-8 left-1/2 -translate-x-1/2 z-40 px-8 py-6 rounded-2xl shadow-2xl text-center max-w-xl w-[90%] overflow-hidden">
+          <div 
+            className="absolute inset-0 animate-shimmer"
+            style={{
+              background: 'linear-gradient(90deg, #00aeee 0%, #00d4ff 50%, #00aeee 100%)',
+              backgroundSize: '200% 100%',
+              animation: 'shimmer 3s linear infinite'
+            }}
+          />
+          <style jsx>{`
+            @keyframes shimmer {
+              0% {
+                background-position: -200% 0;
+              }
+              100% {
+                background-position: 200% 0;
+              }
+            }
+          `}</style>
+          <div className="relative z-10">
+            <h2 className={`${blackOps.className} text-3xl md:text-4xl text-white mb-2 flex items-center justify-center gap-3`}>
+              PROCHAIN RESTOCKAGE EN LIGNE
+              {/* <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>
+              </svg> */}
+            </h2>
+            <p className="text-sm md:text-base text-white">
+              Mardi 06 Janvier 2026 - 11h00 GMT
+            </p>
+          </div>
+        </div>
+      )}
       {/* Mobile/Tablet Carousel (< 1024px) */}
       <div className="block lg:hidden w-full h-full relative overflow-hidden">
         <AnimatePresence mode="wait">

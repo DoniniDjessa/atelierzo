@@ -77,7 +77,7 @@ export default function ReceiptModal({ isOpen, onClose, orderData }: ReceiptModa
           <div className="text-center pb-4 mb-4" style={{ borderBottom: '2px dashed #9ca3af' }}>
             <h1 className="text-2xl font-bold mb-2" style={{ color: '#000000' }}>LES ATELIERS ZO</h1>
             <p className="text-xs" style={{ color: '#4b5563' }}>+225 07 49 235 896 | +225 05 55 486 130</p>
-            <p className="text-xs mt-1" style={{ color: '#6b7280' }}>www.atelierszo.com</p>
+            <p className="text-xs mt-1" style={{ color: '#6b7280' }}>www.lesatelierszo.com</p>
           </div>
 
           {/* Order Info */}
