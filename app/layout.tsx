@@ -59,6 +59,12 @@ export const metadata: Metadata = {
     description: 'Découvrez notre collection de vêtements de qualité: Chemises Bermuda, Pantalons élégants et Tshirts CIV. Livraison en Côte d\'Ivoire.',
     images: [
       {
+        url: '/logo.png',
+        width: 1200,
+        height: 1200,
+        alt: 'Les Ateliers Zo Logo',
+      },
+      {
         url: '/og-image.jpg',
         width: 1200,
         height: 630,
@@ -70,7 +76,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Les Ateliers Zo - Mode Ivoirienne Premium',
     description: 'Découvrez notre collection de vêtements de qualité premium',
-    images: ['/og-image.jpg'],
+    images: ['/logo.png'],
   },
   robots: {
     index: true,
@@ -91,10 +97,19 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/icon.png', type: 'image/png' },
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.png', type: 'image/png', sizes: '512x512' },
       { url: '/icon.svg', type: 'image/svg+xml' },
     ],
-    apple: '/icon.png',
+    apple: [
+      { url: '/icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    other: [
+      {
+        rel: 'mask-icon',
+        url: '/icon.svg',
+      },
+    ],
   },
 };
 
@@ -103,8 +118,38 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Les Ateliers Zo',
+    url: 'https://lesatelierszo.com',
+    logo: 'https://lesatelierszo.com/logo.png',
+    image: 'https://lesatelierszo.com/logo.png',
+    description: 'Boutique de mode ivoirienne en ligne. Chemises Bermuda, Pantalons élégants et Tshirts Oversize CIV Champions d\'Afrique.',
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: 'Abidjan',
+      addressCountry: 'CI',
+    },
+    contactPoint: {
+      '@type': 'ContactPoint',
+      telephone: '+225-07-49-235-896',
+      contactType: 'Customer Service',
+    },
+    sameAs: [
+      'https://www.instagram.com/lesatelierszo',
+      'https://www.facebook.com/lesatelierszo',
+    ],
+  };
+
   return (
     <html lang="fr">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body
         className={`${ubuntu.variable} ${poppins.variable} antialiased`}
       >
