@@ -3,13 +3,6 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Black_Ops_One } from 'next/font/google';
-
-const blackOps = Black_Ops_One({
-  weight: '400',
-  subsets: ['latin'],
-  display: 'swap',
-});
 
 const slides = [
   { id: 1, image: '/carousel/1.jpeg' },
@@ -60,7 +53,7 @@ export default function HeroCarousel() {
     <section className="relative w-full h-[60vh] min-h-[500px] max-h-[700px] mb-24 bg-gray-900">
       {/* Restock Announcement Banner */}
       {showRestockBanner && (
-        <div className="absolute top-8 left-1/2 -translate-x-1/2 z-40 px-8 py-6 rounded-2xl shadow-2xl text-center max-w-xl w-[90%] overflow-hidden">
+        <div className="absolute top-8 left-1/2 -translate-x-1/2 z-40 px-3 py-2 rounded-lg shadow-lg text-center max-w-sm w-[80%] overflow-hidden">
           <div 
             className="absolute inset-0 animate-shimmer"
             style={{
@@ -80,13 +73,13 @@ export default function HeroCarousel() {
             }
           `}</style>
           <div className="relative z-10">
-            <h2 className={`${blackOps.className} text-3xl md:text-4xl text-white mb-2 flex items-center justify-center gap-3`}>
+            <h2 className="text-base md:text-lg font-black text-white mb-0.5 flex items-center justify-center gap-2" style={{ fontFamily: 'Arial, sans-serif' }}>
               PROCHAIN RESTOCKAGE EN LIGNE
               {/* <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>
               </svg> */}
             </h2>
-            <p className="text-sm md:text-base text-white">
+            <p className="text-[13px] md:text-xs text-white font-normal" style={{ fontFamily: 'Arial, sans-serif' }}>
               Mardi 06 Janvier 2026 - 11h00 GMT
             </p>
           </div>
