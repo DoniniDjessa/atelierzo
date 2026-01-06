@@ -35,20 +35,26 @@ export default function Home() {
             .map((item) => productsMap.get(item.productId))
             .filter((p) => p !== undefined) as any[];
           
-          // If we have products from orders, use them; otherwise use first 5
-          if (productsList.length > 0) {
+          // If we have products from orders, use them; ensure minimum 5 if possible
+          if (productsList.length >= 5) {
             setBestProducts(productsList);
+          } else if (products.length >= 5) {
+            // Fill up to 5 with other products if available
+            const usedIds = new Set(productsList.map(p => p.id));
+            const additionalProducts = products.filter(p => !usedIds.has(p.id));
+            setBestProducts([...productsList, ...additionalProducts].slice(0, 5));
           } else {
-            setBestProducts(products.slice(0, 5));
+            // Show all available products if less than 5
+            setBestProducts(productsList.length > 0 ? productsList : products);
           }
         } else {
-          // If no products with orders, show first 5 products
-          setBestProducts(products.slice(0, 5));
+          // If no products with orders, show minimum 5 products if available
+          setBestProducts(products.slice(0, Math.max(5, products.length)));
         }
       } catch (error) {
         console.error('Error loading best products:', error);
-        // Fallback to first 5 products on error
-        setBestProducts(products.slice(0, 5));
+        // Fallback to minimum 5 products on error
+        setBestProducts(products.slice(0, Math.max(5, products.length)));
       }
     };
 
@@ -112,7 +118,7 @@ export default function Home() {
                 <p className="text-gray-500 dark:text-gray-400">Aucun produit disponible pour le moment</p>
               </div>
             )}
-            {(bestProducts.length > 0 ? bestProducts : products.slice(0, 5)).map((product) => (
+            {bestProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 productId={product.id}
