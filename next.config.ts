@@ -12,31 +12,35 @@ if (supabaseUrl) {
   }
 }
 
-const remotePatterns: Array<{ protocol: 'https'; hostname: string; pathname?: string }> = [
+const remotePatterns: Array<{
+  protocol: "https";
+  hostname: string;
+  pathname?: string;
+}> = [
   {
-    protocol: 'https',
-    hostname: 'placehold.co',
+    protocol: "https",
+    hostname: "placehold.co",
   },
   {
-    protocol: 'https',
-    hostname: 'images.unsplash.com',
+    protocol: "https",
+    hostname: "images.unsplash.com",
   },
   {
-    protocol: 'https',
-    hostname: 'source.unsplash.com',
+    protocol: "https",
+    hostname: "source.unsplash.com",
   },
   {
-    protocol: 'https',
-    hostname: 'i.pinimg.com',
+    protocol: "https",
+    hostname: "i.pinimg.com",
   },
 ];
 
 // Add Supabase hostname if available
 if (supabaseHostname) {
   remotePatterns.push({
-    protocol: 'https',
+    protocol: "https",
     hostname: supabaseHostname,
-    pathname: '/storage/v1/object/public/**',
+    pathname: "/storage/v1/object/public/**",
   });
 }
 
@@ -44,8 +48,9 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns,
     dangerouslyAllowSVG: true,
-    contentDispositionType: 'attachment',
+    contentDispositionType: "attachment",
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    unoptimized: true, // Disable Next.js image optimization to avoid private IP errors
   },
   typescript: {
     // !! WARN !!
