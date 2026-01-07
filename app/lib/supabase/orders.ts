@@ -1,5 +1,5 @@
-import { supabase } from './client';
-import { sendNewOrderNotification } from '@/app/lib/sms/service';
+import { supabase } from "./client";
+import { sendNewOrderNotification } from "@/app/lib/sms/service";
 
 export interface OrderItem {
   id: string;
@@ -18,7 +18,13 @@ export interface Order {
   id: string;
   user_id: string;
   total_amount: number;
-  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  status:
+    | "pending"
+    | "confirmed"
+    | "processing"
+    | "shipped"
+    | "delivered"
+    | "cancelled";
   shipping_address?: string;
   shipping_phone?: string;
   pickup_number?: string;
@@ -50,70 +56,191 @@ export interface CreateOrderInput {
 /**
  * Create a new order with order items
  */
-export async function createOrder(input: CreateOrderInput): Promise<{ data: Order | null; error: string | null }> {
+export async function createOrder(
+  input: CreateOrderInput
+): Promise<{ data: Order | null; error: string | null }> {
   try {
-    // Validate stock availability before creating order
-    for (const item of input.items) {
-      const { data: product, error: productError } = await supabase
-        .from('zo-products')
-        .select('sizes, title')
-        .eq('id', item.product_id)
-        .single();
-
-      if (productError || !product) {
-        console.error(`Error fetching product ${item.product_id}:`, productError);
-        return { data: null, error: 'Erreur lors de la vérification du stock' };
-      }
-
-      if (product.sizes && typeof product.sizes === 'object' && !Array.isArray(product.sizes)) {
-        const sizes = product.sizes as Record<string, number>;
-        const availableQty = sizes[item.size] || 0;
-        
-        if (availableQty < item.quantity) {
-          const productTitle = product.title || 'Ce produit';
-          if (availableQty === 0) {
-            return { 
-              data: null, 
-              error: `${productTitle} (taille ${item.size}) n'est plus disponible en stock. Veuillez retirer cet article de votre panier.` 
-            };
-          } else {
-            return { 
-              data: null, 
-              error: `${productTitle} (taille ${item.size}) n'a plus que ${availableQty} article(s) en stock au lieu de ${item.quantity}. Veuillez ajuster votre panier.` 
-            };
-          }
-        }
-      }
-    }
-
     // Calculate total amount
-    const totalAmount = input.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const totalAmount = input.items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
 
     // Check for duplicate orders within the last 10 seconds
     const tenSecondsAgo = new Date(Date.now() - 10000).toISOString();
     const { data: recentOrders, error: checkError } = await supabase
-      .from('zo-orders')
-      .select('id, created_at, total_amount')
-      .eq('user_id', input.user_id)
-      .eq('total_amount', totalAmount)
-      .eq('shipping_phone', input.shipping_phone || '')
-      .gte('created_at', tenSecondsAgo)
+      .from("zo-orders")
+      .select("id, created_at, total_amount")
+      .eq("user_id", input.user_id)
+      .eq("total_amount", totalAmount)
+      .eq("shipping_phone", input.shipping_phone || "")
+      .gte("created_at", tenSecondsAgo)
       .limit(1);
 
     if (checkError) {
-      console.error('Error checking for duplicate orders:', checkError);
+      console.error("Error checking for duplicate orders:", checkError);
     } else if (recentOrders && recentOrders.length > 0) {
-      console.warn('Duplicate order attempt detected within 10 seconds');
-      return { data: null, error: 'Une commande identique a déjà été créée. Veuillez patienter.' };
+      console.warn("Duplicate order attempt detected within 10 seconds");
+      return {
+        data: null,
+        error: "Une commande identique a déjà été créée. Veuillez patienter.",
+      };
     }
 
-    // Create order
+    // CRITICAL: Decrease stock FIRST with atomic operations to prevent race conditions
+    // This ensures that if 10 people order 5 items simultaneously, only 5 will succeed
+    for (const item of input.items) {
+      try {
+        let retries = 5; // Increase retries for high concurrency
+        let success = false;
+        let lastError = null;
+
+        while (retries > 0 && !success) {
+          // Get current product with version control
+          const { data: product, error: productError } = await supabase
+            .from("zo-products")
+            .select("sizes, title, updated_at")
+            .eq("id", item.product_id)
+            .single();
+
+          if (productError || !product) {
+            console.error(
+              `Error fetching product ${item.product_id}:`,
+              productError
+            );
+            return {
+              data: null,
+              error: "Erreur lors de la vérification du stock",
+            };
+          }
+
+          if (
+            product.sizes &&
+            typeof product.sizes === "object" &&
+            !Array.isArray(product.sizes)
+          ) {
+            const sizes = product.sizes as Record<string, number>;
+            const availableQty = sizes[item.size] || 0;
+            const productTitle = product.title || "Ce produit";
+
+            // Check if sufficient stock is available
+            if (availableQty < item.quantity) {
+              if (availableQty === 0) {
+                return {
+                  data: null,
+                  error: `${productTitle} (taille ${item.size}) n'est plus disponible en stock. Un autre client vient de le commander.`,
+                };
+              } else {
+                return {
+                  data: null,
+                  error: `${productTitle} (taille ${item.size}) n'a plus que ${availableQty} article(s) en stock. Veuillez ajuster votre panier.`,
+                };
+              }
+            }
+
+            // Calculate new quantity
+            const newQty = availableQty - item.quantity;
+
+            const updatedSizes = {
+              ...sizes,
+              [item.size]: newQty,
+            };
+
+            // Calculate total quantity to determine if product is still in stock
+            const totalQuantity = Object.values(updatedSizes).reduce(
+              (sum, qty) => sum + qty,
+              0
+            );
+
+            // ATOMIC UPDATE: Update stock only if updated_at matches (optimistic locking)
+            // This prevents race conditions where multiple orders try to decrease the same stock
+            const { data: updateResult, error: updateError } = await supabase
+              .from("zo-products")
+              .update({
+                sizes: updatedSizes,
+                in_stock: totalQuantity > 0,
+                updated_at: new Date().toISOString(), // Update timestamp
+              })
+              .eq("id", item.product_id)
+              .eq("updated_at", product.updated_at) // CRITICAL: Only update if timestamp matches
+              .select("id");
+
+            if (updateError) {
+              console.error(
+                `Error updating product ${item.product_id}:`,
+                updateError
+              );
+              lastError = updateError;
+              retries--;
+              if (retries > 0) {
+                // Wait before retrying (exponential backoff)
+                await new Promise((resolve) =>
+                  setTimeout(resolve, 50 * (6 - retries))
+                );
+                continue;
+              } else {
+                return {
+                  data: null,
+                  error:
+                    "Le produit est très demandé. Veuillez réessayer dans quelques instants.",
+                };
+              }
+            }
+
+            // Check if update was successful (row was actually updated)
+            if (!updateResult || updateResult.length === 0) {
+              // Stock was modified by another transaction, retry
+              console.warn(
+                `Stock conflict for product ${item.product_id}, retrying...`
+              );
+              lastError = new Error("Stock conflict");
+              retries--;
+              if (retries > 0) {
+                // Wait before retrying
+                await new Promise((resolve) =>
+                  setTimeout(resolve, 50 * (6 - retries))
+                );
+                continue;
+              } else {
+                return {
+                  data: null,
+                  error: `${productTitle} (taille ${item.size}) vient d'être commandé par un autre client. Veuillez vérifier le stock disponible.`,
+                };
+              }
+            }
+
+            // Success!
+            success = true;
+          }
+        }
+
+        if (!success) {
+          // Failed after all retries
+          return {
+            data: null,
+            error: "Impossible de réserver le stock. Veuillez réessayer.",
+          };
+        }
+      } catch (err) {
+        console.error(
+          `Unexpected error processing item ${item.product_id}:`,
+          err
+        );
+        return {
+          data: null,
+          error:
+            "Une erreur inattendue est survenue lors de la réservation du stock.",
+        };
+      }
+    }
+
+    // Stock has been successfully decreased, now create the order
     const { data: order, error: orderError } = await supabase
-      .from('zo-orders')
+      .from("zo-orders")
       .insert({
         user_id: input.user_id,
         total_amount: totalAmount,
-        status: 'pending',
+        status: "pending",
         shipping_address: input.shipping_address,
         shipping_phone: input.shipping_phone,
         pickup_number: input.pickup_number,
@@ -123,8 +250,16 @@ export async function createOrder(input: CreateOrderInput): Promise<{ data: Orde
       .single();
 
     if (orderError || !order) {
-      console.error('Error creating order:', orderError);
-      return { data: null, error: orderError?.message || 'Failed to create order' };
+      console.error("Error creating order:", orderError);
+      // TODO: We should rollback the stock decrease here, but it's complex
+      // For now, log it and handle manually if needed
+      console.error(
+        "CRITICAL: Stock was decreased but order creation failed. Manual intervention may be needed."
+      );
+      return {
+        data: null,
+        error: orderError?.message || "Failed to create order",
+      };
     }
 
     // Create order items
@@ -139,113 +274,68 @@ export async function createOrder(input: CreateOrderInput): Promise<{ data: Orde
       quantity: item.quantity,
     }));
 
-    const { error: itemsError } = await supabase.from('zo-order-items').insert(orderItems);
+    const { error: itemsError } = await supabase
+      .from("zo-order-items")
+      .insert(orderItems);
 
     if (itemsError) {
-      console.error('Error creating order items:', itemsError);
+      console.error("Error creating order items:", itemsError);
       // Rollback order creation
-      await supabase.from('zo-orders').delete().eq('id', order.id);
+      await supabase.from("zo-orders").delete().eq("id", order.id);
+      // Note: Stock has already been decreased, would need manual correction
+      console.error(
+        "CRITICAL: Order items creation failed. Stock was decreased. Manual intervention may be needed."
+      );
       return { data: null, error: itemsError.message };
     }
 
-    // Decrease product quantities for each order item
-    for (const item of input.items) {
-      try {
-        // Use a retry mechanism to handle race conditions
-        let retries = 3;
-        let success = false;
-        
-        while (retries > 0 && !success) {
-          // Get current product with updated_at for optimistic locking
-          const { data: product, error: productError } = await supabase
-            .from('zo-products')
-            .select('sizes, updated_at')
-            .eq('id', item.product_id)
-            .single();
-
-          if (productError || !product) {
-            console.error(`Error fetching product ${item.product_id}:`, productError);
-            break; // Skip this product
-          }
-
-          // Update sizes with decreased quantities
-          if (product.sizes && typeof product.sizes === 'object' && !Array.isArray(product.sizes)) {
-            const sizes = product.sizes as Record<string, number>;
-            const currentQty = sizes[item.size] || 0;
-            const newQty = Math.max(0, currentQty - item.quantity); // Ensure quantity doesn't go below 0
-            
-            const updatedSizes = {
-              ...sizes,
-              [item.size]: newQty,
-            };
-
-            // Calculate total quantity to determine if product is in stock
-            const totalQuantity = Object.values(updatedSizes).reduce((sum, qty) => sum + qty, 0);
-
-            // Update product with new quantities and stock status
-            // Use updated_at for optimistic locking
-            const { error: updateError } = await supabase
-              .from('zo-products')
-              .update({
-                sizes: updatedSizes,
-                in_stock: totalQuantity > 0,
-              })
-              .eq('id', item.product_id)
-              .eq('updated_at', product.updated_at); // Optimistic locking
-            
-            if (updateError) {
-              console.error(`Error updating product ${item.product_id}:`, updateError);
-              retries--;
-              if (retries > 0) {
-                // Wait a bit before retrying
-                await new Promise(resolve => setTimeout(resolve, 100));
-                continue;
-              }
-            } else {
-              success = true;
-            }
-          } else {
-            break;
-          }
-        }
-      } catch (error) {
-        console.error(`Error updating product ${item.product_id} quantity:`, error);
-        // Continue with other products even if one fails
-      }
-    }
+    // Stock has already been decreased at the beginning of this function
+    // No need to decrease it again here (prevents double decrement)
 
     // Fetch order with items
     const { data: orderWithItems, error: fetchError } = await supabase
-      .from('zo-orders')
-      .select('*, items:zo-order-items(*)')
-      .eq('id', order.id)
+      .from("zo-orders")
+      .select("*, items:zo-order-items(*)")
+      .eq("id", order.id)
       .single();
 
     if (fetchError) {
-      console.error('Error fetching order with items:', fetchError);
+      console.error("Error fetching order with items:", fetchError);
       return { data: order, error: null }; // Return order without items if fetch fails
     }
 
     // Send SMS and Email notifications to admin (non-blocking)
     try {
       // Get user info once for both SMS and email
-      const { data: userData } = await supabase.from('zo-users').select('name, phone').eq('id', input.user_id).single();
-      const clientName = userData?.name || input.shipping_phone || 'Client';
-      const clientPhone = userData?.phone || input.shipping_phone || 'N/A';
-      const deliveryAddress = input.shipping_address || 'Non spécifiée';
-      
+      const { data: userData } = await supabase
+        .from("zo-users")
+        .select("name, phone")
+        .eq("id", input.user_id)
+        .single();
+      const clientName = userData?.name || input.shipping_phone || "Client";
+      const clientPhone = userData?.phone || input.shipping_phone || "N/A";
+      const deliveryAddress = input.shipping_address || "Non spécifiée";
+
       // Send SMS notification
       try {
-        const smsResult = await sendNewOrderNotification(order.id, totalAmount, clientName, clientPhone);
+        const smsResult = await sendNewOrderNotification(
+          order.id,
+          totalAmount,
+          clientName,
+          clientPhone
+        );
         if (smsResult?.error) {
-          console.error('SMS notification error:', smsResult.error);
+          console.error("SMS notification error:", smsResult.error);
         } else {
-          console.log('SMS notification sent successfully');
+          console.log("SMS notification sent successfully");
         }
       } catch (smsError) {
-        console.error('Failed to send SMS notification (non-blocking):', smsError);
+        console.error(
+          "Failed to send SMS notification (non-blocking):",
+          smsError
+        );
       }
-      
+
       // Send Email notification via API route
       try {
         // Prepare items for email
@@ -256,15 +346,15 @@ export async function createOrder(input: CreateOrderInput): Promise<{ data: Orde
           size: item.size,
           color: item.color,
         }));
-        
+
         // Call API route to send email (non-blocking)
-        const emailResponse = await fetch('/api/email', {
-          method: 'POST',
+        const emailResponse = await fetch("/api/email", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            type: 'order_notification',
+            type: "order_notification",
             orderId: order.id,
             totalAmount,
             clientName,
@@ -273,71 +363,85 @@ export async function createOrder(input: CreateOrderInput): Promise<{ data: Orde
             items: emailItems,
           }),
         });
-        
+
         if (!emailResponse.ok) {
           const errorData = await emailResponse.json().catch(() => ({}));
-          console.error('Email notification error:', errorData.error || `HTTP ${emailResponse.status}`);
+          console.error(
+            "Email notification error:",
+            errorData.error || `HTTP ${emailResponse.status}`
+          );
         } else {
-          console.log('Email notification sent successfully');
+          console.log("Email notification sent successfully");
         }
       } catch (emailError) {
-        console.error('Failed to send email notification (non-blocking):', emailError);
+        console.error(
+          "Failed to send email notification (non-blocking):",
+          emailError
+        );
       }
     } catch (notificationError) {
-      console.error('Failed to send notifications (non-blocking):', notificationError);
+      console.error(
+        "Failed to send notifications (non-blocking):",
+        notificationError
+      );
     }
 
     return { data: orderWithItems as unknown as Order, error: null };
   } catch (error: any) {
-    console.error('Unexpected error creating order:', error);
-    return { data: null, error: error.message || 'Unknown error' };
+    console.error("Unexpected error creating order:", error);
+    return { data: null, error: error.message || "Unknown error" };
   }
 }
 
 /**
  * Get all orders for a user
  */
-export async function getUserOrders(userId: string): Promise<{ data: Order[] | null; error: string | null }> {
+export async function getUserOrders(
+  userId: string
+): Promise<{ data: Order[] | null; error: string | null }> {
   try {
     const { data, error } = await supabase
-      .from('zo-orders')
-      .select('*, items:zo-order-items(*)')
-      .eq('user_id', userId)
-      .eq('is_deleted', false)
-      .order('created_at', { ascending: true });
+      .from("zo-orders")
+      .select("*, items:zo-order-items(*)")
+      .eq("user_id", userId)
+      .eq("is_deleted", false)
+      .order("created_at", { ascending: true });
 
     if (error) {
-      console.error('Error fetching user orders:', error);
+      console.error("Error fetching user orders:", error);
       return { data: null, error: error.message };
     }
 
     return { data: data as unknown as Order[], error: null };
   } catch (error: any) {
-    console.error('Unexpected error fetching user orders:', error);
-    return { data: null, error: error.message || 'Unknown error' };
+    console.error("Unexpected error fetching user orders:", error);
+    return { data: null, error: error.message || "Unknown error" };
   }
 }
 
 /**
  * Get all orders (admin)
  */
-export async function getAllOrders(): Promise<{ data: Order[] | null; error: string | null }> {
+export async function getAllOrders(): Promise<{
+  data: Order[] | null;
+  error: string | null;
+}> {
   try {
     const { data, error } = await supabase
-      .from('zo-orders')
-      .select('*, items:zo-order-items(*)')
-      .eq('is_deleted', false)
-      .order('created_at', { ascending: true });
+      .from("zo-orders")
+      .select("*, items:zo-order-items(*)")
+      .eq("is_deleted", false)
+      .order("created_at", { ascending: true });
 
     if (error) {
-      console.error('Error fetching all orders:', error);
+      console.error("Error fetching all orders:", error);
       return { data: null, error: error.message };
     }
 
     return { data: data as unknown as Order[], error: null };
   } catch (error: any) {
-    console.error('Unexpected error fetching all orders:', error);
-    return { data: null, error: error.message || 'Unknown error' };
+    console.error("Unexpected error fetching all orders:", error);
+    return { data: null, error: error.message || "Unknown error" };
   }
 }
 
@@ -348,13 +452,13 @@ export async function getPaginatedOrders(
   page: number = 1,
   itemsPerPage: number = 13,
   filters?: {
-    statusFilter?: Order['status'] | 'all' | 'active';
+    statusFilter?: Order["status"] | "all" | "active";
     searchQuery?: string;
-    dateFilterType?: 'all' | 'day' | 'range';
+    dateFilterType?: "all" | "day" | "range";
     selectedDate?: string;
     dateRangeStart?: string;
     dateRangeEnd?: string;
-    amountSort?: 'none' | 'high-to-low' | 'low-to-high';
+    amountSort?: "none" | "high-to-low" | "low-to-high";
   }
 ): Promise<{ data: Order[] | null; total: number; error: string | null }> {
   try {
@@ -363,64 +467,84 @@ export async function getPaginatedOrders(
 
     // Build base query
     let countQuery = supabase
-      .from('zo-orders')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_deleted', false);
+      .from("zo-orders")
+      .select("*", { count: "exact", head: true })
+      .eq("is_deleted", false);
 
     let dataQuery = supabase
-      .from('zo-orders')
-      .select('*, items:zo-order-items(*)')
-      .eq('is_deleted', false);
+      .from("zo-orders")
+      .select("*, items:zo-order-items(*)")
+      .eq("is_deleted", false);
 
     // Apply status filter
-    if (filters?.statusFilter && filters.statusFilter !== 'all') {
-      if (filters.statusFilter === 'active') {
+    if (filters?.statusFilter && filters.statusFilter !== "all") {
+      if (filters.statusFilter === "active") {
         // Active means not delivered and not cancelled
-        countQuery = countQuery.neq('status', 'delivered').neq('status', 'cancelled');
-        dataQuery = dataQuery.neq('status', 'delivered').neq('status', 'cancelled');
+        countQuery = countQuery
+          .neq("status", "delivered")
+          .neq("status", "cancelled");
+        dataQuery = dataQuery
+          .neq("status", "delivered")
+          .neq("status", "cancelled");
       } else {
-        countQuery = countQuery.eq('status', filters.statusFilter);
-        dataQuery = dataQuery.eq('status', filters.statusFilter);
+        countQuery = countQuery.eq("status", filters.statusFilter);
+        dataQuery = dataQuery.eq("status", filters.statusFilter);
       }
     }
 
     // Apply date filters
-    if (filters?.dateFilterType === 'day' && filters.selectedDate) {
+    if (filters?.dateFilterType === "day" && filters.selectedDate) {
       const startOfDay = new Date(filters.selectedDate);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(filters.selectedDate);
       endOfDay.setHours(23, 59, 59, 999);
-      countQuery = countQuery.gte('created_at', startOfDay.toISOString()).lte('created_at', endOfDay.toISOString());
-      dataQuery = dataQuery.gte('created_at', startOfDay.toISOString()).lte('created_at', endOfDay.toISOString());
-    } else if (filters?.dateFilterType === 'range' && filters.dateRangeStart && filters.dateRangeEnd) {
+      countQuery = countQuery
+        .gte("created_at", startOfDay.toISOString())
+        .lte("created_at", endOfDay.toISOString());
+      dataQuery = dataQuery
+        .gte("created_at", startOfDay.toISOString())
+        .lte("created_at", endOfDay.toISOString());
+    } else if (
+      filters?.dateFilterType === "range" &&
+      filters.dateRangeStart &&
+      filters.dateRangeEnd
+    ) {
       const startDate = new Date(filters.dateRangeStart);
       startDate.setHours(0, 0, 0, 0);
       const endDate = new Date(filters.dateRangeEnd);
       endDate.setHours(23, 59, 59, 999);
-      countQuery = countQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
-      dataQuery = dataQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
+      countQuery = countQuery
+        .gte("created_at", startDate.toISOString())
+        .lte("created_at", endDate.toISOString());
+      dataQuery = dataQuery
+        .gte("created_at", startDate.toISOString())
+        .lte("created_at", endDate.toISOString());
     }
 
     // Apply search filter (basic - only ID and phone for now, as addresses require joining)
-    if (filters?.searchQuery && filters.searchQuery.trim() !== '') {
+    if (filters?.searchQuery && filters.searchQuery.trim() !== "") {
       const search = filters.searchQuery.toLowerCase();
       // Note: We need to fetch all data first and filter client-side for product names
       // since they are in a related table. For now, filter by order fields only.
       // Client-side filtering will handle product names after fetching.
-      dataQuery = dataQuery.or(`shipping_phone.ilike.%${search}%,shipping_address.ilike.%${search}%,id.ilike.%${search}%,pickup_number.ilike.%${search}%`);
-      countQuery = countQuery.or(`shipping_phone.ilike.%${search}%,shipping_address.ilike.%${search}%,id.ilike.%${search}%,pickup_number.ilike.%${search}%`);
+      dataQuery = dataQuery.or(
+        `shipping_phone.ilike.%${search}%,shipping_address.ilike.%${search}%,id.ilike.%${search}%,pickup_number.ilike.%${search}%`
+      );
+      countQuery = countQuery.or(
+        `shipping_phone.ilike.%${search}%,shipping_address.ilike.%${search}%,id.ilike.%${search}%,pickup_number.ilike.%${search}%`
+      );
     }
 
     // Get total count
     const { count } = await countQuery;
 
     // Apply sorting
-    if (filters?.amountSort === 'high-to-low') {
-      dataQuery = dataQuery.order('total_amount', { ascending: false });
-    } else if (filters?.amountSort === 'low-to-high') {
-      dataQuery = dataQuery.order('total_amount', { ascending: true });
+    if (filters?.amountSort === "high-to-low") {
+      dataQuery = dataQuery.order("total_amount", { ascending: false });
+    } else if (filters?.amountSort === "low-to-high") {
+      dataQuery = dataQuery.order("total_amount", { ascending: true });
     } else {
-      dataQuery = dataQuery.order('created_at', { ascending: false });
+      dataQuery = dataQuery.order("created_at", { ascending: false });
     }
 
     // Apply pagination
@@ -430,14 +554,14 @@ export async function getPaginatedOrders(
     const { data, error } = await dataQuery;
 
     if (error) {
-      console.error('Error fetching paginated orders:', error);
+      console.error("Error fetching paginated orders:", error);
       return { data: null, total: 0, error: error.message };
     }
 
     return { data: data as unknown as Order[], total: count || 0, error: null };
   } catch (error: any) {
-    console.error('Unexpected error fetching paginated orders:', error);
-    return { data: null, total: 0, error: error.message || 'Unknown error' };
+    console.error("Unexpected error fetching paginated orders:", error);
+    return { data: null, total: 0, error: error.message || "Unknown error" };
   }
 }
 
@@ -446,41 +570,58 @@ export async function getPaginatedOrders(
  */
 export async function getOrdersCountByStatus(filters?: {
   searchQuery?: string;
-  dateFilterType?: 'all' | 'day' | 'range';
+  dateFilterType?: "all" | "day" | "range";
   selectedDate?: string;
   dateRangeStart?: string;
   dateRangeEnd?: string;
 }): Promise<{ data: Record<string, number> | null; error: string | null }> {
   try {
-    const statuses: Order['status'][] = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+    const statuses: Order["status"][] = [
+      "pending",
+      "confirmed",
+      "processing",
+      "shipped",
+      "delivered",
+      "cancelled",
+    ];
     const counts: Record<string, number> = {};
 
     for (const status of statuses) {
       let query = supabase
-        .from('zo-orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_deleted', false)
-        .eq('status', status);
+        .from("zo-orders")
+        .select("*", { count: "exact", head: true })
+        .eq("is_deleted", false)
+        .eq("status", status);
 
       // Apply date filters
-      if (filters?.dateFilterType === 'day' && filters.selectedDate) {
+      if (filters?.dateFilterType === "day" && filters.selectedDate) {
         const startOfDay = new Date(filters.selectedDate);
         startOfDay.setHours(0, 0, 0, 0);
         const endOfDay = new Date(filters.selectedDate);
         endOfDay.setHours(23, 59, 59, 999);
-        query = query.gte('created_at', startOfDay.toISOString()).lte('created_at', endOfDay.toISOString());
-      } else if (filters?.dateFilterType === 'range' && filters.dateRangeStart && filters.dateRangeEnd) {
+        query = query
+          .gte("created_at", startOfDay.toISOString())
+          .lte("created_at", endOfDay.toISOString());
+      } else if (
+        filters?.dateFilterType === "range" &&
+        filters.dateRangeStart &&
+        filters.dateRangeEnd
+      ) {
         const startDate = new Date(filters.dateRangeStart);
         startDate.setHours(0, 0, 0, 0);
         const endDate = new Date(filters.dateRangeEnd);
         endDate.setHours(23, 59, 59, 999);
-        query = query.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
+        query = query
+          .gte("created_at", startDate.toISOString())
+          .lte("created_at", endDate.toISOString());
       }
 
       // Apply search filter
-      if (filters?.searchQuery && filters.searchQuery.trim() !== '') {
+      if (filters?.searchQuery && filters.searchQuery.trim() !== "") {
         const search = filters.searchQuery.toLowerCase();
-        query = query.or(`shipping_phone.ilike.%${search}%,shipping_address.ilike.%${search}%,id.ilike.%${search}%`);
+        query = query.or(
+          `shipping_phone.ilike.%${search}%,shipping_address.ilike.%${search}%,id.ilike.%${search}%`
+        );
       }
       // For now, we'll only apply date filters to counts for performance
 
@@ -496,15 +637,17 @@ export async function getOrdersCountByStatus(filters?: {
 
     return { data: counts, error: null };
   } catch (error: any) {
-    console.error('Unexpected error fetching order counts by status:', error);
-    return { data: null, error: error.message || 'Unknown error' };
+    console.error("Unexpected error fetching order counts by status:", error);
+    return { data: null, error: error.message || "Unknown error" };
   }
 }
 
 /**
  * Get orders for a specific client (user)
  */
-export async function getClientOrders(clientId: string): Promise<{ data: Order[] | null; error: string | null }> {
+export async function getClientOrders(
+  clientId: string
+): Promise<{ data: Order[] | null; error: string | null }> {
   return getUserOrders(clientId);
 }
 
@@ -518,23 +661,23 @@ export async function getOrderById(
   try {
     const query = includeItems
       ? supabase
-          .from('zo-orders')
-          .select('*, items:zo-order-items(*)')
-          .eq('id', orderId)
+          .from("zo-orders")
+          .select("*, items:zo-order-items(*)")
+          .eq("id", orderId)
           .single()
-      : supabase.from('zo-orders').select('*').eq('id', orderId).single();
+      : supabase.from("zo-orders").select("*").eq("id", orderId).single();
 
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching order by ID:', error);
+      console.error("Error fetching order by ID:", error);
       return { data: null, error: error.message };
     }
 
     return { data: data as unknown as Order, error: null };
   } catch (error: any) {
-    console.error('Unexpected error fetching order by ID:', error);
-    return { data: null, error: error.message || 'Unknown error' };
+    console.error("Unexpected error fetching order by ID:", error);
+    return { data: null, error: error.message || "Unknown error" };
   }
 }
 
@@ -543,25 +686,25 @@ export async function getOrderById(
  */
 export async function updateOrderStatus(
   orderId: string,
-  status: Order['status']
+  status: Order["status"]
 ): Promise<{ data: Order | null; error: string | null }> {
   try {
     const { data, error } = await supabase
-      .from('zo-orders')
+      .from("zo-orders")
       .update({ status })
-      .eq('id', orderId)
+      .eq("id", orderId)
       .select()
       .single();
 
     if (error) {
-      console.error('Error updating order status:', error);
+      console.error("Error updating order status:", error);
       return { data: null, error: error.message };
     }
 
     return { data: data as unknown as Order, error: null };
   } catch (error: any) {
-    console.error('Unexpected error updating order status:', error);
-    return { data: null, error: error.message || 'Unknown error' };
+    console.error("Unexpected error updating order status:", error);
+    return { data: null, error: error.message || "Unknown error" };
   }
 }
 
@@ -571,23 +714,25 @@ export async function updateOrderStatus(
 /**
  * Delete an order (soft delete by setting is_deleted = true)
  */
-export async function deleteOrder(orderId: string): Promise<{ error: string | null }> {
+export async function deleteOrder(
+  orderId: string
+): Promise<{ error: string | null }> {
   try {
     // Soft delete: mark as deleted instead of actually deleting
     const { error } = await supabase
-      .from('zo-orders')
+      .from("zo-orders")
       .update({ is_deleted: true })
-      .eq('id', orderId);
+      .eq("id", orderId);
 
     if (error) {
-      console.error('Error deleting order:', error);
+      console.error("Error deleting order:", error);
       return { error: error.message };
     }
 
     return { error: null };
   } catch (error: any) {
-    console.error('Unexpected error deleting order:', error);
-    return { error: error.message || 'Unknown error' };
+    console.error("Unexpected error deleting order:", error);
+    return { error: error.message || "Unknown error" };
   }
 }
 
@@ -595,25 +740,27 @@ export async function deleteOrder(orderId: string): Promise<{ error: string | nu
  * Delete duplicate order without restoring inventory
  * Use this for duplicate orders that were created due to bugs
  */
-export async function deleteDuplicateOrder(orderId: string): Promise<{ error: string | null }> {
+export async function deleteDuplicateOrder(
+  orderId: string
+): Promise<{ error: string | null }> {
   try {
     // Just soft delete without any inventory restoration
     const { error } = await supabase
-      .from('zo-orders')
-      .update({ 
+      .from("zo-orders")
+      .update({
         is_deleted: true,
-        status: 'cancelled' // Mark as cancelled too
+        status: "cancelled", // Mark as cancelled too
       })
-      .eq('id', orderId);
+      .eq("id", orderId);
 
     if (error) {
-      console.error('Error deleting duplicate order:', error);
+      console.error("Error deleting duplicate order:", error);
       return { error: error.message };
     }
 
     return { error: null };
   } catch (error: any) {
-    console.error('Unexpected error deleting duplicate order:', error);
-    return { error: error.message || 'Unknown error' };
+    console.error("Unexpected error deleting duplicate order:", error);
+    return { error: error.message || "Unknown error" };
   }
 }

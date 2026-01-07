@@ -1,7 +1,15 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useUser } from './UserContext';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { useUser } from "./UserContext";
+import { useProducts } from "./ProductContext";
+import { toast } from "sonner";
 
 export interface CartItem {
   productId: string;
@@ -15,9 +23,14 @@ export interface CartItem {
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void;
+  addToCart: (item: Omit<CartItem, "quantity"> & { quantity?: number }) => void;
   removeFromCart: (productId: string, size: string, color?: string) => void;
-  updateQuantity: (productId: string, size: string, quantity: number, color?: string) => void;
+  updateQuantity: (
+    productId: string,
+    size: string,
+    quantity: number,
+    color?: string
+  ) => void;
   clearCart: () => void;
   getTotal: () => number;
   getItemCount: () => number;
@@ -27,6 +40,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useUser();
+  const { getProductById } = useProducts();
   const [items, setItems] = useState<CartItem[]>([]);
 
   // Load cart from localStorage when user changes or on initial mount
@@ -37,7 +51,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         try {
           setItems(JSON.parse(storedCart));
         } catch (e) {
-          console.error('Error parsing stored cart:', e);
+          console.error("Error parsing stored cart:", e);
           setItems([]);
         }
       } else {
@@ -52,19 +66,51 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (user?.phone) {
       if (items.length > 0) {
-        localStorage.setItem(`atelierzo_cart_${user.phone}`, JSON.stringify(items));
+        localStorage.setItem(
+          `atelierzo_cart_${user.phone}`,
+          JSON.stringify(items)
+        );
       } else {
         localStorage.removeItem(`atelierzo_cart_${user.phone}`);
       }
     }
   }, [items, user?.phone]);
 
-  const addToCart = (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => {
+  const addToCart = (
+    item: Omit<CartItem, "quantity"> & { quantity?: number }
+  ) => {
     const qtyToAdd = item.quantity || 1;
+
+    // Check stock availability before adding
+    const product = getProductById(item.productId);
+    if (product && product.sizeQuantities) {
+      const availableQty = product.sizeQuantities[item.size] || 0;
+
+      // Check if item already exists to calculate total quantity
+      const existingItem = items.find(
+        (i) =>
+          i.productId === item.productId &&
+          i.size === item.size &&
+          i.color === item.color
+      );
+      const currentQtyInCart = existingItem ? existingItem.quantity : 0;
+      const totalQty = currentQtyInCart + qtyToAdd;
+
+      if (totalQty > availableQty) {
+        toast.error(
+          `Stock insuffisant ! Il ne reste que ${availableQty} article(s) en stock pour la taille ${item.size}.`
+        );
+        return;
+      }
+    }
+
     setItems((prevItems) => {
       // Check if item already exists (same productId, size, and color)
       const existingIndex = prevItems.findIndex(
-        (i) => i.productId === item.productId && i.size === item.size && i.color === item.color
+        (i) =>
+          i.productId === item.productId &&
+          i.size === item.size &&
+          i.color === item.color
       );
 
       if (existingIndex >= 0) {
@@ -84,20 +130,55 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const removeFromCart = (productId: string, size: string, color?: string) => {
     setItems((prevItems) =>
       prevItems.filter(
-        (item) => !(item.productId === productId && item.size === size && item.color === color)
+        (item) =>
+          !(
+            item.productId === productId &&
+            item.size === size &&
+            item.color === color
+          )
       )
     );
   };
 
-  const updateQuantity = (productId: string, size: string, quantity: number, color?: string) => {
+  const updateQuantity = (
+    productId: string,
+    size: string,
+    quantity: number,
+    color?: string
+  ) => {
     if (quantity <= 0) {
       removeFromCart(productId, size, color);
       return;
     }
 
+    // Check stock availability before updating
+    const product = getProductById(productId);
+    if (product && product.sizeQuantities) {
+      const availableQty = product.sizeQuantities[size] || 0;
+
+      if (quantity > availableQty) {
+        toast.error(
+          `Stock insuffisant ! Il ne reste que ${availableQty} article(s) en stock pour la taille ${size}.`
+        );
+        // Set to maximum available quantity instead of rejecting
+        setItems((prevItems) =>
+          prevItems.map((item) =>
+            item.productId === productId &&
+            item.size === size &&
+            item.color === color
+              ? { ...item, quantity: availableQty }
+              : item
+          )
+        );
+        return;
+      }
+    }
+
     setItems((prevItems) =>
       prevItems.map((item) =>
-        item.productId === productId && item.size === size && item.color === color
+        item.productId === productId &&
+        item.size === size &&
+        item.color === color
           ? { ...item, quantity }
           : item
       )
@@ -136,8 +217,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 export function useCart() {
   const context = useContext(CartContext);
   if (context === undefined) {
-    throw new Error('useCart must be used within a CartProvider');
+    throw new Error("useCart must be used within a CartProvider");
   }
   return context;
 }
-
