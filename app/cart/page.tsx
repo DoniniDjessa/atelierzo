@@ -1,29 +1,30 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { toast } from 'sonner';
-import { useCart } from '@/app/contexts/CartContext';
-import { useUser } from '@/app/contexts/UserContext';
-import { useProducts } from '@/app/contexts/ProductContext';
-import { createOrder } from '@/app/lib/supabase/orders';
-import { getColorName } from '@/app/lib/utils/colors';
-import Footer from '@/app/components/Footer';
-import PageTitle from '@/app/components/PageTitle';
-import ReceiptModal from '@/app/components/ReceiptModal';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { toast } from "sonner";
+import { useCart } from "@/app/contexts/CartContext";
+import { useUser } from "@/app/contexts/UserContext";
+import { useProducts } from "@/app/contexts/ProductContext";
+import { createOrder } from "@/app/lib/supabase/orders";
+import { getColorName } from "@/app/lib/utils/colors";
+import Footer from "@/app/components/Footer";
+import PageTitle from "@/app/components/PageTitle";
+import ReceiptModal from "@/app/components/ReceiptModal";
 
 export default function CartPage() {
   const router = useRouter();
   const { user } = useUser();
-  const { items, removeFromCart, updateQuantity, clearCart, getTotal } = useCart();
+  const { items, removeFromCart, updateQuantity, clearCart, getTotal } =
+    useCart();
   const { getProductById, updateProduct } = useProducts();
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderCreated, setOrderCreated] = useState(false);
-  const [shippingAddress, setShippingAddress] = useState('');
-  const [shippingPhone, setShippingPhone] = useState(user?.phone || '');
-  const [pickupNumber, setPickupNumber] = useState('');
-  const [notes, setNotes] = useState('');
+  const [shippingAddress, setShippingAddress] = useState("");
+  const [shippingPhone, setShippingPhone] = useState(user?.phone || "");
+  const [pickupNumber, setPickupNumber] = useState("");
+  const [notes, setNotes] = useState("");
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
 
@@ -31,34 +32,36 @@ export default function CartPage() {
     // Prevent multiple simultaneous submissions or resubmission after order created
     if (isProcessing || orderCreated) {
       if (orderCreated) {
-        toast.error('Votre commande a déjà été créée. Consultez vos commandes.');
+        toast.error(
+          "Votre commande a déjà été créée. Consultez vos commandes."
+        );
       }
       return;
     }
 
     if (!user) {
-      toast.error('Veuillez vous connecter pour passer une commande');
-      router.push('/');
+      toast.error("Veuillez vous connecter pour passer une commande");
+      router.push("/");
       return;
     }
 
     if (items.length === 0) {
-      toast.error('Votre panier est vide');
+      toast.error("Votre panier est vide");
       return;
     }
 
     if (!shippingAddress.trim()) {
-      toast.error('Veuillez entrer une adresse de livraison');
+      toast.error("Veuillez entrer une adresse de livraison");
       return;
     }
 
     if (!shippingPhone.trim()) {
-      toast.error('Veuillez entrer un numéro de téléphone');
+      toast.error("Veuillez entrer un numéro de téléphone");
       return;
     }
 
     if (!pickupNumber.trim()) {
-      toast.error('Veuillez entrer votre numéro de récupération');
+      toast.error("Veuillez entrer votre numéro de récupération");
       return;
     }
 
@@ -69,9 +72,13 @@ export default function CartPage() {
         const availableQty = product.sizeQuantities[item.size] || 0;
         if (availableQty < item.quantity) {
           if (availableQty === 0) {
-            toast.error(`${item.title} (taille ${item.size}) n'est plus disponible en stock. Veuillez retirer cet article de votre panier.`);
+            toast.error(
+              `${item.title} (taille ${item.size}) n'est plus disponible en stock. Veuillez retirer cet article de votre panier.`
+            );
           } else {
-            toast.error(`${item.title} (taille ${item.size}) n'a plus que ${availableQty} article(s) disponible(s). Vous en avez sélectionné ${item.quantity}. Veuillez ajuster la quantité.`);
+            toast.error(
+              `${item.title} (taille ${item.size}) n'a plus que ${availableQty} article(s) disponible(s). Vous en avez sélectionné ${item.quantity}. Veuillez ajuster la quantité.`
+            );
           }
           return;
         }
@@ -104,28 +111,16 @@ export default function CartPage() {
         return;
       }
 
-      // Decrease product quantities for each item in the order
-      items.forEach((item) => {
-        const product = getProductById(item.productId);
-        if (product && product.sizeQuantities) {
-          const currentQty = product.sizeQuantities[item.size] || 0;
-          const newQty = Math.max(0, currentQty - item.quantity);
-          updateProduct(item.productId, {
-            sizeQuantities: {
-              ...product.sizeQuantities,
-              [item.size]: newQty,
-            },
-          });
-        }
-      });
+      // Stock is automatically decreased on the server side (in createOrder function)
+      // No need to decrease it here on the client side
 
       // Prepare receipt data
       const receipt = {
-        id: order?.id || '',
+        id: order?.id || "",
         items: items.map((item) => ({
           title: item.title,
           size: item.size,
-          color: getColorName(item.color) || item.color || 'N/A',
+          color: getColorName(item.color) || item.color || "N/A",
           quantity: item.quantity,
           price: item.price,
         })),
@@ -133,28 +128,31 @@ export default function CartPage() {
         shipping_address: shippingAddress,
         shipping_phone: shippingPhone,
         created_at: new Date().toISOString(),
-        customerName: user?.name || user?.email || 'Client',
+        customerName: user?.name || user?.email || "Client",
         notes: notes || undefined,
       };
 
       setOrderCreated(true);
-      
-      // Show receipt modal BEFORE clearing cart
+
+      // Clear cart immediately after successful order
+      clearCart();
+
+      // Show receipt modal
       setReceiptData(receipt);
       setShowReceipt(true);
       setIsProcessing(false);
-      
+
       toast.success(`Commande créée avec succès ! Numéro: ${order?.id}`);
     } catch (error: any) {
-      console.error('Error during checkout:', error);
-      toast.error('Erreur lors du traitement de la commande');
+      console.error("Error during checkout:", error);
+      toast.error("Erreur lors du traitement de la commande");
       setIsProcessing(false);
     }
   };
 
   const handleCloseReceipt = () => {
     setShowReceipt(false);
-    clearCart(); // Clear cart when closing receipt modal
+    // Cart is already cleared, just navigate to order details
     router.push(`/orders/${receiptData?.id}`);
   };
 
@@ -178,20 +176,20 @@ export default function CartPage() {
           </svg>
           <h1
             className="text-2xl font-bold text-black dark:text-white mb-4"
-            style={{ fontFamily: 'var(--font-fira-sans)' }}
+            style={{ fontFamily: "var(--font-fira-sans)" }}
           >
             Votre panier est vide
           </h1>
           <p
             className="text-gray-600 dark:text-gray-400 mb-6"
-            style={{ fontFamily: 'var(--font-poppins)' }}
+            style={{ fontFamily: "var(--font-poppins)" }}
           >
             Ajoutez des produits à votre panier pour commencer vos achats
           </p>
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push("/")}
             className="px-6 py-3 bg-gradient-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800 text-white rounded-lg transition-all transform hover:scale-105 active:scale-95 font-semibold"
-            style={{ fontFamily: 'var(--font-poppins)' }}
+            style={{ fontFamily: "var(--font-poppins)" }}
           >
             Découvrir les produits
           </button>
@@ -210,7 +208,9 @@ export default function CartPage() {
           <div className="lg:col-span-2 space-y-4">
             {items.map((item, index) => (
               <div
-                key={`${item.productId}-${item.size}-${item.color || 'no-color'}-${index}`}
+                key={`${item.productId}-${item.size}-${
+                  item.color || "no-color"
+                }-${index}`}
                 className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm transition-shadow p-3 sm:p-4"
               >
                 {/* Mobile Layout: Stacked */}
@@ -232,16 +232,16 @@ export default function CartPage() {
                     <div className="flex-1 min-w-0">
                       <h3
                         className="text-sm font-bold text-black dark:text-white mb-1 truncate"
-                        style={{ fontFamily: 'var(--font-fira-sans)' }}
+                        style={{ fontFamily: "var(--font-fira-sans)" }}
                       >
                         {item.title}
                       </h3>
-                      
+
                       {/* Variant - Size Display */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span
                           className="text-[10px] text-gray-500 dark:text-gray-400"
-                          style={{ fontFamily: 'var(--font-poppins)' }}
+                          style={{ fontFamily: "var(--font-poppins)" }}
                         >
                           taille {item.size}
                         </span>
@@ -255,7 +255,7 @@ export default function CartPage() {
                               />
                               <span
                                 className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[60px]"
-                                style={{ fontFamily: 'var(--font-poppins)' }}
+                                style={{ fontFamily: "var(--font-poppins)" }}
                               >
                                 {getColorName(item.color) || item.color}
                               </span>
@@ -267,7 +267,9 @@ export default function CartPage() {
 
                     {/* Remove Button - Top right */}
                     <button
-                      onClick={() => removeFromCart(item.productId, item.size, item.color)}
+                      onClick={() =>
+                        removeFromCart(item.productId, item.size, item.color)
+                      }
                       className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors p-1 flex-shrink-0"
                       aria-label="Supprimer"
                     >
@@ -293,7 +295,14 @@ export default function CartPage() {
                     {/* Quantity Selector */}
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => updateQuantity(item.productId, item.size, item.quantity - 1, item.color)}
+                        onClick={() =>
+                          updateQuantity(
+                            item.productId,
+                            item.size,
+                            item.quantity - 1,
+                            item.color
+                          )
+                        }
                         className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors"
                         aria-label="Diminuer la quantité"
                       >
@@ -305,17 +314,28 @@ export default function CartPage() {
                           stroke="currentColor"
                           strokeWidth={2.5}
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M20 12H4"
+                          />
                         </svg>
                       </button>
                       <span
                         className="text-sm font-medium text-black dark:text-white w-6 text-center"
-                        style={{ fontFamily: 'var(--font-poppins)' }}
+                        style={{ fontFamily: "var(--font-poppins)" }}
                       >
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() => updateQuantity(item.productId, item.size, item.quantity + 1, item.color)}
+                        onClick={() =>
+                          updateQuantity(
+                            item.productId,
+                            item.size,
+                            item.quantity + 1,
+                            item.color
+                          )
+                        }
                         className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors"
                         aria-label="Augmenter la quantité"
                       >
@@ -327,7 +347,11 @@ export default function CartPage() {
                           stroke="currentColor"
                           strokeWidth={2.5}
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 4v16m8-8H4"
+                          />
                         </svg>
                       </button>
                     </div>
@@ -335,9 +359,10 @@ export default function CartPage() {
                     {/* Price */}
                     <span
                       className="text-sm font-bold text-black dark:text-white"
-                      style={{ fontFamily: 'var(--font-fira-sans)' }}
+                      style={{ fontFamily: "var(--font-fira-sans)" }}
                     >
-                      {(item.price * item.quantity).toLocaleString('fr-FR')} FCFA
+                      {(item.price * item.quantity).toLocaleString("fr-FR")}{" "}
+                      FCFA
                     </span>
                   </div>
                 </div>
@@ -360,18 +385,18 @@ export default function CartPage() {
                     {/* Brand/Model Name - Bold */}
                     <h3
                       className="text-base font-bold text-black dark:text-white truncate"
-                      style={{ fontFamily: 'var(--font-fira-sans)' }}
+                      style={{ fontFamily: "var(--font-fira-sans)" }}
                     >
                       {item.title}
                     </h3>
-                    
+
                     {/* Short Description - Light Gray */}
                     {(() => {
                       const product = getProductById(item.productId);
                       return product?.description ? (
                         <p
                           className="text-sm text-gray-400 dark:text-gray-500 line-clamp-1"
-                          style={{ fontFamily: 'var(--font-poppins)' }}
+                          style={{ fontFamily: "var(--font-poppins)" }}
                         >
                           {product.description}
                         </p>
@@ -382,7 +407,7 @@ export default function CartPage() {
                     <div className="flex items-center gap-2">
                       <span
                         className="text-xs text-gray-500 dark:text-gray-400"
-                        style={{ fontFamily: 'var(--font-poppins)' }}
+                        style={{ fontFamily: "var(--font-poppins)" }}
                       >
                         taille {item.size}
                       </span>
@@ -396,7 +421,7 @@ export default function CartPage() {
                             />
                             <span
                               className="text-xs text-gray-500 dark:text-gray-400"
-                              style={{ fontFamily: 'var(--font-poppins)' }}
+                              style={{ fontFamily: "var(--font-poppins)" }}
                             >
                               {getColorName(item.color) || item.color}
                             </span>
@@ -409,7 +434,14 @@ export default function CartPage() {
                   {/* Quantity Selector - Center-right */}
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => updateQuantity(item.productId, item.size, item.quantity - 1, item.color)}
+                      onClick={() =>
+                        updateQuantity(
+                          item.productId,
+                          item.size,
+                          item.quantity - 1,
+                          item.color
+                        )
+                      }
                       className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors"
                       aria-label="Diminuer la quantité"
                     >
@@ -421,17 +453,28 @@ export default function CartPage() {
                         stroke="currentColor"
                         strokeWidth={2.5}
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M20 12H4"
+                        />
                       </svg>
                     </button>
                     <span
                       className="text-sm font-medium text-black dark:text-white w-6 text-center"
-                      style={{ fontFamily: 'var(--font-poppins)' }}
+                      style={{ fontFamily: "var(--font-poppins)" }}
                     >
                       {item.quantity}
                     </span>
                     <button
-                      onClick={() => updateQuantity(item.productId, item.size, item.quantity + 1, item.color)}
+                      onClick={() =>
+                        updateQuantity(
+                          item.productId,
+                          item.size,
+                          item.quantity + 1,
+                          item.color
+                        )
+                      }
                       className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors"
                       aria-label="Augmenter la quantité"
                     >
@@ -443,7 +486,11 @@ export default function CartPage() {
                         stroke="currentColor"
                         strokeWidth={2.5}
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 4v16m8-8H4"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -451,14 +498,16 @@ export default function CartPage() {
                   {/* Price - Before X icon */}
                   <span
                     className="text-base font-bold text-black dark:text-white"
-                    style={{ fontFamily: 'var(--font-fira-sans)' }}
+                    style={{ fontFamily: "var(--font-fira-sans)" }}
                   >
-                    {(item.price * item.quantity).toLocaleString('fr-FR')} FCFA
+                    {(item.price * item.quantity).toLocaleString("fr-FR")} FCFA
                   </span>
 
                   {/* Remove Button - Orange X - Extreme right */}
                   <button
-                    onClick={() => removeFromCart(item.productId, item.size, item.color)}
+                    onClick={() =>
+                      removeFromCart(item.productId, item.size, item.color)
+                    }
                     className="text-orange-400 hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300 transition-colors p-1 flex-shrink-0"
                     aria-label="Supprimer"
                   >
@@ -487,7 +536,7 @@ export default function CartPage() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 sticky top-4">
               <h2
                 className="text-xl font-bold text-black dark:text-white mb-4"
-                style={{ fontFamily: 'var(--font-fira-sans)' }}
+                style={{ fontFamily: "var(--font-fira-sans)" }}
               >
                 Résumé de la commande
               </h2>
@@ -497,7 +546,7 @@ export default function CartPage() {
                 <div>
                   <label
                     className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
+                    style={{ fontFamily: "var(--font-poppins)" }}
                   >
                     Adresse de livraison *
                   </label>
@@ -506,14 +555,14 @@ export default function CartPage() {
                     onChange={(e) => setShippingAddress(e.target.value)}
                     rows={3}
                     className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
+                    style={{ fontFamily: "var(--font-poppins)" }}
                     placeholder="Entrez votre adresse complète"
                   />
                 </div>
                 <div>
                   <label
                     className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
+                    style={{ fontFamily: "var(--font-poppins)" }}
                   >
                     Téléphone *
                   </label>
@@ -522,14 +571,14 @@ export default function CartPage() {
                     value={shippingPhone}
                     onChange={(e) => setShippingPhone(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
+                    style={{ fontFamily: "var(--font-poppins)" }}
                     placeholder="Votre numéro de téléphone"
                   />
                 </div>
                 <div>
                   <label
                     className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
+                    style={{ fontFamily: "var(--font-poppins)" }}
                   >
                     Numéro de récupération *
                   </label>
@@ -538,14 +587,14 @@ export default function CartPage() {
                     value={pickupNumber}
                     onChange={(e) => setPickupNumber(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
+                    style={{ fontFamily: "var(--font-poppins)" }}
                     placeholder="Entrez votre numéro de récupération"
                   />
                 </div>
                 <div>
                   <label
                     className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
+                    style={{ fontFamily: "var(--font-poppins)" }}
                   >
                     Notes (optionnel)
                   </label>
@@ -554,7 +603,7 @@ export default function CartPage() {
                     onChange={(e) => setNotes(e.target.value)}
                     rows={2}
                     className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
+                    style={{ fontFamily: "var(--font-poppins)" }}
                     placeholder="Instructions spéciales..."
                   />
                 </div>
@@ -565,29 +614,29 @@ export default function CartPage() {
                 <div className="flex items-center justify-between mb-2">
                   <span
                     className="text-sm text-gray-600 dark:text-gray-400"
-                    style={{ fontFamily: 'var(--font-poppins)' }}
+                    style={{ fontFamily: "var(--font-poppins)" }}
                   >
                     Sous-total
                   </span>
                   <span
                     className="text-sm font-medium text-black dark:text-white"
-                    style={{ fontFamily: 'var(--font-fira-sans)' }}
+                    style={{ fontFamily: "var(--font-fira-sans)" }}
                   >
-                    {getTotal().toLocaleString('fr-FR')} FCFA
+                    {getTotal().toLocaleString("fr-FR")} FCFA
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span
                     className="text-lg font-bold text-black dark:text-white"
-                    style={{ fontFamily: 'var(--font-fira-sans)' }}
+                    style={{ fontFamily: "var(--font-fira-sans)" }}
                   >
                     Total
                   </span>
                   <span
                     className="text-lg font-bold text-black dark:text-white"
-                    style={{ fontFamily: 'var(--font-fira-sans)' }}
+                    style={{ fontFamily: "var(--font-fira-sans)" }}
                   >
-                    {getTotal().toLocaleString('fr-FR')} FCFA
+                    {getTotal().toLocaleString("fr-FR")} FCFA
                   </span>
                 </div>
               </div>
@@ -597,20 +646,25 @@ export default function CartPage() {
                 onClick={handleCheckout}
                 disabled={isProcessing || !user || orderCreated}
                 className="w-full px-6 py-3 bg-gradient-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800 text-white rounded-lg transition-all transform hover:scale-105 active:scale-95 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                style={{ fontFamily: 'var(--font-poppins)' }}
+                style={{ fontFamily: "var(--font-poppins)" }}
               >
-                {orderCreated ? 'Commande créée' : isProcessing ? 'Traitement...' : !user ? 'Connectez-vous pour commander' : 'Passer la commande'}
+                {orderCreated
+                  ? "Commande créée"
+                  : isProcessing
+                  ? "Traitement..."
+                  : !user
+                  ? "Connectez-vous pour commander"
+                  : "Passer la commande"}
               </button>
 
               {!user && (
                 <p
                   className="mt-3 text-xs text-center text-gray-600 dark:text-gray-400"
-                  style={{ fontFamily: 'var(--font-poppins)' }}
+                  style={{ fontFamily: "var(--font-poppins)" }}
                 >
                   Vous devez être connecté pour passer commande
                 </p>
               )}
-
             </div>
           </div>
         </div>
@@ -628,4 +682,3 @@ export default function CartPage() {
     </div>
   );
 }
-
