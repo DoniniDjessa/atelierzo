@@ -116,7 +116,7 @@ export default function HeroCarousel() {
               className="text-[8px] md:text-[9px] text-white font-medium mb-1"
               style={{ fontFamily: "Arial, sans-serif" }}
             >
-              Ven 09 Jan 2026 - 09h00
+              Ven 09 Jan 2026 - 17h00.
             </p>
             {/* Countdown Timer */}
             <div className="flex justify-center gap-1 text-white">
