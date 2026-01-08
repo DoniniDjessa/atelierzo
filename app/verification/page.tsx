@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/app/lib/supabase/client";
 import { useProducts } from "@/app/contexts/ProductContext";
 import { toast } from "sonner";
+import {
+  getAllStockHistory,
+  getVerificationReferenceDate,
+  updateVerificationReferenceDate,
+  StockHistoryEntry,
+} from "@/app/lib/supabase/stock-history";
 
 interface ProductAudit {
   id: string;
@@ -39,22 +45,43 @@ export default function VerificationPage() {
   const [referenceDate, setReferenceDate] = useState<string>(
     "2026-01-06T00:00:00Z"
   );
+  
+  // New states for tabs and stock history
+  const [activeTab, setActiveTab] = useState<"audit" | "history">("audit");
+  const [stockHistory, setStockHistory] = useState<StockHistoryEntry[]>([]);
+  const [historyDateRange, setHistoryDateRange] = useState({
+    start: "",
+    end: "",
+  });
+  const [isEditingReferenceDate, setIsEditingReferenceDate] = useState(false);
+  const [tempReferenceDate, setTempReferenceDate] = useState("");
 
   const VERIFICATION_CODE = "8892";
 
-  // Charger la date de référence depuis le localStorage au montage
+  // Charger la date de référence depuis Supabase au montage
   useEffect(() => {
-    const savedDate = localStorage.getItem("verification_reference_date");
-    if (savedDate) {
-      setReferenceDate(savedDate);
-    }
+    loadReferenceDateFromDB();
   }, []);
+
+  const loadReferenceDateFromDB = async () => {
+    const { data, error } = await getVerificationReferenceDate();
+    if (data && !error) {
+      setReferenceDate(data);
+    } else {
+      // Fallback to localStorage if DB fails
+      const savedDate = localStorage.getItem("verification_reference_date");
+      if (savedDate) {
+        setReferenceDate(savedDate);
+      }
+    }
+  };
 
   const handleAuth = () => {
     if (code === VERIFICATION_CODE) {
       setIsAuthenticated(true);
       toast.success("Authentification réussie");
       loadAuditData();
+      loadStockHistory(); // Load stock history too
     } else {
       toast.error("Code incorrect");
       setCode("");
@@ -271,37 +298,113 @@ export default function VerificationPage() {
 
   const resetAllCounters = async () => {
     const confirmed = window.confirm(
-      `⚠️ ATTENTION: Voulez-vous réinitialiser TOUS les compteurs?\n\n` +
+      `⚠️ ATTENTION: Voulez-vous changer la date limite de référence?\n\n` +
         `Cela va:\n` +
         `- Mettre la date de référence à MAINTENANT\n` +
-        `- Les compteurs "Stocks Ajoutés" et "Commandes Passées" seront à zéro\n` +
-        `- Seuls les nouveaux produits et commandes après cette date seront comptés\n\n` +
+        `- Les compteurs "Stocks Ajoutés" et "Commandes Passées" seront recalculés\n` +
+        `- Seuls les nouveaux produits et commandes après cette date seront comptés\n` +
+        `- Cette modification sera partagée avec TOUS les administrateurs\n\n` +
         `Note: Cela N'AFFECTE PAS:\n` +
         `- La base de données réelle\n` +
         `- Les stocks des produits\n` +
         `- Les commandes existantes\n` +
-        `- La partie admin ou frontend\n\n` +
-        `C'est uniquement pour la vérification interne.`
+        `- L'historique des stocks`
     );
 
     if (!confirmed) return;
 
     setIsLoading(true);
     try {
-      // Mettre à jour la date de référence à maintenant
+      // Mettre à jour la date de référence à maintenant dans Supabase
       const newReferenceDate = new Date().toISOString();
+      const { error } = await updateVerificationReferenceDate(
+        newReferenceDate,
+        "admin"
+      );
+
+      if (error) {
+        throw error;
+      }
+
       setReferenceDate(newReferenceDate);
+      // Also save to localStorage as backup
       localStorage.setItem("verification_reference_date", newReferenceDate);
 
       toast.success(
-        "✅ Compteurs réinitialisés! La nouvelle date de référence est maintenant."
+        "✅ Date limite mise à jour! Tous les admins verront les nouvelles données."
       );
 
       // Recharger les données avec la nouvelle date de référence
       await loadAuditData();
     } catch (error) {
       console.error("Error resetting all counters:", error);
-      toast.error("Erreur lors de la réinitialisation globale");
+      toast.error("Erreur lors de la mise à jour de la date limite");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadStockHistory = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await getAllStockHistory(
+        historyDateRange.start || undefined,
+        historyDateRange.end || undefined
+      );
+
+      if (error) {
+        console.error("Error loading stock history:", error);
+        toast.error("Erreur lors du chargement de l'historique");
+        return;
+      }
+
+      setStockHistory(data || []);
+    } catch (error) {
+      console.error("Error loading stock history:", error);
+      toast.error("Erreur lors du chargement de l'historique");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateReferenceDate = async () => {
+    if (!tempReferenceDate) {
+      toast.error("Veuillez sélectionner une date");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Voulez-vous changer la date limite de référence à ${new Date(
+        tempReferenceDate
+      ).toLocaleDateString("fr-FR")}?\n\n` +
+        `Cette modification sera partagée avec TOUS les administrateurs.`
+    );
+
+    if (!confirmed) return;
+
+    setIsLoading(true);
+    try {
+      const { error } = await updateVerificationReferenceDate(
+        new Date(tempReferenceDate).toISOString(),
+        "admin"
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      setReferenceDate(new Date(tempReferenceDate).toISOString());
+      localStorage.setItem(
+        "verification_reference_date",
+        new Date(tempReferenceDate).toISOString()
+      );
+
+      toast.success("Date limite mise à jour avec succès!");
+      setIsEditingReferenceDate(false);
+      await loadAuditData();
+    } catch (error) {
+      console.error("Error updating reference date:", error);
+      toast.error("Erreur lors de la mise à jour de la date");
     } finally {
       setIsLoading(false);
     }
@@ -432,14 +535,117 @@ export default function VerificationPage() {
             </button>
           </div>
 
-          {/* Global Status */}
-          <div
-            className={`p-4 rounded-xl ${
-              globalAnomaly
-                ? "bg-red-50 dark:bg-red-900/20 border-2 border-red-500"
-                : "bg-green-50 dark:bg-green-900/20 border-2 border-green-500"
-            }`}
-          >
+          {/* Tabs */}
+          <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 mb-4">
+            <button
+              onClick={() => setActiveTab("audit")}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === "audit"
+                  ? "text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              📊 Audit Stock
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("history");
+                if (stockHistory.length === 0) {
+                  loadStockHistory();
+                }
+              }}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === "history"
+                  ? "text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              📜 Historique des Stocks
+            </button>
+          </div>
+
+          {/* Reference Date Section */}
+          <div className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 rounded-xl p-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p
+                  className="text-sm font-medium text-amber-700 dark:text-amber-400 mb-1"
+                  style={{ fontFamily: "var(--font-poppins)" }}
+                >
+                  📅 Date Limite de Référence (Partagée entre tous les admins)
+                </p>
+                <p
+                  className="text-xs text-amber-600 dark:text-amber-500"
+                  style={{ fontFamily: "var(--font-poppins)" }}
+                >
+                  Seuls les produits et commandes après cette date sont comptabilisés
+                </p>
+              </div>
+              {!isEditingReferenceDate ? (
+                <div className="flex items-center gap-3">
+                  <p
+                    className="text-lg font-bold text-amber-700 dark:text-amber-300"
+                    style={{ fontFamily: "var(--font-fira-sans)" }}
+                  >
+                    {new Date(referenceDate).toLocaleDateString("fr-FR", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setIsEditingReferenceDate(true);
+                      setTempReferenceDate(
+                        referenceDate.split("T")[0]
+                      );
+                    }}
+                    className="px-3 py-1 text-sm bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors"
+                    style={{ fontFamily: "var(--font-poppins)" }}
+                  >
+                    Modifier
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={tempReferenceDate}
+                    onChange={(e) => setTempReferenceDate(e.target.value)}
+                    className="px-3 py-2 border border-amber-300 dark:border-amber-700 rounded-lg dark:bg-gray-800 dark:text-white"
+                    style={{ fontFamily: "var(--font-poppins)" }}
+                  />
+                  <button
+                    onClick={handleUpdateReferenceDate}
+                    disabled={isLoading}
+                    className="px-3 py-1 text-sm bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+                    style={{ fontFamily: "var(--font-poppins)" }}
+                  >
+                    ✓
+                  </button>
+                  <button
+                    onClick={() => setIsEditingReferenceDate(false)}
+                    className="px-3 py-1 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                    style={{ fontFamily: "var(--font-poppins)" }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Global Status - Only show in audit tab */}
+          {activeTab === "audit" && (
+            <div
+              className={`p-4 rounded-xl ${
+                globalAnomaly
+                  ? "bg-red-50 dark:bg-red-900/20 border-2 border-red-500"
+                  : "bg-green-50 dark:bg-green-900/20 border-2 border-green-500"
+              }`}
+            >
             <div className="flex items-center gap-3">
               {globalAnomaly ? (
                 <>
@@ -504,9 +710,10 @@ export default function VerificationPage() {
               )}
             </div>
           </div>
+          )}
 
-          {/* Period Statistics - Since January 6 */}
-          {periodStats && (
+          {/* Period Statistics - Only show in audit tab */}
+          {activeTab === "audit" && periodStats && (
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Stock Added Section */}
               <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-4">
@@ -609,75 +816,143 @@ export default function VerificationPage() {
           )}
 
           {/* Actions */}
-          <div className="flex flex-wrap gap-3 mt-4">
-            <button
-              onClick={loadAuditData}
-              disabled={isLoading}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-              style={{ fontFamily: "var(--font-poppins)" }}
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+          {activeTab === "audit" ? (
+            <div className="flex flex-wrap gap-3 mt-4">
+              <button
+                onClick={loadAuditData}
+                disabled={isLoading}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                style={{ fontFamily: "var(--font-poppins)" }}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              {isLoading ? "Chargement..." : "Actualiser"}
-            </button>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                {isLoading ? "Chargement..." : "Actualiser"}
+              </button>
 
-            <button
-              onClick={exportReport}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-              style={{ fontFamily: "var(--font-poppins)" }}
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+              <button
+                onClick={exportReport}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                style={{ fontFamily: "var(--font-poppins)" }}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              Exporter CSV
-            </button>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                Exporter CSV
+              </button>
 
-            <button
-              onClick={resetAllCounters}
-              className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-              style={{ fontFamily: "var(--font-poppins)" }}
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+              <button
+                onClick={resetAllCounters}
+                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                style={{ fontFamily: "var(--font-poppins)" }}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              Réinitialiser Tout
-            </button>
-          </div>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                Réinitialiser Date Limite
+              </button>
+            </div>
+          ) : (
+            <div className="mt-4">
+              <div className="flex flex-wrap gap-3 items-end mb-4">
+                <div>
+                  <label
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    style={{ fontFamily: "var(--font-poppins)" }}
+                  >
+                    Date de début
+                  </label>
+                  <input
+                    type="date"
+                    value={historyDateRange.start}
+                    onChange={(e) =>
+                      setHistoryDateRange({
+                        ...historyDateRange,
+                        start: e.target.value,
+                      })
+                    }
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white"
+                    style={{ fontFamily: "var(--font-poppins)" }}
+                  />
+                </div>
+                <div>
+                  <label
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    style={{ fontFamily: "var(--font-poppins)" }}
+                  >
+                    Date de fin
+                  </label>
+                  <input
+                    type="date"
+                    value={historyDateRange.end}
+                    onChange={(e) =>
+                      setHistoryDateRange({
+                        ...historyDateRange,
+                        end: e.target.value,
+                      })
+                    }
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white"
+                    style={{ fontFamily: "var(--font-poppins)" }}
+                  />
+                </div>
+                <button
+                  onClick={loadStockHistory}
+                  disabled={isLoading}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+                  style={{ fontFamily: "var(--font-poppins)" }}
+                >
+                  {isLoading ? "Chargement..." : "Filtrer"}
+                </button>
+                <button
+                  onClick={() => {
+                    setHistoryDateRange({ start: "", end: "" });
+                    loadStockHistory();
+                  }}
+                  className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                  style={{ fontFamily: "var(--font-poppins)" }}
+                >
+                  Réinitialiser
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Products Audit Table */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden">
+        {/* Content based on active tab */}
+        {activeTab === "audit" ? (
+          <>
+            {/* Products Audit Table */}
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-100 dark:bg-gray-800">
@@ -868,6 +1143,167 @@ export default function VerificationPage() {
             </div>
           </div>
         </div>
+        </>
+        ) : (
+          <>
+            {/* Stock History Table */}
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden">
+              <div className="p-6">
+                <h3
+                  className="text-xl font-bold text-gray-900 dark:text-white mb-4"
+                  style={{ fontFamily: "var(--font-ubuntu)" }}
+                >
+                  📜 Historique des Ajouts de Stock
+                </h3>
+                <p
+                  className="text-sm text-gray-600 dark:text-gray-400 mb-4"
+                  style={{ fontFamily: "var(--font-poppins)" }}
+                >
+                  {stockHistory.length} entrée(s) trouvée(s)
+                </p>
+              </div>
+
+              {stockHistory.length === 0 ? (
+                <div className="p-12 text-center">
+                  <svg
+                    className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                    />
+                  </svg>
+                  <p
+                    className="text-gray-500 dark:text-gray-400"
+                    style={{ fontFamily: "var(--font-poppins)" }}
+                  >
+                    Aucun historique de stock pour le moment
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-100 dark:bg-gray-800">
+                      <tr>
+                        <th
+                          className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
+                          style={{ fontFamily: "var(--font-poppins)" }}
+                        >
+                          Date & Heure
+                        </th>
+                        <th
+                          className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
+                          style={{ fontFamily: "var(--font-poppins)" }}
+                        >
+                          Produit
+                        </th>
+                        <th
+                          className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
+                          style={{ fontFamily: "var(--font-poppins)" }}
+                        >
+                          Stock Ajouté
+                        </th>
+                        <th
+                          className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
+                          style={{ fontFamily: "var(--font-poppins)" }}
+                        >
+                          Total Ajouté
+                        </th>
+                        <th
+                          className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
+                          style={{ fontFamily: "var(--font-poppins)" }}
+                        >
+                          Admin
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {stockHistory.map((entry) => (
+                        <tr
+                          key={entry.id}
+                          className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                        >
+                          <td className="px-4 py-4">
+                            <div>
+                              <p
+                                className="font-medium text-gray-900 dark:text-white"
+                                style={{ fontFamily: "var(--font-fira-sans)" }}
+                              >
+                                {new Date(entry.created_at).toLocaleDateString(
+                                  "fr-FR",
+                                  {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                  }
+                                )}
+                              </p>
+                              <p
+                                className="text-xs text-gray-500 dark:text-gray-400"
+                                style={{ fontFamily: "var(--font-poppins)" }}
+                              >
+                                {new Date(entry.created_at).toLocaleTimeString(
+                                  "fr-FR",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </p>
+                            </div>
+                          </td>
+                          <td
+                            className="px-4 py-4 font-medium text-gray-900 dark:text-white"
+                            style={{ fontFamily: "var(--font-ubuntu)" }}
+                          >
+                            {entry.product_title}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="flex flex-wrap gap-2">
+                              {Object.entries(entry.added_stock).map(
+                                ([size, qty]) =>
+                                  qty > 0 && (
+                                    <span
+                                      key={size}
+                                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400"
+                                      style={{
+                                        fontFamily: "var(--font-fira-sans)",
+                                      }}
+                                    >
+                                      {size}: +{qty}
+                                    </span>
+                                  )
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <span
+                              className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400"
+                              style={{ fontFamily: "var(--font-fira-sans)" }}
+                            >
+                              +{entry.total_added}
+                            </span>
+                          </td>
+                          <td
+                            className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400"
+                            style={{ fontFamily: "var(--font-poppins)" }}
+                          >
+                            {entry.admin_user || "N/A"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

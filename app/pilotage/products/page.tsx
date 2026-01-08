@@ -14,6 +14,7 @@ import { FASHION_COLORS } from '@/app/lib/utils/colors';
 import { getAllVenteFlash, addProductToVenteFlash } from '@/app/lib/supabase/vente-flash';
 import { Zap } from 'lucide-react';
 import { getProductStats, ProductSalesStats } from '@/app/lib/utils/product-stats';
+import { addStockHistory } from '@/app/lib/supabase/stock-history';
 
 const ADMIN_PASSWORD = '0044';
 
@@ -57,6 +58,9 @@ export default function ProductsPage() {
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null);
   const [productStats, setProductStats] = useState<ProductSalesStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [showNewStockModal, setShowNewStockModal] = useState(false);
+  const [selectedProductForNewStock, setSelectedProductForNewStock] = useState<Product | null>(null);
+  const [newStockQuantities, setNewStockQuantities] = useState<Record<string, number>>({});
 
   // Check if already authenticated
   useEffect(() => {
@@ -283,6 +287,71 @@ export default function ProductsPage() {
     }
   };
 
+  const handleOpenNewStockModal = (product: Product) => {
+    setSelectedProductForNewStock(product);
+    // Initialize new stock quantities with all sizes set to 0
+    const initialQuantities: Record<string, number> = {};
+    Object.keys(product.sizeQuantities || {}).forEach(size => {
+      initialQuantities[size] = 0;
+    });
+    setNewStockQuantities(initialQuantities);
+    setShowNewStockModal(true);
+  };
+
+  const handleAddNewStock = async () => {
+    if (!selectedProductForNewStock) return;
+
+    try {
+      // Calculate total new stock being added
+      const totalNewStock = Object.values(newStockQuantities).reduce((sum, qty) => sum + qty, 0);
+      
+      if (totalNewStock === 0) {
+        toast.error('Veuillez ajouter au moins une quantité');
+        return;
+      }
+
+      // Add new stock to existing stock
+      const updatedSizeQuantities = { ...selectedProductForNewStock.sizeQuantities };
+      Object.entries(newStockQuantities).forEach(([size, qty]) => {
+        if (qty > 0) {
+          updatedSizeQuantities[size] = (updatedSizeQuantities[size] || 0) + qty;
+        }
+      });
+
+      // Check if product has any available stock
+      const hasAvailableSize = Object.values(updatedSizeQuantities).some(quantity => quantity > 0);
+
+      // Update product with new stock
+      await updateProduct(selectedProductForNewStock.id, {
+        sizeQuantities: updatedSizeQuantities,
+        inStock: hasAvailableSize,
+      });
+
+      // Save to Supabase stock history
+      const { error: historyError } = await addStockHistory({
+        product_id: selectedProductForNewStock.id,
+        product_title: selectedProductForNewStock.title,
+        added_stock: newStockQuantities,
+        total_added: totalNewStock,
+        admin_user: 'admin', // TODO: Get actual admin user from auth context
+      });
+
+      if (historyError) {
+        console.error('Error saving stock history:', historyError);
+        toast.warning('Stock ajouté mais l\'historique n\'a pas pu être sauvegardé');
+      } else {
+        toast.success(`Nouveau stock ajouté avec succès: ${totalNewStock} article(s)`);
+      }
+
+      setShowNewStockModal(false);
+      setSelectedProductForNewStock(null);
+      setNewStockQuantities({});
+    } catch (error) {
+      console.error('Error adding new stock:', error);
+      toast.error('Erreur lors de l\'ajout du nouveau stock');
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       title: '',
@@ -494,6 +563,17 @@ export default function ProductsPage() {
                       style={{ fontFamily: 'var(--font-poppins)' }}
                     >
                       Modifier
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenNewStockModal(product);
+                      }}
+                      className="px-2 py-1 bg-green-600 text-white rounded text-[10px] font-medium hover:bg-green-700 transition-colors"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                      title="Ajouter nouveau stock"
+                    >
+                      +
                     </button>
                     <button
                       onClick={(e) => {
@@ -1412,6 +1492,133 @@ export default function ProductsPage() {
                   style={{ fontFamily: 'var(--font-poppins)' }}
                 >
                   Modifier le produit
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* New Stock Modal */}
+      <AnimatePresence>
+        {showNewStockModal && selectedProductForNewStock && (
+          <>
+            {/* Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-50"
+              onClick={() => {
+                setShowNewStockModal(false);
+                setSelectedProductForNewStock(null);
+                setNewStockQuantities({});
+              }}
+            />
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-lg bg-white dark:bg-gray-800 rounded-2xl shadow-2xl z-50 max-h-[80vh] overflow-y-auto"
+            >
+              {/* Header */}
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+                <div>
+                  <h3 className="text-xl font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                    Ajouter nouveau stock
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    {selectedProductForNewStock.title}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowNewStockModal(false);
+                    setSelectedProductForNewStock(null);
+                    setNewStockQuantities({});
+                  }}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-6">
+                <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <p className="text-sm text-blue-800 dark:text-blue-300" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    <span className="font-semibold">Stock actuel:</span>
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {Object.entries(selectedProductForNewStock.sizeQuantities || {}).map(([size, qty]) => (
+                      <span
+                        key={size}
+                        className="px-3 py-1 bg-blue-100 dark:bg-blue-800/30 text-blue-800 dark:text-blue-300 rounded-full text-xs font-semibold"
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      >
+                        {size}: {qty}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    Quantités à ajouter
+                  </label>
+                  {Object.keys(selectedProductForNewStock.sizeQuantities || {}).map((size) => (
+                    <div key={size} className="flex items-center gap-3">
+                      <label className="w-20 text-sm font-medium text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        {size}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={newStockQuantities[size] || 0}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          setNewStockQuantities(prev => ({
+                            ...prev,
+                            [size]: value < 0 ? 0 : value
+                          }));
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      />
+                      <span className="w-24 text-sm text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        → {(selectedProductForNewStock.sizeQuantities?.[size] || 0) + (newStockQuantities[size] || 0)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <p className="text-sm text-green-800 dark:text-green-300 font-semibold" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    Total à ajouter: {Object.values(newStockQuantities).reduce((sum, qty) => sum + qty, 0)} article(s)
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-gray-200 dark:border-gray-700 p-4 flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowNewStockModal(false);
+                    setSelectedProductForNewStock(null);
+                    setNewStockQuantities({});
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-semibold text-sm"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleAddNewStock}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  Ajouter le stock
                 </button>
               </div>
             </motion.div>

@@ -105,3 +105,91 @@ html {
   max-height: 300px !important;
   overflow-y: auto !important;
 }
+
+/* Print styles - Only print the table content */
+@media print {
+  /* Hide everything by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show only the print-content and its children */
+  .print-content,
+  .print-content * {
+    visibility: visible;
+  }
+
+  /* Position the print-content at the top of the page */
+  .print-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  /* Set page to landscape orientation */
+  @page {
+    size: A4 landscape;
+    margin: 0.5cm;
+  }
+
+  /* Ensure table fits on page */
+  table {
+    page-break-inside: auto;
+    width: 100% !important;
+    font-size: 8pt !important;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  /* Remove dark mode styles in print */
+  * {
+    color: black !important;
+    background: white !important;
+    border-color: #e5e7eb !important;
+  }
+
+  /* Keep table borders visible */
+  table,
+  th,
+  td {
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* Reduce padding in table cells for better fit */
+  th,
+  td {
+    padding: 4px 6px !important;
+    font-size: 7pt !important;
+  }
+
+  th {
+    font-weight: 600 !important;
+  }
+
+  /* Make text wrap in cells */
+  td {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+  }
+
+  /* Adjust font sizes for print */
+  body {
+    font-size: 8pt;
+  }
+
+  h1 {
+    font-size: 14pt;
+  }
+
+  h2 {
+    font-size: 12pt;
+  }
+
+  h3 {
+    font-size: 10pt;
+  }
+}

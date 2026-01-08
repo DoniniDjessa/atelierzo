@@ -557,6 +557,99 @@ export default function OrdersPage() {
     window.print();
   };
 
+  const exportToExcel = async () => {
+    try {
+      // Get the orders to export based on current view
+      const ordersToExport = isAdvancedFilterActive || isClientSideSearch || showDuplicatesOnly
+        ? filteredOrders
+        : paginatedOrders;
+
+      if (ordersToExport.length === 0) {
+        toast.error('Aucune commande à exporter');
+        return;
+      }
+
+      // Fetch all users for the export
+      const { data: allUsers } = await getAllUsers();
+      const usersMap = new Map(allUsers?.map(u => [u.id, u]) || []);
+
+      // Create CSV content
+      const headers = [
+        'Client',
+        'Téléphone',
+        'N° récupération',
+        'Adresse de livraison',
+        'Articles commandés',
+        'Statut',
+        'Date',
+        'Notes',
+        'Montant (FCFA)',
+        'ID'
+      ];
+
+      const rows = ordersToExport.map(order => {
+        const user = usersMap.get(order.user_id);
+        // Use customer_name from order if available, otherwise use user.name or phone
+        const userName = order.customer_name || 
+          user?.name || 
+          user?.phone || 
+          order.shipping_phone ||
+          'Client inconnu';
+        const userPhone = order.customer_phone || order.shipping_phone || user?.phone || 'N/A';
+        
+        // Get order items - use title from item directly (it's stored in the order_item)
+        const orderItems = order.items?.map((item: any) => 
+          `${item.title || 'Produit inconnu'} (${item.size}) x${item.quantity}`
+        ).join('; ') || 'Aucun article';
+
+        const statusLabel = STATUS_LABELS[order.status as keyof typeof STATUS_LABELS] || order.status;
+        const deliveryAddress = order.shipping_address || 'N/A';
+        const notes = order.notes || 'Aucune note';
+        const amount = order.total_amount?.toLocaleString('fr-FR') || '0';
+
+        return [
+          userName,
+          userPhone,
+          order.pickup_number || 'N/A',
+          deliveryAddress,
+          orderItems,
+          statusLabel,
+          formatDate(order.created_at),
+          notes,
+          amount,
+          order.id.slice(0, 8)
+        ];
+      });
+
+      // Convert to CSV
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => 
+          row.map(cell => 
+            `"${String(cell).replace(/"/g, '""')}"`
+          ).join(',')
+        )
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([`\ufeff${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `commandes_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success(`${ordersToExport.length} commande(s) exportée(s)`);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast.error('Erreur lors de l\'export');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('fr-FR', {
       year: 'numeric',
@@ -743,7 +836,7 @@ export default function OrdersPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6">
           {/* Tabs */}
-          <div className="flex items-center gap-2 mb-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2 mb-4 border-b border-gray-200 dark:border-gray-700 print:hidden">
             <button
               onClick={() => setActiveTab('orders')}
               className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 ${
@@ -815,11 +908,21 @@ export default function OrdersPage() {
               </svg>
               Imprimer
             </button>
+            <button
+              onClick={exportToExcel}
+              className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2 print:hidden"
+              style={{ fontFamily: 'var(--font-poppins)' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Exporter Excel
+            </button>
           </div>
 
           {/* Search and Filters */}
           {activeTab !== 'detailed' && activeTab !== 'tailles' && (
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row gap-3 mb-4 print:hidden">
             {/* Search Bar */}
             <div className="flex-1 relative">
               <input
@@ -1062,7 +1165,7 @@ export default function OrdersPage() {
             <>
               <button
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className="mb-3 px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+                className="mb-3 px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2 print:hidden"
                 style={{ fontFamily: 'var(--font-poppins)' }}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1075,7 +1178,7 @@ export default function OrdersPage() {
               </button>
 
               {showAdvancedFilters && (
-                <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 print:hidden">
                   {/* Date Filter */}
                   <div>
                       <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
@@ -1197,7 +1300,7 @@ export default function OrdersPage() {
             </div>
           ) : activeTab === 'orders' ? (
             filteredOrders.length > 0 ? (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto print-content">
                 <table className="w-full min-w-max">
                 <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                   <tr>
@@ -1228,7 +1331,7 @@ export default function OrdersPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap" style={{ fontFamily: 'var(--font-poppins)' }}>
                       ID
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap print:hidden" style={{ fontFamily: 'var(--font-poppins)' }}>
                       Actions
                     </th>
                   </tr>
@@ -1344,7 +1447,7 @@ export default function OrdersPage() {
                           {order.id.substring(0, 8)}...
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium print:hidden">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleViewOrderDetails(order.id)}
@@ -1411,7 +1514,7 @@ export default function OrdersPage() {
             )
           ) : activeTab === 'detailed' ? (
             // Detailed orders by product
-            <div className="space-y-4">
+            <div className="space-y-4 print-content">
               {selectedProductForDetails && (
                 <div className="mb-4 flex items-center gap-2">
                   <span className="text-sm text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
@@ -1701,7 +1804,7 @@ export default function OrdersPage() {
 
           {/* Pagination for Orders */}
           {activeTab === 'orders' && filteredOrders.length > 0 && totalOrderPages > 1 && (
-            <div className="mt-6 flex items-center justify-between">
+            <div className="mt-6 flex items-center justify-between print:hidden">
               <p className="text-sm text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
                 Page {currentPage} sur {totalOrderPages} — {totalOrders} commandes au total
               </p>
@@ -1756,7 +1859,7 @@ export default function OrdersPage() {
 
           {activeTab === 'preorders' ? (
             filteredPreorders.length > 0 ? (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto print-content">
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                   <tr>
