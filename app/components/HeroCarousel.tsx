@@ -29,8 +29,8 @@ export default function HeroCarousel() {
   useEffect(() => {
     const checkRestockBanner = () => {
       const now = new Date();
-      // Restock date: Saturday, January 11, 2026 at 11:00 AM GMT
-      const restockDate = new Date("2026-01-11T11:00:00Z");
+      // Restock date: Thursday, January 9, 2026 at 11:00 AM GMT
+      const restockDate = new Date("2026-01-09T11:00:00Z");
 
       if (now < restockDate) {
         setShowRestockBanner(true);
@@ -116,7 +116,7 @@ export default function HeroCarousel() {
               className="text-[8px] md:text-[9px] text-white font-medium mb-1"
               style={{ fontFamily: "Arial, sans-serif" }}
             >
-              Sam. 11 Jan 2026 - 11h00
+              Ven 09 Jan 2026 - 11h00
             </p>
             {/* Countdown Timer */}
             <div className="flex justify-center gap-1 text-white">
