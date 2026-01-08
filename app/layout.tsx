@@ -24,59 +24,61 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://lesatelierszo.com'),
+  metadataBase: new URL("https://lesatelierszo.com"),
   title: {
-    default: 'Les Ateliers Zo - Mode Ivoirienne Premium | Vêtements de Qualité',
-    template: '%s | Les Ateliers Zo'
+    default: "Les Ateliers Zo - Mode Ivoirienne Premium | Vêtements de Qualité",
+    template: "%s | Les Ateliers Zo",
   },
-  description: 'Découvrez Les Ateliers Zo, votre boutique de mode ivoirienne en ligne. Chemises Bermuda, Pantalons élégants et Tshirts Oversize CIV Champions d\'Afrique. Qualité premium, livraison rapide en Côte d\'Ivoire.',
+  description:
+    "Découvrez Les Ateliers Zo, votre boutique de mode ivoirienne en ligne. Chemises Bermuda, Pantalons élégants et Tshirts Oversize CIV Champions d'Afrique. Qualité premium, livraison rapide en Côte d'Ivoire.",
   keywords: [
-    'mode ivoirienne',
-    'vêtements Côte d\'Ivoire',
-    'chemise bermuda',
-    'chemise pantalon',
-    'tshirt CIV',
-    'Champions d\'Afrique',
-    'boutique en ligne Abidjan',
-    'mode africaine',
-    'vêtements homme femme',
-    'Les Ateliers Zo'
+    "mode ivoirienne",
+    "vêtements Côte d'Ivoire",
+    "chemise bermuda",
+    "chemise pantalon",
+    "tshirt CIV",
+    "Champions d'Afrique",
+    "boutique en ligne Abidjan",
+    "mode africaine",
+    "vêtements homme femme",
+    "Les Ateliers Zo",
   ],
-  authors: [{ name: 'Les Ateliers Zo' }],
-  creator: 'Les Ateliers Zo',
-  publisher: 'Les Ateliers Zo',
+  authors: [{ name: "Les Ateliers Zo" }],
+  creator: "Les Ateliers Zo",
+  publisher: "Les Ateliers Zo",
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
   openGraph: {
-    type: 'website',
-    locale: 'fr_CI',
-    url: 'https://lesatelierszo.com',
-    siteName: 'Les Ateliers Zo',
-    title: 'Les Ateliers Zo - Mode Ivoirienne Premium',
-    description: 'Découvrez notre collection de vêtements de qualité: Chemises Bermuda, Pantalons élégants et Tshirts CIV. Livraison en Côte d\'Ivoire.',
+    type: "website",
+    locale: "fr_CI",
+    url: "https://lesatelierszo.com",
+    siteName: "Les Ateliers Zo",
+    title: "Les Ateliers Zo - Mode Ivoirienne Premium",
+    description:
+      "Découvrez notre collection de vêtements de qualité: Chemises Bermuda, Pantalons élégants et Tshirts CIV. Livraison en Côte d'Ivoire.",
     images: [
       {
-        url: '/logo.png',
+        url: "https://lesatelierszo.com/logo.png",
         width: 1200,
         height: 1200,
-        alt: 'Les Ateliers Zo Logo',
+        alt: "Les Ateliers Zo Logo",
       },
       {
-        url: '/og-image.jpg',
+        url: "https://lesatelierszo.com/cover.webp",
         width: 1200,
         height: 630,
-        alt: 'Les Ateliers Zo - Mode Ivoirienne Premium',
+        alt: "Les Ateliers Zo - Mode Ivoirienne Premium",
       },
     ],
   },
   twitter: {
-    card: 'summary_large_image',
-    title: 'Les Ateliers Zo - Mode Ivoirienne Premium',
-    description: 'Découvrez notre collection de vêtements de qualité premium',
-    images: ['/logo.png'],
+    card: "summary_large_image",
+    title: "Les Ateliers Zo - Mode Ivoirienne Premium",
+    description: "Découvrez notre collection de vêtements de qualité premium",
+    images: ["https://lesatelierszo.com/logo.png"],
   },
   robots: {
     index: true,
@@ -84,33 +86,37 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
   },
   verification: {
-    google: 'your-google-verification-code',
+    google: "your-google-verification-code",
   },
   alternates: {
-    canonical: 'https://lesatelierszo.com',
+    canonical: "https://lesatelierszo.com",
   },
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: 'any' },
-      { url: '/icon.png', type: 'image/png', sizes: '512x512' },
-      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/logo.png", type: "image/png", sizes: "192x192" },
     ],
     apple: [
-      { url: '/icon.png', sizes: '180x180', type: 'image/png' },
+      { url: "/icon.png", sizes: "180x180", type: "image/png" },
+      { url: "/logo.png", sizes: "192x192", type: "image/png" },
     ],
+    shortcut: ["/favicon.ico"],
     other: [
       {
-        rel: 'mask-icon',
-        url: '/icon.svg',
+        rel: "mask-icon",
+        url: "/icon.svg",
       },
     ],
   },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
@@ -119,26 +125,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'Les Ateliers Zo',
-    url: 'https://lesatelierszo.com',
-    logo: 'https://lesatelierszo.com/logo.png',
-    image: 'https://lesatelierszo.com/logo.png',
-    description: 'Boutique de mode ivoirienne en ligne. Chemises Bermuda, Pantalons élégants et Tshirts Oversize CIV Champions d\'Afrique.',
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Les Ateliers Zo",
+    url: "https://lesatelierszo.com",
+    logo: "https://lesatelierszo.com/logo.png",
+    image: "https://lesatelierszo.com/logo.png",
+    description:
+      "Boutique de mode ivoirienne en ligne. Chemises Bermuda, Pantalons élégants et Tshirts Oversize CIV Champions d'Afrique.",
     address: {
-      '@type': 'PostalAddress',
-      addressLocality: 'Abidjan',
-      addressCountry: 'CI',
+      "@type": "PostalAddress",
+      addressLocality: "Abidjan",
+      addressCountry: "CI",
     },
     contactPoint: {
-      '@type': 'ContactPoint',
-      telephone: '+225-07-49-235-896',
-      contactType: 'Customer Service',
+      "@type": "ContactPoint",
+      telephone: "+225-07-49-235-896",
+      contactType: "Customer Service",
     },
     sameAs: [
-      'https://www.instagram.com/lesatelierszo',
-      'https://www.facebook.com/lesatelierszo',
+      "https://www.instagram.com/lesatelierszo",
+      "https://www.facebook.com/lesatelierszo",
     ],
   };
 
@@ -150,9 +157,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body
-        className={`${ubuntu.variable} ${poppins.variable} antialiased`}
-      >
+      <body className={`${ubuntu.variable} ${poppins.variable} antialiased`}>
         <UserProvider>
           <ProductProvider>
             <FavoritesProvider>

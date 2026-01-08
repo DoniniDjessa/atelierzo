@@ -1,0 +1,26 @@
+{
+  "name": "Les Ateliers Zo - Mode Ivoirienne Premium",
+  "short_name": "Ateliers Zo",
+  "description": "Boutique de mode ivoirienne en ligne - Vêtements de qualité premium",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00aeee",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "1200x1200",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["shopping", "lifestyle"],
+  "lang": "fr-CI"
+}
