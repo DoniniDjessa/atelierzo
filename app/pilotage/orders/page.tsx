@@ -57,7 +57,6 @@ export default function OrdersPage() {
   const [selectedDate, setSelectedDate] = useState('');
   const [dateRangeStart, setDateRangeStart] = useState('');
   const [dateRangeEnd, setDateRangeEnd] = useState('');
-  const [amountSort, setAmountSort] = useState<'none' | 'high-to-low' | 'low-to-high'>('none');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedPreorder, setSelectedPreorder] = useState<Preorder | null>(null);
@@ -73,7 +72,11 @@ export default function OrdersPage() {
   const [detailedCurrentPage, setDetailedCurrentPage] = useState(1);
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
   const [duplicateOrderIds, setDuplicateOrderIds] = useState<Set<string>>(new Set());
-  const ITEMS_PER_PAGE = 13;
+  // Check if any advanced filter is active
+  const isAdvancedFilterActive = dateFilterType !== 'all' || 
+    (dateFilterType === 'day' && selectedDate !== '') || 
+    (dateFilterType === 'range' && (dateRangeStart !== '' || dateRangeEnd !== ''));
+  const ITEMS_PER_PAGE = isAdvancedFilterActive ? 20 : 13;
   const DETAILED_ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
@@ -90,7 +93,7 @@ export default function OrdersPage() {
     if (isAuthenticated) {
       fetchOrders();
     }
-  }, [currentPage, statusFilter, searchQuery, dateFilterType, selectedDate, dateRangeStart, dateRangeEnd, amountSort, showDuplicatesOnly]);
+  }, [currentPage, statusFilter, searchQuery, dateFilterType, selectedDate, dateRangeStart, dateRangeEnd, showDuplicatesOnly]);
 
   // Refetch status counts when any filter changes (but not for client-side searches or duplicates filter)
   useEffect(() => {
@@ -182,8 +185,8 @@ export default function OrdersPage() {
       !searchQuery.match(/^[0-9+\-\s()]+$/) && // Not a phone number
       !searchQuery.match(/^[0-9a-f\-]+$/i); // Not an ID
     
-    // If searching by product/client name OR showing duplicates only, fetch all orders and filter client-side
-    if (isClientSideSearch || showDuplicatesOnly) {
+    // If searching by product/client name OR showing duplicates only OR advanced filters active, fetch all orders and filter client-side
+    if (isClientSideSearch || showDuplicatesOnly || isAdvancedFilterActive) {
       const { data: allOrdersData, error } = await getAllOrders();
       if (error) {
         console.error('Error fetching orders:', error);
@@ -293,11 +296,15 @@ export default function OrdersPage() {
         }
         
         // Apply sorting
-        if (amountSort === 'high-to-low') {
-          filtered.sort((a, b) => b.total_amount - a.total_amount);
-        } else if (amountSort === 'low-to-high') {
-          filtered.sort((a, b) => a.total_amount - b.total_amount);
+        if (isAdvancedFilterActive) {
+          // Sort alphabetically by client name when advanced filters are active
+          filtered.sort((a, b) => {
+            const clientNameA = a.user_id ? (allClientNames[a.user_id] || a.shipping_phone || '') : (a.shipping_phone || '');
+            const clientNameB = b.user_id ? (allClientNames[b.user_id] || b.shipping_phone || '') : (b.shipping_phone || '');
+            return clientNameA.localeCompare(clientNameB);
+          });
         } else {
+          // Sort by date (most recent first) when no advanced filters
           filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         }
         
@@ -340,7 +347,7 @@ export default function OrdersPage() {
         }
       }
     } else {
-      // Use server-side pagination for non-product searches
+      // Use server-side pagination for non-product searches when no advanced filters
       const { data, total, error } = await getPaginatedOrders(currentPage, ITEMS_PER_PAGE, {
         statusFilter,
         searchQuery,
@@ -348,7 +355,6 @@ export default function OrdersPage() {
         selectedDate,
         dateRangeStart,
         dateRangeEnd,
-        amountSort,
       });
       if (error) {
         console.error('Error fetching orders:', error);
@@ -369,7 +375,7 @@ export default function OrdersPage() {
             }
           }
           setClientNames(names);
-          
+        
           // Detect duplicates in server-side data
           // Need to fetch all orders to properly detect duplicates
           const { data: allOrdersData } = await getAllOrders();
@@ -547,6 +553,10 @@ export default function OrdersPage() {
     }
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('fr-FR', {
       year: 'numeric',
@@ -596,7 +606,7 @@ export default function OrdersPage() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, searchQuery, dateFilterType, selectedDate, dateRangeStart, dateRangeEnd, amountSort, showDuplicatesOnly]);
+  }, [statusFilter, searchQuery, dateFilterType, selectedDate, dateRangeStart, dateRangeEnd, showDuplicatesOnly]);
 
   useEffect(() => {
     setPreorderCurrentPage(1);
@@ -795,6 +805,16 @@ export default function OrdersPage() {
                   : `Page ${preorderCurrentPage} : ${filteredPreorders.length} précommande(s) ${preorderStatusFilter !== 'all' ? `(${PREORDER_STATUS_LABELS[preorderStatusFilter]})` : ''}`}
               </p>
             </div>
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-2 print:hidden"
+              style={{ fontFamily: 'var(--font-poppins)' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              Imprimer
+            </button>
           </div>
 
           {/* Search and Filters */}
@@ -1056,9 +1076,8 @@ export default function OrdersPage() {
 
               {showAdvancedFilters && (
                 <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Date Filter */}
-                    <div>
+                  {/* Date Filter */}
+                  <div>
                       <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
                         Filtrer par date
                       </label>
@@ -1115,55 +1134,16 @@ export default function OrdersPage() {
                           </div>
                         )}
                       </div>
-                    </div>
-
-                    {/* Amount Sort */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
-                        Trier par montant
-                      </label>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setAmountSort(amountSort === 'high-to-low' ? 'none' : 'high-to-low')}
-                          className={`flex-1 px-3 py-2 text-xs rounded-lg transition-colors font-medium flex items-center justify-center gap-2 ${
-                            amountSort === 'high-to-low'
-                              ? 'bg-indigo-600 text-white'
-                              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                          }`}
-                          style={{ fontFamily: 'var(--font-poppins)' }}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
-                          </svg>
-                          Plus cher → Moins cher
-                        </button>
-                        <button
-                          onClick={() => setAmountSort(amountSort === 'low-to-high' ? 'none' : 'low-to-high')}
-                          className={`flex-1 px-3 py-2 text-xs rounded-lg transition-colors font-medium flex items-center justify-center gap-2 ${
-                            amountSort === 'low-to-high'
-                              ? 'bg-indigo-600 text-white'
-                              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                          }`}
-                          style={{ fontFamily: 'var(--font-poppins)' }}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
-                          </svg>
-                          Moins cher → Plus cher
-                        </button>
-                      </div>
-                    </div>
                   </div>
 
                   {/* Clear Filters Button */}
-                  {(dateFilterType !== 'all' || amountSort !== 'none') && (
+                  {dateFilterType !== 'all' && (
                     <button
                       onClick={() => {
                         setDateFilterType('all');
                         setSelectedDate('');
                         setDateRangeStart('');
                         setDateRangeEnd('');
-                        setAmountSort('none');
                       }}
                       className="mt-3 px-4 py-2 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
                       style={{ fontFamily: 'var(--font-poppins)' }}
