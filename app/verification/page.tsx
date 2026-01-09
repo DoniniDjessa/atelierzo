@@ -33,6 +33,27 @@ interface PeriodStats {
   startDate: string;
 }
 
+interface StockComparison {
+  id: string;
+  title: string;
+  stockAdded: Record<string, number>; // Via "+"
+  totalAdded: number;
+  totalOrdered: number;
+  totalRemaining: number;
+  remainingPercentage: number;
+  status: "in_stock" | "low_stock" | "out_of_stock" | "anomaly";
+  ordersBySize: Record<string, number>;
+  addedBySize: Record<string, number>;
+  remainingBySize: Record<string, number>;
+}
+
+interface EditedProduct {
+  id: string;
+  title: string;
+  editedAt: string;
+  editedBy?: string;
+}
+
 export default function VerificationPage() {
   const router = useRouter();
   const { products, updateProduct } = useProducts();
@@ -45,9 +66,11 @@ export default function VerificationPage() {
   const [referenceDate, setReferenceDate] = useState<string>(
     "2026-01-06T00:00:00Z"
   );
-  
+
   // New states for tabs and stock history
-  const [activeTab, setActiveTab] = useState<"audit" | "history">("audit");
+  const [activeTab, setActiveTab] = useState<
+    "audit" | "history" | "comparison"
+  >("audit");
   const [stockHistory, setStockHistory] = useState<StockHistoryEntry[]>([]);
   const [historyDateRange, setHistoryDateRange] = useState({
     start: "",
@@ -55,6 +78,13 @@ export default function VerificationPage() {
   });
   const [isEditingReferenceDate, setIsEditingReferenceDate] = useState(false);
   const [tempReferenceDate, setTempReferenceDate] = useState("");
+
+  // New states for comparison tab
+  const [comparisons, setComparisons] = useState<StockComparison[]>([]);
+  const [editedProducts, setEditedProducts] = useState<EditedProduct[]>([]);
+  const [comparisonFilter, setComparisonFilter] = useState<
+    "all" | "in_stock" | "low_stock" | "out_of_stock" | "anomaly"
+  >("all");
 
   const VERIFICATION_CODE = "8892";
 
@@ -367,6 +397,163 @@ export default function VerificationPage() {
     }
   };
 
+  const loadStockComparison = async () => {
+    setIsLoading(true);
+    try {
+      // 1. Récupérer les stocks ajoutés via "+"
+      const { data: addedStocks, error: addedError } = await supabase
+        .from("zo-stock-history")
+        .select("*")
+        .eq("action_type", "add_stock")
+        .gte("created_at", referenceDate);
+
+      if (addedError) {
+        console.error("Error fetching added stocks:", addedError);
+      }
+
+      // 2. Récupérer les produits édités
+      const { data: editedProductsData, error: editedError } = await supabase
+        .from("zo-stock-history")
+        .select("*")
+        .eq("action_type", "edit")
+        .gte("created_at", referenceDate);
+
+      if (editedError) {
+        console.error("Error fetching edited products:", editedError);
+      }
+
+      // Traiter les produits édités
+      const editedList: EditedProduct[] = (editedProductsData || []).map(
+        (item) => ({
+          id: item.product_id,
+          title: item.product_title,
+          editedAt: item.created_at,
+          editedBy: item.admin_user,
+        })
+      );
+      setEditedProducts(editedList);
+
+      // 3. Grouper les stocks ajoutés par produit (peut y avoir plusieurs ajouts)
+      const stocksByProduct: Record<
+        string,
+        {
+          id: string;
+          title: string;
+          addedBySize: Record<string, number>;
+          totalAdded: number;
+        }
+      > = {};
+
+      (addedStocks || []).forEach((stock) => {
+        if (!stocksByProduct[stock.product_id]) {
+          stocksByProduct[stock.product_id] = {
+            id: stock.product_id,
+            title: stock.product_title,
+            addedBySize: {},
+            totalAdded: 0,
+          };
+        }
+
+        // Sommer les stocks ajoutés
+        const addedStock = stock.added_stock as Record<string, number>;
+        Object.entries(addedStock).forEach(([size, qty]) => {
+          stocksByProduct[stock.product_id].addedBySize[size] =
+            (stocksByProduct[stock.product_id].addedBySize[size] || 0) + qty;
+          stocksByProduct[stock.product_id].totalAdded += qty;
+        });
+      });
+
+      // 4. Pour chaque produit, récupérer les commandes
+      const comparisonData: StockComparison[] = [];
+
+      for (const productId of Object.keys(stocksByProduct)) {
+        const stock = stocksByProduct[productId];
+
+        // Récupérer les commandes pour ce produit
+        const { data: orderItemsData } = await supabase
+          .from("zo-order-items")
+          .select("size, quantity, order_id")
+          .eq("product_id", productId);
+
+        // Filtrer par date de référence
+        let orderItems: any[] = [];
+        if (orderItemsData && orderItemsData.length > 0) {
+          const orderIds = [
+            ...new Set(orderItemsData.map((item) => item.order_id)),
+          ];
+          const { data: ordersData } = await supabase
+            .from("zo-orders")
+            .select("id, created_at")
+            .in("id", orderIds)
+            .gte("created_at", referenceDate);
+
+          const recentOrderIds = new Set(ordersData?.map((o) => o.id) || []);
+          orderItems = orderItemsData.filter((item) =>
+            recentOrderIds.has(item.order_id)
+          );
+        }
+
+        // Calculer le total commandé par taille
+        const ordersBySize: Record<string, number> = {};
+        let totalOrdered = 0;
+
+        orderItems.forEach((item) => {
+          ordersBySize[item.size] =
+            (ordersBySize[item.size] || 0) + item.quantity;
+          totalOrdered += item.quantity;
+        });
+
+        // Calculer le restant par taille
+        const remainingBySize: Record<string, number> = {};
+        let totalRemaining = 0;
+
+        Object.keys(stock.addedBySize).forEach((size) => {
+          const added = stock.addedBySize[size] || 0;
+          const ordered = ordersBySize[size] || 0;
+          const remaining = added - ordered;
+          remainingBySize[size] = remaining;
+          totalRemaining += remaining;
+        });
+
+        // Calculer le pourcentage et le statut
+        const remainingPercentage =
+          stock.totalAdded > 0 ? (totalRemaining / stock.totalAdded) * 100 : 0;
+
+        let status: StockComparison["status"];
+        if (remainingPercentage < 0) {
+          status = "anomaly";
+        } else if (remainingPercentage === 0) {
+          status = "out_of_stock";
+        } else if (remainingPercentage <= 20) {
+          status = "low_stock";
+        } else {
+          status = "in_stock";
+        }
+
+        comparisonData.push({
+          id: productId,
+          title: stock.title,
+          stockAdded: stock.addedBySize,
+          totalAdded: stock.totalAdded,
+          totalOrdered,
+          totalRemaining,
+          remainingPercentage,
+          status,
+          ordersBySize,
+          addedBySize: stock.addedBySize,
+          remainingBySize,
+        });
+      }
+
+      setComparisons(comparisonData);
+    } catch (error) {
+      console.error("Error loading stock comparison:", error);
+      toast.error("Erreur lors du chargement de la comparaison");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleUpdateReferenceDate = async () => {
     if (!tempReferenceDate) {
       toast.error("Veuillez sélectionner une date");
@@ -564,6 +751,22 @@ export default function VerificationPage() {
             >
               📜 Historique des Stocks
             </button>
+            <button
+              onClick={() => {
+                setActiveTab("comparison");
+                if (comparisons.length === 0) {
+                  loadStockComparison();
+                }
+              }}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === "comparison"
+                  ? "text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+              style={{ fontFamily: "var(--font-poppins)" }}
+            >
+              📈 Comparaison Stock vs Ventes
+            </button>
           </div>
 
           {/* Reference Date Section */}
@@ -580,7 +783,8 @@ export default function VerificationPage() {
                   className="text-xs text-amber-600 dark:text-amber-500"
                   style={{ fontFamily: "var(--font-poppins)" }}
                 >
-                  Seuls les produits et commandes après cette date sont comptabilisés
+                  Seuls les produits et commandes après cette date sont
+                  comptabilisés
                 </p>
               </div>
               {!isEditingReferenceDate ? (
@@ -598,9 +802,7 @@ export default function VerificationPage() {
                   <button
                     onClick={() => {
                       setIsEditingReferenceDate(true);
-                      setTempReferenceDate(
-                        referenceDate.split("T")[0]
-                      );
+                      setTempReferenceDate(referenceDate.split("T")[0]);
                     }}
                     className="px-3 py-1 text-sm bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors"
                     style={{ fontFamily: "var(--font-poppins)" }}
@@ -646,70 +848,70 @@ export default function VerificationPage() {
                   : "bg-green-50 dark:bg-green-900/20 border-2 border-green-500"
               }`}
             >
-            <div className="flex items-center gap-3">
-              {globalAnomaly ? (
-                <>
-                  <svg
-                    className="w-6 h-6 text-red-600 dark:text-red-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                  </svg>
-                  <div>
-                    <p
-                      className="font-bold text-red-600 dark:text-red-400"
-                      style={{ fontFamily: "var(--font-ubuntu)" }}
+              <div className="flex items-center gap-3">
+                {globalAnomaly ? (
+                  <>
+                    <svg
+                      className="w-6 h-6 text-red-600 dark:text-red-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
                     >
-                      ⚠️ Anomalies détectées
-                    </p>
-                    <p
-                      className="text-sm text-red-600 dark:text-red-400"
-                      style={{ fontFamily: "var(--font-poppins)" }}
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                    <div>
+                      <p
+                        className="font-bold text-red-600 dark:text-red-400"
+                        style={{ fontFamily: "var(--font-ubuntu)" }}
+                      >
+                        ⚠️ Anomalies détectées
+                      </p>
+                      <p
+                        className="text-sm text-red-600 dark:text-red-400"
+                        style={{ fontFamily: "var(--font-poppins)" }}
+                      >
+                        Des incohérences ont été trouvées dans le système
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-6 h-6 text-green-600 dark:text-green-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
                     >
-                      Des incohérences ont été trouvées dans le système
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <svg
-                    className="w-6 h-6 text-green-600 dark:text-green-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <div>
-                    <p
-                      className="font-bold text-green-600 dark:text-green-400"
-                      style={{ fontFamily: "var(--font-ubuntu)" }}
-                    >
-                      ✓ Système cohérent
-                    </p>
-                    <p
-                      className="text-sm text-green-600 dark:text-green-400"
-                      style={{ fontFamily: "var(--font-poppins)" }}
-                    >
-                      Tous les stocks correspondent aux commandes
-                    </p>
-                  </div>
-                </>
-              )}
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <div>
+                      <p
+                        className="font-bold text-green-600 dark:text-green-400"
+                        style={{ fontFamily: "var(--font-ubuntu)" }}
+                      >
+                        ✓ Système cohérent
+                      </p>
+                      <p
+                        className="text-sm text-green-600 dark:text-green-400"
+                        style={{ fontFamily: "var(--font-poppins)" }}
+                      >
+                        Tous les stocks correspondent aux commandes
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
           )}
 
           {/* Period Statistics - Only show in audit tab */}
@@ -953,197 +1155,198 @@ export default function VerificationPage() {
           <>
             {/* Products Audit Table */}
             <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100 dark:bg-gray-800">
-                <tr>
-                  <th
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
-                    style={{ fontFamily: "var(--font-poppins)" }}
-                  >
-                    Produit
-                  </th>
-                  <th
-                    className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
-                    style={{ fontFamily: "var(--font-poppins)" }}
-                  >
-                    Stock Initial
-                  </th>
-                  <th
-                    className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
-                    style={{ fontFamily: "var(--font-poppins)" }}
-                  >
-                    Commandé
-                  </th>
-                  <th
-                    className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
-                    style={{ fontFamily: "var(--font-poppins)" }}
-                  >
-                    Restant
-                  </th>
-                  <th
-                    className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
-                    style={{ fontFamily: "var(--font-poppins)" }}
-                  >
-                    Attendu
-                  </th>
-                  <th
-                    className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
-                    style={{ fontFamily: "var(--font-poppins)" }}
-                  >
-                    Différence
-                  </th>
-                  <th
-                    className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
-                    style={{ fontFamily: "var(--font-poppins)" }}
-                  >
-                    Status
-                  </th>
-                  <th
-                    className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
-                    style={{ fontFamily: "var(--font-poppins)" }}
-                  >
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {audits.map((audit) => (
-                  <tr
-                    key={audit.id}
-                    className={
-                      audit.hasAnomaly ? "bg-red-50 dark:bg-red-900/10" : ""
-                    }
-                  >
-                    <td className="px-4 py-4">
-                      <div>
-                        <p
-                          className="font-medium text-gray-900 dark:text-white"
-                          style={{ fontFamily: "var(--font-ubuntu)" }}
-                        >
-                          {audit.title}
-                        </p>
-                        <p
-                          className="text-xs text-gray-500 dark:text-gray-400"
-                          style={{ fontFamily: "var(--font-poppins)" }}
-                        >
-                          {Object.entries(audit.sizes)
-                            .map(([size, qty]) => `${size}: ${qty}`)
-                            .join(", ")}
-                        </p>
-                      </div>
-                    </td>
-                    <td
-                      className="px-4 py-4 text-center font-semibold text-gray-900 dark:text-white"
-                      style={{ fontFamily: "var(--font-fira-sans)" }}
-                    >
-                      {audit.stockInitial}
-                    </td>
-                    <td className="px-4 py-4 text-center">
-                      <div>
-                        <p
-                          className="font-semibold text-blue-600 dark:text-blue-400"
-                          style={{ fontFamily: "var(--font-fira-sans)" }}
-                        >
-                          {audit.totalOrdered}
-                        </p>
-                        <p
-                          className="text-xs text-gray-500 dark:text-gray-400"
-                          style={{ fontFamily: "var(--font-poppins)" }}
-                        >
-                          {Object.entries(audit.ordersBySizes)
-                            .map(([size, qty]) => `${size}: ${qty}`)
-                            .join(", ")}
-                        </p>
-                      </div>
-                    </td>
-                    <td
-                      className="px-4 py-4 text-center font-semibold text-gray-900 dark:text-white"
-                      style={{ fontFamily: "var(--font-fira-sans)" }}
-                    >
-                      {audit.stockRestant}
-                    </td>
-                    <td
-                      className="px-4 py-4 text-center font-semibold text-gray-600 dark:text-gray-400"
-                      style={{ fontFamily: "var(--font-fira-sans)" }}
-                    >
-                      {audit.stockInitial - audit.totalOrdered}
-                    </td>
-                    <td
-                      className={`px-4 py-4 text-center font-bold ${
-                        audit.difference !== 0
-                          ? "text-red-600 dark:text-red-400"
-                          : "text-green-600 dark:text-green-400"
-                      }`}
-                      style={{ fontFamily: "var(--font-fira-sans)" }}
-                    >
-                      {audit.difference > 0 ? "+" : ""}
-                      {audit.difference}
-                    </td>
-                    <td className="px-4 py-4 text-center">
-                      {audit.hasAnomaly ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400">
-                          ⚠️ Anomalie
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400">
-                          ✓ OK
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-center">
-                      <button
-                        onClick={() => resetProductCounters(audit.id)}
-                        className="text-xs px-3 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-100 dark:bg-gray-800">
+                    <tr>
+                      <th
+                        className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
                         style={{ fontFamily: "var(--font-poppins)" }}
                       >
-                        Réinit.
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                        Produit
+                      </th>
+                      <th
+                        className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
+                        style={{ fontFamily: "var(--font-poppins)" }}
+                      >
+                        Stock Initial
+                      </th>
+                      <th
+                        className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
+                        style={{ fontFamily: "var(--font-poppins)" }}
+                      >
+                        Commandé
+                      </th>
+                      <th
+                        className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
+                        style={{ fontFamily: "var(--font-poppins)" }}
+                      >
+                        Restant
+                      </th>
+                      <th
+                        className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
+                        style={{ fontFamily: "var(--font-poppins)" }}
+                      >
+                        Attendu
+                      </th>
+                      <th
+                        className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
+                        style={{ fontFamily: "var(--font-poppins)" }}
+                      >
+                        Différence
+                      </th>
+                      <th
+                        className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
+                        style={{ fontFamily: "var(--font-poppins)" }}
+                      >
+                        Status
+                      </th>
+                      <th
+                        className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase"
+                        style={{ fontFamily: "var(--font-poppins)" }}
+                      >
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {audits.map((audit) => (
+                      <tr
+                        key={audit.id}
+                        className={
+                          audit.hasAnomaly ? "bg-red-50 dark:bg-red-900/10" : ""
+                        }
+                      >
+                        <td className="px-4 py-4">
+                          <div>
+                            <p
+                              className="font-medium text-gray-900 dark:text-white"
+                              style={{ fontFamily: "var(--font-ubuntu)" }}
+                            >
+                              {audit.title}
+                            </p>
+                            <p
+                              className="text-xs text-gray-500 dark:text-gray-400"
+                              style={{ fontFamily: "var(--font-poppins)" }}
+                            >
+                              {Object.entries(audit.sizes)
+                                .map(([size, qty]) => `${size}: ${qty}`)
+                                .join(", ")}
+                            </p>
+                          </div>
+                        </td>
+                        <td
+                          className="px-4 py-4 text-center font-semibold text-gray-900 dark:text-white"
+                          style={{ fontFamily: "var(--font-fira-sans)" }}
+                        >
+                          {audit.stockInitial}
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <div>
+                            <p
+                              className="font-semibold text-blue-600 dark:text-blue-400"
+                              style={{ fontFamily: "var(--font-fira-sans)" }}
+                            >
+                              {audit.totalOrdered}
+                            </p>
+                            <p
+                              className="text-xs text-gray-500 dark:text-gray-400"
+                              style={{ fontFamily: "var(--font-poppins)" }}
+                            >
+                              {Object.entries(audit.ordersBySizes)
+                                .map(([size, qty]) => `${size}: ${qty}`)
+                                .join(", ")}
+                            </p>
+                          </div>
+                        </td>
+                        <td
+                          className="px-4 py-4 text-center font-semibold text-gray-900 dark:text-white"
+                          style={{ fontFamily: "var(--font-fira-sans)" }}
+                        >
+                          {audit.stockRestant}
+                        </td>
+                        <td
+                          className="px-4 py-4 text-center font-semibold text-gray-600 dark:text-gray-400"
+                          style={{ fontFamily: "var(--font-fira-sans)" }}
+                        >
+                          {audit.stockInitial - audit.totalOrdered}
+                        </td>
+                        <td
+                          className={`px-4 py-4 text-center font-bold ${
+                            audit.difference !== 0
+                              ? "text-red-600 dark:text-red-400"
+                              : "text-green-600 dark:text-green-400"
+                          }`}
+                          style={{ fontFamily: "var(--font-fira-sans)" }}
+                        >
+                          {audit.difference > 0 ? "+" : ""}
+                          {audit.difference}
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          {audit.hasAnomaly ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400">
+                              ⚠️ Anomalie
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400">
+                              ✓ OK
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <button
+                            onClick={() => resetProductCounters(audit.id)}
+                            className="text-xs px-3 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
+                            style={{ fontFamily: "var(--font-poppins)" }}
+                          >
+                            Réinit.
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-        {/* Legend */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-6 mt-6">
-          <h3
-            className="text-lg font-bold text-gray-900 dark:text-white mb-4"
-            style={{ fontFamily: "var(--font-ubuntu)" }}
-          >
-            📚 Légende
-          </h3>
-          <div
-            className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"
-            style={{ fontFamily: "var(--font-poppins)" }}
-          >
-            <div>
-              <p className="text-gray-700 dark:text-gray-300">
-                <strong>Stock Initial:</strong> Stock actuel + Total commandé
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <strong>Commandé:</strong> Total de toutes les commandes
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <strong>Restant:</strong> Stock actuellement disponible
-              </p>
+            {/* Legend */}
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-6 mt-6">
+              <h3
+                className="text-lg font-bold text-gray-900 dark:text-white mb-4"
+                style={{ fontFamily: "var(--font-ubuntu)" }}
+              >
+                📚 Légende
+              </h3>
+              <div
+                className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"
+                style={{ fontFamily: "var(--font-poppins)" }}
+              >
+                <div>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    <strong>Stock Initial:</strong> Stock actuel + Total
+                    commandé
+                  </p>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    <strong>Commandé:</strong> Total de toutes les commandes
+                  </p>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    <strong>Restant:</strong> Stock actuellement disponible
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    <strong>Attendu:</strong> Stock Initial - Commandé
+                  </p>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    <strong>Différence:</strong> Restant - Attendu (doit être 0)
+                  </p>
+                  <p className="text-red-600 dark:text-red-400">
+                    <strong>Anomalie:</strong> Différence ≠ 0
+                  </p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-gray-700 dark:text-gray-300">
-                <strong>Attendu:</strong> Stock Initial - Commandé
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                <strong>Différence:</strong> Restant - Attendu (doit être 0)
-              </p>
-              <p className="text-red-600 dark:text-red-400">
-                <strong>Anomalie:</strong> Différence ≠ 0
-              </p>
-            </div>
-          </div>
-        </div>
-        </>
+          </>
         ) : (
           <>
             {/* Stock History Table */}
