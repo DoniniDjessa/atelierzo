@@ -1,5 +1,6 @@
 import { supabase } from "./client";
 import { sendNewOrderNotification } from "@/app/lib/sms/service";
+import { checkUserOrderLimit } from "./stock-history";
 
 export interface OrderItem {
   id: string;
@@ -60,6 +61,30 @@ export async function createOrder(
   input: CreateOrderInput
 ): Promise<{ data: Order | null; error: string | null }> {
   try {
+    // ÉTAPE 1: Vérifier la limite de commandes par utilisateur
+    const userPhone = input.shipping_phone || "";
+    if (userPhone) {
+      const {
+        canOrder,
+        currentCount,
+        limit,
+        error: limitError,
+      } = await checkUserOrderLimit(userPhone);
+
+      if (limitError) {
+        console.error("Error checking order limit:", limitError);
+        // Continue même en cas d'erreur (fail-safe)
+      } else if (!canOrder) {
+        const remainingOrders = limit - currentCount;
+        if (remainingOrders <= 0) {
+          return {
+            data: null,
+            error: `Vous avez atteint votre limite de ${limit} commande(s). Cette limite est en place pour permettre à tous nos clients de profiter du nouveau stock.`,
+          };
+        }
+      }
+    }
+
     // Calculate total amount
     const totalAmount = input.items.reduce(
       (sum, item) => sum + item.price * item.quantity,
