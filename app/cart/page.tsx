@@ -128,7 +128,7 @@ export default function CartPage() {
         shipping_address: shippingAddress,
         shipping_phone: shippingPhone,
         created_at: new Date().toISOString(),
-        customerName: user?.name || user?.email || "Client",
+        customerName: user?.name || "Client",
         notes: notes || undefined,
       };
 
@@ -136,6 +136,29 @@ export default function CartPage() {
 
       // Clear cart immediately after successful order
       clearCart();
+
+      // Send order notification email (fire-and-forget, non-blocking)
+      fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'order_notification',
+          orderId: order?.id || '',
+          totalAmount: getTotal(),
+          clientName: user?.name || 'Client',
+          clientPhone: shippingPhone,
+          deliveryAddress: shippingAddress,
+          pickupNumber: pickupNumber,
+          notes: notes || undefined,
+          items: items.map((item) => ({
+            title: item.title,
+            quantity: item.quantity,
+            price: item.price,
+            size: item.size,
+            color: getColorName(item.color) || item.color || undefined,
+          })),
+        }),
+      }).catch((err) => console.error('Failed to send order notification email:', err));
 
       // Show receipt modal
       setReceiptData(receipt);

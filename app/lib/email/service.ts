@@ -5,7 +5,7 @@
 
 import nodemailer from 'nodemailer';
 
-const ADMIN_EMAIL = 'doninidjessa@gmail.com';
+const ADMIN_EMAILS = ['lesatelierszo225@gmail.com', 'doninidjessa@gmail.com'];
 
 // Gmail SMTP configuration
 const SMTP_CONFIG = {
@@ -14,7 +14,7 @@ const SMTP_CONFIG = {
   secure: false, // true for 465, false for other ports
   auth: {
     user: process.env.GMAIL_USER || 'doninidjessa@gmail.com',
-    pass: process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_PASSWORD, // Use App Password
+    pass: process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_PASSWORD || 'bjjupwddzozrnlye',
   },
 };
 
@@ -144,6 +144,14 @@ export async function sendOrderNotificationEmail(
       timeStyle: 'short',
     });
 
+    const itemsSummary = items
+      .map((item) => `${item.quantity}x ${item.title}`)
+      .join(', ');
+    
+    const shortItemsSummary = itemsSummary.length > 50 
+      ? itemsSummary.substring(0, 47) + '...' 
+      : itemsSummary;
+
     const itemsHtml = items
       .map(
         (item) => `
@@ -188,6 +196,12 @@ export async function sendOrderNotificationEmail(
                   <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Montant total:</td>
                   <td style="padding: 8px 0; color: #111827; font-size: 18px; font-weight: bold; color: #059669;">
                     ${totalAmount.toLocaleString('fr-FR')} XOF
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Résumé des articles:</td>
+                  <td style="padding: 8px 0; color: #111827; font-style: italic;">
+                    ${itemsSummary}
                   </td>
                 </tr>
               </table>
@@ -257,15 +271,15 @@ export async function sendOrderNotificationEmail(
     `;
 
     const success = await sendEmail({
-      to: ADMIN_EMAIL,
-      subject: `Nouvelle commande #${orderId.substring(0, 8)} - ${totalAmount.toLocaleString('fr-FR')} XOF`,
+      to: ADMIN_EMAILS.join(','),
+      subject: `Nouvelle commande #${orderId.substring(0, 8)} - ${shortItemsSummary} - ${totalAmount.toLocaleString('fr-FR')} XOF`,
       html: htmlContent,
     });
 
     if (success) {
-      console.log('Order notification email sent successfully to', ADMIN_EMAIL);
+      console.log('Order notification email sent successfully to', ADMIN_EMAILS.join(', '));
     } else {
-      console.error('Failed to send order notification email to', ADMIN_EMAIL);
+      console.error('Failed to send order notification email to', ADMIN_EMAILS.join(', '));
     }
   } catch (error: any) {
     // Non-blocking: log error but don't fail the order creation

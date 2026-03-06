@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
-const ADMIN_EMAIL = 'doninidjessa@gmail.com';
+const ADMIN_EMAILS = ['lesatelierszo225@gmail.com', 'doninidjessa@gmail.com'];
 
 // Gmail SMTP configuration
 const SMTP_CONFIG = {
@@ -10,7 +10,7 @@ const SMTP_CONFIG = {
   secure: false,
   auth: {
     user: process.env.GMAIL_USER || 'doninidjessa@gmail.com',
-    pass: process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_PASSWORD,
+    pass: process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_PASSWORD || 'bjjupwddzozrnlye',
   },
 };
 
@@ -115,6 +115,8 @@ export async function POST(request: NextRequest) {
         clientName,
         clientPhone,
         deliveryAddress,
+        pickupNumber,
+        notes,
         items,
       } = emailData;
 
@@ -122,6 +124,14 @@ export async function POST(request: NextRequest) {
         dateStyle: 'long',
         timeStyle: 'short',
       });
+
+      const itemsSummary = items
+        .map((item: any) => `${item.quantity}x ${item.title}`)
+        .join(', ');
+      
+      const shortItemsSummary = itemsSummary.length > 50 
+        ? itemsSummary.substring(0, 47) + '...' 
+        : itemsSummary;
 
       const itemsHtml = items
         .map(
@@ -169,6 +179,12 @@ export async function POST(request: NextRequest) {
                     ${totalAmount.toLocaleString('fr-FR')} XOF
                   </td>
                 </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Résumé des articles:</td>
+                  <td style="padding: 8px 0; color: #111827; font-style: italic;">
+                    ${itemsSummary}
+                  </td>
+                </tr>
               </table>
             </div>
 
@@ -189,6 +205,15 @@ export async function POST(request: NextRequest) {
                   <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Adresse de livraison:</td>
                   <td style="padding: 8px 0; color: #111827;">${deliveryAddress}</td>
                 </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Numéro de récupération:</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: bold;">${pickupNumber || '-'}</td>
+                </tr>
+                ${notes ? `
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; color: #6b7280;">Notes:</td>
+                  <td style="padding: 8px 0; color: #111827; font-style: italic;">${notes}</td>
+                </tr>` : ''}
               </table>
             </div>
 
@@ -236,8 +261,8 @@ export async function POST(request: NextRequest) {
     `;
 
       const success = await sendEmail({
-        to: ADMIN_EMAIL,
-        subject: `Les Ateliers Zo - Nouvelle commande #${orderId.substring(0, 8)} - ${totalAmount.toLocaleString('fr-FR')} XOF`,
+        to: ADMIN_EMAILS.join(','),
+        subject: `Les Ateliers Zo - Nouvelle commande #${orderId.substring(0, 8)} - ${shortItemsSummary} - ${totalAmount.toLocaleString('fr-FR')} XOF`,
         html: htmlContent,
       });
 
