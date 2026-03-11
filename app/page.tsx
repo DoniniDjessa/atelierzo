@@ -101,19 +101,21 @@ export default function Home() {
           )}
 
           {/* Kids Section */}
-          <CategorySection
-            title="Enfants"
-            subtitle="Découvrez nos collections pour les tout-petits"
-            products={products
-              .filter((p) => p.isKidsProduct)
-              .slice(0, 4)
-              .map((p) => ({
-                ...p,
-                isOutOfStock: !(p as any).inStock,
-              }))}
-            categoryPath="/products?category=kids"
-            onProductClick={(productId) => router.push(`/product/${productId}`)}
-          />
+          {products.filter((p) => p.isKidsProduct).length > 0 && (
+            <CategorySection
+              title="Enfants"
+              subtitle="Découvrez nos collections pour les tout-petits"
+              products={products
+                .filter((p) => p.isKidsProduct)
+                .slice(0, 4)
+                .map((p) => ({
+                  ...p,
+                  isOutOfStock: !(p as any).inStock,
+                }))}
+              categoryPath="/products?category=kids"
+              onProductClick={(productId) => router.push(`/product/${productId}`)}
+            />
+          )}
         </div>
       </section>
 
