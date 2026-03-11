@@ -228,6 +228,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   </button>
 
                   <button
+                    onClick={() => handleNavigate('/products?category=kids')}
+                    className="w-full flex items-center justify-between py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
+                  >
+                    <span
+                      className="text-base font-medium"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    >
+                      Enfants
+                    </span>
+                  </button>
+
+                  <button
                     onClick={() => handleNavigate('/vente-flash')}
                     className="w-full flex items-center justify-between py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
                   >

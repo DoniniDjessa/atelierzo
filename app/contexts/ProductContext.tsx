@@ -21,6 +21,9 @@ export interface Product {
   sizeQuantities?: Record<string, number>; // Object with size as key and quantity as value
   inStock?: boolean;
   category?: string;
+  isBestSeller?: boolean;
+  isCurrentOffer?: boolean;
+  isKidsProduct?: boolean;
 }
 
 interface ProductContextType {
@@ -49,7 +52,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         setProducts([]);
       } else {
         // Data is already transformed by getAllProducts
-        setProducts((data || []) as Product[]);
+        setProducts((data || []) as unknown as Product[]);
       }
     } catch (error) {
       console.error('Unexpected error loading products:', error);
@@ -84,6 +87,9 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         sizeQuantities: product.sizeQuantities || {},
         in_stock: product.inStock !== false,
         category: product.category || 'bermuda',
+        is_best_seller: product.isBestSeller || false,
+        is_current_offer: product.isCurrentOffer || false,
+        is_kids_product: product.isKidsProduct || false,
       };
 
       const { data, error } = await createProductSupabase(supabaseProduct);
@@ -121,6 +127,9 @@ export function ProductProvider({ children }: { children: ReactNode }) {
       if (product.sizeQuantities !== undefined) supabaseUpdates.sizeQuantities = product.sizeQuantities;
       if (product.inStock !== undefined) supabaseUpdates.in_stock = product.inStock;
       if (product.category !== undefined) supabaseUpdates.category = product.category;
+      if (product.isBestSeller !== undefined) supabaseUpdates.is_best_seller = product.isBestSeller;
+      if (product.isCurrentOffer !== undefined) supabaseUpdates.is_current_offer = product.isCurrentOffer;
+      if (product.isKidsProduct !== undefined) supabaseUpdates.is_kids_product = product.isKidsProduct;
 
       const { error } = await updateProductSupabase(id, supabaseUpdates);
       

@@ -107,8 +107,7 @@ export default function FlashSaleSection() {
                 imageUrl={product.imageUrl}
                 colors={product.colors}
                 sizes={product.sizes}
-                inStock={product.inStock}
-                category={product.category}
+                isOutOfStock={!product.inStock}
                 hideAddToCart={false}
                 onClick={() => router.push(`/product/${product.id}`)}
               />

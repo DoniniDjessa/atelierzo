@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Ubuntu, Poppins } from "next/font/google";
 import "./globals.css";
 import ConditionalNavbar from "./components/ConditionalNavbar";
 import Loader from "./components/Loader";
@@ -10,18 +9,6 @@ import { ProductProvider } from "./contexts/ProductContext";
 import { FavoritesProvider } from "./contexts/FavoritesContext";
 import { CartProvider } from "./contexts/CartContext";
 import { Toaster } from "sonner";
-
-const ubuntu = Ubuntu({
-  variable: "--font-ubuntu",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "700"],
-});
-
-const poppins = Poppins({
-  variable: "--font-poppins",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://lesatelierszo.com"),
@@ -152,12 +139,18 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&family=Poppins:wght@300;400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className={`${ubuntu.variable} ${poppins.variable} antialiased`}>
+      <body className="antialiased">
         <UserProvider>
           <ProductProvider>
             <FavoritesProvider>

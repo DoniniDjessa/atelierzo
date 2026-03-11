@@ -33,6 +33,7 @@ export default function ProductsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedColors, setSelectedColors] = useState<string[]>([]); // Array of hex codes
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<'all' | 'adults' | 'kids'>('all');
   const PRODUCTS_PER_PAGE = 20;
 
   // Form state
@@ -44,6 +45,9 @@ export default function ProductsPage() {
     imageUrl: '',
     colors: '',
     category: 'bermuda',
+    isBestSeller: false,
+    isCurrentOffer: false,
+    isKidsProduct: false,
   });
   const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>({ M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0, '4XL': 0, '5XL': 0 });
   const [editingSizeValues, setEditingSizeValues] = useState<Record<string, string>>({});
@@ -155,6 +159,9 @@ export default function ProductsPage() {
         colors: selectedColors.length > 0 ? selectedColors : (formData.colors ? formData.colors.split(',').map((c) => c.trim()).filter((c) => c.length > 0) : []),
         inStock: hasAvailableSize,
         category: formData.category,
+        isBestSeller: formData.isBestSeller,
+        isCurrentOffer: formData.isCurrentOffer,
+        isKidsProduct: formData.isKidsProduct,
       };
       await addProduct(newProduct);
       resetForm();
@@ -179,6 +186,9 @@ export default function ProductsPage() {
       imageUrl: product.imageUrl,
       colors: product.colors?.join(', ') || '',
       category: product.category || 'bermuda',
+      isBestSeller: product.isBestSeller || false,
+      isCurrentOffer: product.isCurrentOffer || false,
+      isKidsProduct: product.isKidsProduct || false,
     });
     // Initialize selectedColors from product
     setSelectedColors(product.colors || []);
@@ -267,6 +277,9 @@ export default function ProductsPage() {
         colors: selectedColors.length > 0 ? selectedColors : (formData.colors ? formData.colors.split(',').map((c) => c.trim()).filter((c) => c.length > 0) : []),
         inStock: hasAvailableSize,
         category: formData.category,
+        isBestSeller: formData.isBestSeller,
+        isCurrentOffer: formData.isCurrentOffer,
+        isKidsProduct: formData.isKidsProduct,
       });
       resetForm();
       setIsEditing(false);
@@ -296,6 +309,32 @@ export default function ProductsPage() {
     });
     setNewStockQuantities(initialQuantities);
     setShowNewStockModal(true);
+  };
+
+  const handleToggleBestSeller = async (product: Product) => {
+    try {
+      await updateProduct(product.id, { isBestSeller: !product.isBestSeller });
+      toast.success(
+        !product.isBestSeller 
+          ? 'Ajouté aux Meilleurs Produits' 
+          : 'Retiré des Meilleurs Produits'
+      );
+    } catch (error) {
+      toast.error('Erreur lors de la mise à jour');
+    }
+  };
+
+  const handleToggleCurrentOffer = async (product: Product) => {
+    try {
+      await updateProduct(product.id, { isCurrentOffer: !product.isCurrentOffer });
+      toast.success(
+        !product.isCurrentOffer 
+          ? 'Ajouté aux Offres du Moment' 
+          : 'Retiré des Offres du Moment'
+      );
+    } catch (error) {
+      toast.error('Erreur lors de la mise à jour');
+    }
   };
 
   const handleAddNewStock = async () => {
@@ -361,6 +400,9 @@ export default function ProductsPage() {
       imageUrl: '',
       colors: '',
       category: 'bermuda',
+      isBestSeller: false,
+      isCurrentOffer: false,
+      isKidsProduct: false,
     });
     setSizeQuantities({ M: 10, L: 10, XL: 10, '2XL': 10, '3XL': 10, '4XL': 10, '5XL': 10 });
     setEditingSizeValues({});
@@ -380,11 +422,19 @@ export default function ProductsPage() {
     setShowAddForm(false);
   };
 
-  // Filter products based on search query
-  const filteredProducts = products.filter((product) =>
-    product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter products based on search query and active tab
+  const filteredProducts = products.filter((product) => {
+    const matchesSearch = 
+      product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.description.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesTab = 
+      activeTab === 'all' || 
+      (activeTab === 'adults' && !product.isKidsProduct) || 
+      (activeTab === 'kids' && product.isKidsProduct);
+      
+    return matchesSearch && matchesTab;
+  });
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
@@ -491,6 +541,43 @@ export default function ProductsPage() {
           </div>
         </div>
 
+        {/* Filter Tabs */}
+        <div className="flex border-b border-gray-200 dark:border-gray-800 mb-6 overflow-x-auto scrollbar-hide">
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
+              activeTab === 'all'
+                ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+            }`}
+            style={{ fontFamily: 'var(--font-poppins)' }}
+          >
+            Tous ({products.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('adults')}
+            className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
+              activeTab === 'adults'
+                ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+            }`}
+            style={{ fontFamily: 'var(--font-poppins)' }}
+          >
+            Adultes ({products.filter(p => !p.isKidsProduct).length})
+          </button>
+          <button
+            onClick={() => setActiveTab('kids')}
+            className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
+              activeTab === 'kids'
+                ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+            }`}
+            style={{ fontFamily: 'var(--font-poppins)' }}
+          >
+            Enfants ({products.filter(p => p.isKidsProduct).length})
+          </button>
+        </div>
+
         {/* Products List */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -516,6 +603,46 @@ export default function ProductsPage() {
                     sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
                     unoptimized={product.imageUrl.includes('unsplash.com')}
                   />
+                  <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
+                    <button
+                      title="Télécharger les codes-barres"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toast.info('Fonctionnalité en cours de développement');
+                      }}
+                      className="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-800 rounded shadow hover:scale-110 transition-transform"
+                    >
+                      📊
+                    </button>
+                    <button
+                      title="Mis en avant (Meilleurs Produits)"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleBestSeller(product);
+                      }}
+                      className={`w-7 h-7 flex items-center justify-center rounded shadow hover:scale-110 transition-transform ${
+                        product.isBestSeller 
+                          ? 'bg-blue-500 text-white' 
+                          : 'bg-white text-gray-500 dark:bg-gray-800'
+                      }`}
+                    >
+                      ⭐
+                    </button>
+                    <button
+                      title="Offre du moment"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleCurrentOffer(product);
+                      }}
+                      className={`w-7 h-7 flex items-center justify-center rounded shadow hover:scale-110 transition-transform ${
+                        product.isCurrentOffer 
+                          ? 'bg-blue-500 text-white' 
+                          : 'bg-white text-gray-500 dark:bg-gray-800'
+                      }`}
+                    >
+                      🏷️
+                    </button>
+                  </div>
                   {!product.inStock && (
                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                       <span className="text-white text-[10px] font-semibold" style={{ fontFamily: 'var(--font-poppins)' }}>
@@ -726,6 +853,25 @@ export default function ProductsPage() {
                       className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
                       style={{ fontFamily: 'var(--font-poppins)' }}
                     />
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-3 border border-gray-200 dark:border-gray-700">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Collection</p>
+                    <div className="flex flex-col gap-3">
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <div className="relative flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={formData.isKidsProduct}
+                            onChange={(e) => setFormData({ ...formData, isKidsProduct: e.target.checked })}
+                            className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-poppins)' }}>🚀 Produit pour enfants</p>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400">Marquer ce produit comme faisant partie de la collection enfants</p>
+                        </div>
+                      </label>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>

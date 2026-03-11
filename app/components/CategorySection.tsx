@@ -39,6 +39,7 @@ export default function CategorySection({
       'Chemise Bermuda': 'bermuda',
       'Chemise Pantalon': 'pantalon',
       'Tshirt Oversize CIV Champions d\'Afrique': 'tshirt-oversize-civ',
+      'Enfants': 'kids',
     };
     
     const categoryValue = categoryMap[title];

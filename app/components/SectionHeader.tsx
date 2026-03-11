@@ -11,6 +11,7 @@ const categoryMap: Record<string, string> = {
   'Chemise Bermuda': 'bermuda',
   'Chemise Pantalon': 'pantalon',
   'Tshirt Oversize CIV Champions d\'Afrique': 'tshirt-oversize-civ',
+  'Enfants': 'kids',
 };
 
 export default function SectionHeader({ activeCategoryName }: SectionHeaderProps) {
@@ -19,6 +20,9 @@ export default function SectionHeader({ activeCategoryName }: SectionHeaderProps
   const getProductCount = (categoryKey: string) => {
     if (categoryKey === 'all') {
       return products.length;
+    }
+    if (categoryKey === 'kids') {
+      return products.filter((p) => p.isKidsProduct).length;
     }
     return products.filter((p) => p.category === categoryKey).length;
   };

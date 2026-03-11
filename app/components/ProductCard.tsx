@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useFavorites } from '@/app/contexts/FavoritesContext';
+import { PREORDER_PRODUCT_ID } from './PreorderModal';
 
 interface ProductCardProps {
   productId?: string;
@@ -17,6 +18,7 @@ interface ProductCardProps {
   isOutOfStock?: boolean;
   onFavoriteToggle?: () => void;
   onAddToCart?: () => void;
+  onPreorderClick?: () => void;
   onClick?: () => void;
 }
 
@@ -34,6 +36,7 @@ export default function ProductCard({
   isOutOfStock = false,
   onFavoriteToggle,
   onAddToCart,
+  onPreorderClick,
   onClick,
 }: ProductCardProps) {
   const favorites = useFavorites();
@@ -75,27 +78,49 @@ export default function ProductCard({
         )}
       </div>
 
-      {/* Favorite Badge */}
-      <button
-        onClick={handleFavoriteClick}
-        className="absolute top-2 right-2 sm:top-3 sm:right-3 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm flex items-center justify-center hover:bg-white dark:hover:bg-gray-800 transition-colors z-10 shadow-sm"
-        aria-label="Add to favorites"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className={`h-3 w-3 sm:h-3.5 sm:w-3.5 transition-colors ${isFav ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-          fill={isFav ? 'currentColor' : 'none'}
+      {/* Top Right Actions */}
+      <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex items-center gap-2 z-10">
+        {/* Preorder Badge/Button */}
+        {isOutOfStock && productId === PREORDER_PRODUCT_ID && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onPreorderClick) {
+                onPreorderClick();
+              } else if (onClick) {
+                onClick(); // Default to viewing the product
+              }
+            }}
+            className="px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-[10px] sm:text-xs font-bold rounded-full shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-1"
+            style={{ fontFamily: 'var(--font-poppins)' }}
+            aria-label="Précommander"
+          >
+            <span>📋</span> Précommander
+          </button>
+        )}
+
+        {/* Favorite Badge */}
+        <button
+          onClick={handleFavoriteClick}
+          className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm flex items-center justify-center hover:bg-white dark:hover:bg-gray-800 transition-colors shadow-sm"
+          aria-label="Add to favorites"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-          />
-        </svg>
-      </button>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className={`h-3 w-3 sm:h-3.5 sm:w-3.5 transition-colors ${isFav ? 'fill-red-500 text-red-500' : 'text-gray-400'}`}
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+            fill={isFav ? 'currentColor' : 'none'}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+            />
+          </svg>
+        </button>
+      </div>
 
       {/* Content Section */}
       <div className="p-3.5 sm:p-4 flex flex-col shrink-0">

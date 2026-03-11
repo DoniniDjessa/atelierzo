@@ -1,0 +1,34 @@
+﻿app/components/ProductCard.tsx(59,9): error TS2607: JSX element class does not support attributes because it does not have a 'props' property.
+app/components/ProductCard.tsx(59,10): error TS2786: 'Image' cannot be used as a JSX component.
+  Its type 'new (width?: number, height?: number) => HTMLImageElement' is not a valid JSX element type.
+    Type 'new (width?: number, height?: number) => HTMLImageElement' is not assignable to type 'new (props: any, context: any) => Component<any, any, any>'.
+      Type 'HTMLImageElement' is missing the following properties from type 'Component<any, any, any>': context, setState, forceUpdate, render, and 2 more.
+app/lib/supabase/orders.ts(352,24): error TS2339: Property 'error' does not exist on type 'void'.
+app/lib/supabase/orders.ts(353,62): error TS2339: Property 'error' does not exist on type 'never'.
+app/orders/[id]/page.tsx(89,41): error TS2339: Property 'email' does not exist on type 'User'.
+app/pilotage/orders/page.tsx(77,6): error TS2367: This comparison appears to be unintentional because the types '"all"' and '"day"' have no overlap.
+app/pilotage/orders/page.tsx(78,6): error TS2367: This comparison appears to be unintentional because the types '"all"' and '"range"' have no overlap.
+app/pilotage/orders/page.tsx(563,56): error TS2304: Cannot find name 'isClientSideSearch'.
+app/pilotage/orders/page.tsx(1354,174): error TS2322: Type '{ children: Element; xmlns: string; className: string; viewBox: string; fill: string; title: string; }' is not assignable to type 'SVGProps<SVGSVGElement>'.
+  Property 'title' does not exist on type 'SVGProps<SVGSVGElement>'.
+COMPARISON_TAB_CODE.tsx(12,3): error TS2304: Cannot find name 'activeTab'.
+COMPARISON_TAB_CODE.tsx(30,14): error TS2304: Cannot find name 'comparisons'.
+COMPARISON_TAB_CODE.tsx(54,14): error TS2304: Cannot find name 'comparisons'.
+COMPARISON_TAB_CODE.tsx(78,14): error TS2304: Cannot find name 'comparisons'.
+COMPARISON_TAB_CODE.tsx(102,14): error TS2304: Cannot find name 'comparisons'.
+COMPARISON_TAB_CODE.tsx(116,52): error TS2304: Cannot find name 'comparisons'.
+COMPARISON_TAB_CODE.tsx(120,20): error TS2304: Cannot find name 'comparisons'.
+COMPARISON_TAB_CODE.tsx(125,20): error TS2304: Cannot find name 'comparisons'.
+COMPARISON_TAB_CODE.tsx(130,20): error TS2304: Cannot find name 'comparisons'.
+COMPARISON_TAB_CODE.tsx(136,20): error TS2304: Cannot find name 'comparisons'.
+COMPARISON_TAB_CODE.tsx(141,28): error TS2304: Cannot find name 'setComparisonFilter'.
+COMPARISON_TAB_CODE.tsx(143,15): error TS2304: Cannot find name 'comparisonFilter'.
+COMPARISON_TAB_CODE.tsx(155,8): error TS2304: Cannot find name 'comparisons'.
+COMPARISON_TAB_CODE.tsx(156,19): error TS2304: Cannot find name 'comparisonFilter'.
+COMPARISON_TAB_CODE.tsx(156,65): error TS2304: Cannot find name 'comparisonFilter'.
+COMPARISON_TAB_CODE.tsx(217,18): error TS2304: Cannot find name 'comparisons'.
+COMPARISON_TAB_CODE.tsx(220,23): error TS2304: Cannot find name 'comparisonFilter'.
+COMPARISON_TAB_CODE.tsx(221,39): error TS2304: Cannot find name 'comparisonFilter'.
+COMPARISON_TAB_CODE.tsx(314,31): error TS2304: Cannot find name 'markProductOutOfStock'.
+COMPARISON_TAB_CODE.tsx(332,8): error TS2304: Cannot find name 'editedProducts'.
+COMPARISON_TAB_CODE.tsx(348,14): error TS2304: Cannot find name 'editedProducts'.

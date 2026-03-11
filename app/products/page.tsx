@@ -11,6 +11,7 @@ import { Filter, X } from 'lucide-react';
 
 const CATEGORIES = [
   { value: 'all', label: 'Tous les produits' },
+  { value: 'kids', label: 'Enfants' },
   { value: 'bermuda', label: 'Chemise Bermuda' },
   { value: 'pantalon', label: 'Chemise Pantalon' },
   { value: 'tshirt-oversize-civ', label: 'Tshirt Oversize Côte d\'Ivoire Champions d\'Afrique' },
@@ -85,7 +86,11 @@ function ProductsPageContent() {
 
     // Filter by category
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(p => p.category === selectedCategory);
+      if (selectedCategory === 'kids') {
+        filtered = filtered.filter(p => p.isKidsProduct);
+      } else {
+        filtered = filtered.filter(p => p.category === selectedCategory);
+      }
     }
 
     // Filter by price range

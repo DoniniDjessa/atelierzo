@@ -10,6 +10,7 @@ import { useUser } from '@/app/contexts/UserContext';
 import { getColorName } from '@/app/lib/utils/colors';
 import CartNotification from '@/app/components/CartNotification';
 import AuthModal from '@/app/components/AuthModal';
+import PreorderModal, { PREORDER_PRODUCT_ID } from '@/app/components/PreorderModal';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -25,6 +26,9 @@ export default function ProductDetailPage() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [showCartNotification, setShowCartNotification] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [showPreorder, setShowPreorder] = useState(false);
+
+  const isPreorderProduct = productId === PREORDER_PRODUCT_ID;
 
   if (!product) {
     return (
@@ -319,7 +323,6 @@ export default function ProductDetailPage() {
 
 
             {/* Add to Cart / Pre-order Button */}
-            {/* Preorder disabled - will be reactivated later */}
             {product.inStock ? (
               <button
                 onClick={handleAddToCart}
@@ -335,6 +338,14 @@ export default function ProductDetailPage() {
                   ? 'Sélectionnez une taille'
                   : 'Ajouter au panier'}
               </button>
+            ) : isPreorderProduct ? (
+              <button
+                onClick={() => setShowPreorder(true)}
+                className="w-full py-3 px-4 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 hover:scale-105 active:scale-95 transition-all transform"
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                📋 Précommander
+              </button>
             ) : (
               <button
                 disabled
@@ -346,25 +357,6 @@ export default function ProductDetailPage() {
             )}
 
     
-
-            {/* <button
-              onClick={handleAddToCart}
-              disabled={selectedSizes.length === 0}
-              className={`w-full py-3 px-4 rounded-xl text-xs font-semibold text-white transition-all transform ${
-                selectedSizes.length === 0
-                  ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed'
-                  : product.inStock
-                  ? 'bg-gradient-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800 hover:scale-105 active:scale-95'
-                  : 'bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 hover:scale-105 active:scale-95'
-              }`}
-              style={{ fontFamily: 'var(--font-poppins)' }}
-            >
-              {selectedSizes.length === 0
-                ? 'Sélectionnez une taille'
-                : product.inStock
-                ? 'Ajouter au panier'
-                : 'Précommander'}
-            </button> */}
 
             {/* Additional Info */}
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
@@ -395,6 +387,19 @@ export default function ProductDetailPage() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
       />
+
+      {/* Preorder Modal — only for the designated product */}
+      {isPreorderProduct && (
+        <PreorderModal
+          isOpen={showPreorder}
+          onClose={() => setShowPreorder(false)}
+          productId={product.id}
+          productTitle={product.title}
+          productImage={product.imageUrl}
+          productPrice={product.price}
+          availableSizes={product.sizes || ['S', 'M', 'L', 'XL', '2XL', '3XL']}
+        />
+      )}
     </div>
   );
 }
