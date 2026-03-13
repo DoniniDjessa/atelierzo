@@ -7,6 +7,7 @@ export interface Preorder {
   size: string;
   quantity: number;
   status: 'pending' | 'confirmed' | 'cancelled' | 'fulfilled';
+  delivery_address?: string;
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -17,6 +18,7 @@ export interface CreatePreorderInput {
   product_id: string;
   size: string;
   quantity: number;
+  delivery_address?: string;
   notes?: string;
 }
 
@@ -33,6 +35,7 @@ export async function createPreorder(input: CreatePreorderInput): Promise<{ data
         product_id: input.product_id,
         size: input.size,
         quantity: input.quantity,
+        delivery_address: input.delivery_address || null,
         notes: input.notes || null,
         status: 'pending',
       })

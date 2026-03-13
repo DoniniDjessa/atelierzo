@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS "zo-preorders" (
   size TEXT NOT NULL,
   quantity INTEGER NOT NULL DEFAULT 1,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'cancelled', 'fulfilled')),
+  delivery_address TEXT, -- Optional delivery address
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

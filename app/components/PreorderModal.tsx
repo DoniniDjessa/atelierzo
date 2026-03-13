@@ -31,6 +31,7 @@ export default function PreorderModal({
   const [phone, setPhone] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const { user } = useUser();
@@ -55,6 +56,7 @@ export default function PreorderModal({
         product_id: productId,
         size: selectedSize,
         quantity,
+        delivery_address: address.trim(),
         notes: `NOM: ${name.trim()} | TEL: ${phone.trim()}${notes ? ' | NOTE: ' + notes : ''}`,
       });
 
@@ -69,6 +71,7 @@ export default function PreorderModal({
       setPhone('');
       setSelectedSize('');
       setQuantity(1);
+      setAddress('');
       setNotes('');
     } catch {
       toast.error('Une erreur inattendue est survenue.');
@@ -201,6 +204,22 @@ export default function PreorderModal({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="Ex: 07 00 00 00 00"
+              required
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-black dark:text-white bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder-gray-400"
+              style={{ fontFamily: 'var(--font-poppins)' }}
+            />
+          </div>
+
+          {/* Address */}
+          <div>
+            <label className="block text-xs font-semibold text-black dark:text-white mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+              Adresse de livraison *
+            </label>
+            <input
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Ex: Cocody, Riviera 3"
               required
               className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-black dark:text-white bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder-gray-400"
               style={{ fontFamily: 'var(--font-poppins)' }}

@@ -441,6 +441,17 @@ export default function OrdersPage() {
             names[user.id] = user.name || user.phone;
           });
         }
+
+        // Parse names from preorder notes if missing (for anonymous preorders)
+        data.forEach(preorder => {
+          if (!names[preorder.user_id] && preorder.notes) {
+            const nameMatch = preorder.notes.match(/NOM:\s*([^|]+)/i);
+            if (nameMatch && nameMatch[1]) {
+              names[preorder.user_id] = nameMatch[1].trim();
+            }
+          }
+        });
+
         setClientNames((prev) => ({ ...prev, ...names }));
       }
     }
@@ -1870,6 +1881,12 @@ export default function OrdersPage() {
                       Client
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Téléphone
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
+                      Adresse
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
                       Produit
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
@@ -1901,7 +1918,20 @@ export default function OrdersPage() {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-poppins)' }}>
-                            {clientNames[preorder.user_id] || 'N/A'}
+                            {clientNames[preorder.user_id] || 
+                             preorder.notes?.match(/NOM:\s*([^|]+)/i)?.[1]?.trim() || 
+                             'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {preorder.notes?.match(/TEL:\s*([^|]+)/i)?.[1]?.trim() || 
+                             (!preorder.user_id?.includes('-') ? preorder.user_id : 'N/A')}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm text-gray-600 dark:text-gray-400 max-w-[150px] truncate" style={{ fontFamily: 'var(--font-poppins)' }} title={preorder.delivery_address}>
+                            {preorder.delivery_address || 'N/A'}
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -2143,8 +2173,25 @@ export default function OrdersPage() {
                     <div className="space-y-2 text-sm" style={{ fontFamily: 'var(--font-poppins)' }}>
                       <div>
                         <span className="text-gray-600 dark:text-gray-400 font-medium">Nom :</span>
-                        <span className="ml-2 text-gray-900 dark:text-white">{clientNames[selectedPreorder.user_id] || 'N/A'}</span>
+                        <span className="ml-2 text-gray-900 dark:text-white">
+                          {clientNames[selectedPreorder.user_id] || 
+                           selectedPreorder.notes?.match(/NOM:\s*([^|]+)/i)?.[1]?.trim() || 
+                           'N/A'}
+                        </span>
                       </div>
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400 font-medium">Téléphone :</span>
+                        <span className="ml-2 text-gray-900 dark:text-white">
+                          {selectedPreorder.notes?.match(/TEL:\s*([^|]+)/i)?.[1]?.trim() || 
+                           (!selectedPreorder.user_id?.includes('-') ? selectedPreorder.user_id : 'N/A')}
+                        </span>
+                      </div>
+                      {selectedPreorder.delivery_address && (
+                        <div>
+                          <span className="text-gray-600 dark:text-gray-400 font-medium">Adresse :</span>
+                          <span className="ml-2 text-gray-900 dark:text-white">{selectedPreorder.delivery_address}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
