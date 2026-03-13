@@ -4,7 +4,7 @@
 -- Preorders table
 CREATE TABLE IF NOT EXISTS "zo-preorders" (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES "zo-users"(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL, -- Phone number or User UUID
   product_id TEXT NOT NULL,
   size TEXT NOT NULL,
   quantity INTEGER NOT NULL DEFAULT 1,

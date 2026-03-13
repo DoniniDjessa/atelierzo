@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { createPreorder } from '@/app/lib/supabase/preorders';
+import { useUser } from '@/app/contexts/UserContext';
 
 // The specific product ID that supports preorders
 export const PREORDER_PRODUCT_ID = '4fd85b73-8983-426d-8340-6f390f7ce4d5';
@@ -32,6 +33,7 @@ export default function PreorderModal({
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const { user } = useUser();
 
   if (!isOpen) return null;
 
@@ -49,7 +51,7 @@ export default function PreorderModal({
     setLoading(true);
     try {
       const { error } = await createPreorder({
-        user_id: phone.trim(), // phone used as identifier for anonymous preorders
+        user_id: user?.id || phone.trim(), // use user ID if logged in, otherwise phone for anonymous
         product_id: productId,
         size: selectedSize,
         quantity,
