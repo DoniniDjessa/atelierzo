@@ -748,11 +748,16 @@ export default function OrdersPage() {
       toast.error(`Erreur lors de la suppression: ${error}`);
     } else {
       toast.success('Précommande supprimée');
-      fetchPreorders();
+      // Optimistic update
+      setPreorders(prev => prev.filter(p => p.id !== preorderId));
+      
       if (selectedPreorder?.id === preorderId) {
         setShowPreorderSidebar(false);
         setSelectedPreorder(null);
       }
+      
+      // Still fetch to be sure the state is perfectly synced
+      fetchPreorders();
     }
   };
 

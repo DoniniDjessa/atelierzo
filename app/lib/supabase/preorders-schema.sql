@@ -41,6 +41,12 @@ CREATE POLICY "Allow public update preorders"
   FOR UPDATE
   USING (true);
 
+-- Policy: Allow public to delete preorders
+CREATE POLICY "Allow public delete preorders"
+  ON "zo-preorders"
+  FOR DELETE
+  USING (true);
+
 -- Create indexes for faster lookups
 CREATE INDEX IF NOT EXISTS "zo-preorders_user_id_idx" ON "zo-preorders"(user_id);
 CREATE INDEX IF NOT EXISTS "zo-preorders_product_id_idx" ON "zo-preorders"(product_id);
