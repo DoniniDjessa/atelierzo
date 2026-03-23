@@ -342,18 +342,29 @@ export default function ProductsPage() {
 
     try {
       // Calculate total new stock being added
-      const totalNewStock = Object.values(newStockQuantities).reduce((sum, qty) => sum + qty, 0);
+      const hasStockChanges = Object.values(newStockQuantities).some(qty => qty !== 0);
+      const hasNegativeStock = Object.values(newStockQuantities).some(qty => qty < 0);
       
-      if (totalNewStock === 0) {
+      if (!hasStockChanges) {
         toast.error('Veuillez ajouter au moins une quantité');
         return;
       }
 
+      if (hasNegativeStock) {
+        const password = window.prompt("Veuillez entrer le mot de passe pour retirer du stock:");
+        if (password !== "4321") {
+          toast.error("Mot de passe incorrect");
+          return;
+        }
+      }
+
+      const totalNewStock = Object.values(newStockQuantities).reduce((sum, qty) => sum + qty, 0);
+
       // Add new stock to existing stock
       const updatedSizeQuantities = { ...selectedProductForNewStock.sizeQuantities };
       Object.entries(newStockQuantities).forEach(([size, qty]) => {
-        if (qty > 0) {
-          updatedSizeQuantities[size] = (updatedSizeQuantities[size] || 0) + qty;
+        if (qty !== 0) {
+          updatedSizeQuantities[size] = Math.max(0, (updatedSizeQuantities[size] || 0) + qty);
         }
       });
 
@@ -1044,6 +1055,13 @@ export default function ProductsPage() {
                                       type="button"
                                       onClick={() => {
                                         const adjustAmount = parseInt(incrementAmounts[size] || '0');
+                                        if (adjustAmount < 0) {
+                                          const password = window.prompt("Veuillez entrer le mot de passe pour retirer du stock:");
+                                          if (password !== "4321") {
+                                            toast.error("Mot de passe incorrect");
+                                            return;
+                                          }
+                                        }
                                         if (adjustAmount !== 0) {
                                           const currentQty = sizeQuantities[size] || 0;
                                           const newQty = Math.max(0, currentQty + adjustAmount);
@@ -1720,20 +1738,20 @@ export default function ProductsPage() {
                       </label>
                       <input
                         type="number"
-                        min="0"
-                        value={newStockQuantities[size] || 0}
+                        value={newStockQuantities[size] === 0 ? '' : newStockQuantities[size]}
+                        placeholder="0"
                         onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
+                          const val = parseInt(e.target.value);
                           setNewStockQuantities(prev => ({
                             ...prev,
-                            [size]: value < 0 ? 0 : value
+                            [size]: isNaN(val) ? 0 : val
                           }));
                         }}
                         className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
                         style={{ fontFamily: 'var(--font-poppins)' }}
                       />
                       <span className="w-24 text-sm text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-                        → {(selectedProductForNewStock.sizeQuantities?.[size] || 0) + (newStockQuantities[size] || 0)}
+                        → {Math.max(0, (selectedProductForNewStock.sizeQuantities?.[size] || 0) + (newStockQuantities[size] || 0))}
                       </span>
                     </div>
                   ))}
