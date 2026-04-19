@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Home, Bell } from 'lucide-react';
-import { getAllOrders } from '@/app/lib/supabase/orders';
+import { getOrdersCountByStatus } from '@/app/lib/supabase/orders';
 import { useAdminNotificationContext } from '@/app/contexts/AdminNotificationContext';
 
 interface AdminNavbarProps {
@@ -23,17 +23,28 @@ const menuItems = [
 export default function AdminNavbar({ onLogout }: AdminNavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [pendingCount, setPendingCount] = useState(0);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+  const [pendingPreordersCount, setPendingPreordersCount] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { hasNewNotification } = useAdminNotificationContext();
 
   useEffect(() => {
     const loadPendingCount = async () => {
-      const { data: orders } = await getAllOrders();
-      if (orders) {
-        const pending = orders.filter(order => order.status === 'pending').length;
-        setPendingCount(pending);
+      let oCount = 0;
+      let pCount = 0;
+      const [ordersCountResult, preordersResult] = await Promise.all([
+        getOrdersCountByStatus(),
+        import('@/app/lib/supabase/preorders').then(m => m.getAllPreorders())
+      ]);
+
+      if (ordersCountResult.data) {
+        oCount = ordersCountResult.data.pending || 0;
       }
+      if (preordersResult.data) {
+        pCount = preordersResult.data.filter(preorder => preorder.status === 'pending').length;
+      }
+      setPendingOrdersCount(oCount);
+      setPendingPreordersCount(pCount);
     };
     loadPendingCount();
     // Refresh every 30 seconds
@@ -152,10 +163,21 @@ export default function AdminNavbar({ onLogout }: AdminNavbarProps) {
                     >
                       <span className="text-base">{item.icon}</span>
                       <span className="font-medium flex-1 text-left">{item.name}</span>
-                      {item.path === '/pilotage/orders' && pendingCount > 0 && (
-                        <span className="px-1.5 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded-full min-w-4.5 text-center">
-                          {pendingCount}
-                        </span>
+                      {item.path === '/pilotage/orders' && (
+                        <div className="flex items-center gap-1.5 ml-auto">
+                          <span 
+                            className={`px-1.5 py-0.5 ${pendingOrdersCount > 0 ? 'bg-yellow-500' : 'bg-slate-500'} text-white text-xs font-bold rounded-full min-w-[1.25rem] text-center`}
+                            title="Commandes en attente"
+                          >
+                            {pendingOrdersCount}
+                          </span>
+                          <span 
+                            className={`px-1.5 py-0.5 ${pendingPreordersCount > 0 ? 'bg-blue-900' : 'bg-slate-500'} text-white text-xs font-bold rounded-full min-w-[1.25rem] text-center`}
+                            title="Précommandes en attente"
+                          >
+                            {pendingPreordersCount}
+                          </span>
+                        </div>
                       )}
                     </button>
                   );

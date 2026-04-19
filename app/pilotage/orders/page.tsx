@@ -911,7 +911,7 @@ export default function OrdersPage() {
               }`}
               style={{ fontFamily: 'var(--font-poppins)' }}
             >
-              Précommandes ({preorders.length})
+              Précommandes ({preorders.filter(p => p.status === 'pending').length})
             </button>
           </div>
 
