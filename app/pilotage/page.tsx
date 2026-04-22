@@ -20,6 +20,7 @@ interface DashboardStats {
   totalSatisfiedClients: number;
   totalProducts: number;
   totalProductsOrdered: number;
+  totalProductsPurchased?: number;
   revenueChange: number;
   ordersChange: number;
   clientsChange: number;
@@ -50,6 +51,7 @@ export default function PilotageDashboard() {
     totalSatisfiedClients: 0,
     totalProducts: 0,
     totalProductsOrdered: 0,
+    totalProductsPurchased: 0,
     revenueChange: 0,
     ordersChange: 0,
     clientsChange: 0,
@@ -95,22 +97,6 @@ export default function PilotageDashboard() {
       const users = usersResult.data || [];
       const satisfiedClients = satisfiedClientsResult.data || [];
 
-      // Calculate stats - exclude cancelled orders from totals
-      const activeOrders = orders.filter(order => order.status !== 'cancelled');
-      const totalRevenue = activeOrders.reduce((sum, order) => sum + order.total_amount, 0);
-      const totalOrders = activeOrders.length;
-      const totalClients = users.length;
-      const totalSatisfiedClients = satisfiedClients.length;
-      const totalProducts = products.length;
-      
-      // Calculate total products ordered (sum of all quantities in all orders)
-      const totalProductsOrdered = activeOrders.reduce((sum, order) => {
-        if (order.items) {
-          return sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0);
-        }
-        return sum;
-      }, 0);
-
       // Calculate revenue by period for chart
       const now = new Date();
       now.setHours(23, 59, 59, 999);
@@ -137,10 +123,48 @@ export default function PilotageDashboard() {
         periodStart.setHours(0, 0, 0, 0);
       }
 
+      const PREORDER_PRODUCT_ID = '4fd85b73-8983-426d-8340-6f390f7ce4d5';
+
       const filteredOrders = orders.filter((order) => {
         const orderDate = new Date(order.created_at);
-        return orderDate >= periodStart && orderDate <= periodEnd && order.status !== 'cancelled';
+        if (orderDate < periodStart || orderDate > periodEnd) return false;
+        
+        // Exclude pure preorders from all computations
+        if (order.items && order.items.length > 0) {
+          if (order.items.every(item => item.product_id === PREORDER_PRODUCT_ID)) return false;
+        }
+        return true;
       });
+
+      // Calculate stats - exclude cancelled orders from totals
+      const currentPeriodOrders = filteredOrders.filter(order => order.status !== 'cancelled');
+      const totalRevenue = currentPeriodOrders.reduce((sum, order) => sum + order.total_amount, 0);
+      const totalOrders = currentPeriodOrders.length;
+      
+      const currentPeriodUsers = users.filter((user) => {
+        const userDate = new Date(user.created_at);
+        return userDate >= periodStart && userDate <= periodEnd;
+      });
+      const totalClients = currentPeriodUsers.length;
+      
+      const totalSatisfiedClients = satisfiedClients.length;
+      const totalProducts = products.length;
+      
+      // Calculate total products ordered (sum of all quantities in ALL orders including cancelled)
+      const totalProductsOrdered = filteredOrders.reduce((sum, order) => {
+        if (order.items) {
+          return sum + order.items.reduce((itemSum, item) => itemSum + (item.product_id !== PREORDER_PRODUCT_ID ? item.quantity : 0), 0);
+        }
+        return sum;
+      }, 0);
+
+      // Calculate total products sold (excluding cancelled and deleted orders)
+      const totalProductsPurchased = currentPeriodOrders.reduce((sum, order) => {
+          if (order.items) {
+            return sum + order.items.reduce((itemSum, item) => itemSum + (item.product_id !== PREORDER_PRODUCT_ID ? item.quantity : 0), 0);
+          }
+          return sum;
+        }, 0);
 
       // Calculate revenue - either by time period or by product within category
       let chartData: { name: string; value: number }[] = [];
@@ -148,7 +172,7 @@ export default function PilotageDashboard() {
       if (revenueFilterCategory === 'all') {
         // Show revenue by time period (default behavior)
         const revenueByPeriod: { [key: string]: number } = {};
-        filteredOrders.forEach((order) => {
+        currentPeriodOrders.forEach((order) => {
           const date = new Date(order.created_at);
           let key: string;
           if (period === 'today' || period === 'week') {
@@ -168,7 +192,7 @@ export default function PilotageDashboard() {
         // Show revenue by product within selected category
         const revenueByProduct: { [productId: string]: { name: string; revenue: number } } = {};
         
-        filteredOrders.forEach((order) => {
+        currentPeriodOrders.forEach((order) => {
           if (order.items) {
             order.items.forEach((item) => {
               const product = products.find((p) => p.id === item.product_id);
@@ -194,7 +218,7 @@ export default function PilotageDashboard() {
 
       // Calculate category sales (exclude cancelled orders)
       const categorySales: { [key: string]: number } = {};
-      activeOrders.forEach((order) => {
+      currentPeriodOrders.forEach((order) => {
         if (order.items) {
           order.items.forEach((item) => {
             const product = products.find((p) => p.id === item.product_id);
@@ -220,7 +244,7 @@ export default function PilotageDashboard() {
 
       // Calculate orders by status
       const statusCounts: Record<string, number> = {};
-      orders.forEach((order) => {
+      filteredOrders.forEach((order) => {
         statusCounts[order.status] = (statusCounts[order.status] || 0) + 1;
       });
       setOrdersByStatus(statusCounts);
@@ -230,25 +254,34 @@ export default function PilotageDashboard() {
       const previousPeriodStart = new Date(periodStart.getTime() - periodDuration);
       const previousPeriodEnd = periodStart;
 
-      const currentPeriodOrders = filteredOrders.filter(order => order.status !== 'cancelled');
       const previousOrders = orders.filter((order) => {
         const orderDate = new Date(order.created_at);
-        return orderDate >= previousPeriodStart && orderDate < previousPeriodEnd && order.status !== 'cancelled';
+        const inPeriod = orderDate >= previousPeriodStart && orderDate < previousPeriodEnd && order.status !== 'cancelled';
+        if (!inPeriod) return false;
+        
+        // also exclude pure preorders from previous period comparison
+        if (order.items && order.items.length > 0) {
+          if (order.items.every(item => item.product_id === PREORDER_PRODUCT_ID)) return false;
+        }
+        return true;
       });
 
-      const currentPeriodRevenue = currentPeriodOrders.reduce((sum, order) => sum + order.total_amount, 0);
+      const currentPeriodRevenue = totalRevenue;
       const previousRevenue = previousOrders.reduce((sum, order) => sum + order.total_amount, 0);
       const revenueChange = previousRevenue > 0 ? ((currentPeriodRevenue - previousRevenue) / previousRevenue) * 100 : (currentPeriodRevenue > 0 ? 100 : 0);
-      const ordersChange = previousOrders.length > 0 ? ((currentPeriodOrders.length - previousOrders.length) / previousOrders.length) * 100 : (currentPeriodOrders.length > 0 ? 100 : 0);
+      const ordersChange = previousOrders.length > 0 ? ((totalOrders - previousOrders.length) / previousOrders.length) * 100 : (totalOrders > 0 ? 100 : 0);
 
-      // For clients change, compare with last month
-      const lastMonth = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
-      const previousClients = users.filter((user) => new Date(user.created_at) < lastMonth).length;
-      const clientsChange = previousClients > 0 ? ((totalClients - previousClients) / previousClients) * 100 : 0;
+      // For clients change, compare with previous period
+      const previousPeriodUsers = users.filter((user) => {
+        const userDate = new Date(user.created_at);
+        return userDate >= previousPeriodStart && userDate < previousPeriodEnd;
+      });
+      const previousClients = previousPeriodUsers.length;
+      const clientsChange = previousClients > 0 ? ((totalClients - previousClients) / previousClients) * 100 : (totalClients > 0 ? 100 : 0);
 
       // Calculate top clients (exclude cancelled orders)
       const clientSpending: { [userId: string]: { totalSpent: number; orderCount: number; user: any } } = {};
-      filteredOrders.filter(order => order.status !== 'cancelled').forEach((order) => {
+      currentPeriodOrders.forEach((order) => {
         if (!clientSpending[order.user_id]) {
           const user = users.find(u => u.id === order.user_id);
           clientSpending[order.user_id] = {
@@ -281,6 +314,7 @@ export default function PilotageDashboard() {
         totalSatisfiedClients,
         totalProducts,
         totalProductsOrdered,
+        totalProductsPurchased,
         revenueChange,
         ordersChange,
         clientsChange,
@@ -289,7 +323,7 @@ export default function PilotageDashboard() {
 
       // Load most sold products from filtered orders (exclude cancelled)
       const productSales: { [productId: string]: { sales: number; revenue: number } } = {};
-      filteredOrders.filter(order => order.status !== 'cancelled').forEach((order) => {
+      currentPeriodOrders.forEach((order) => {
         if (order.items) {
           order.items.forEach((item) => {
             if (!productSales[item.product_id]) {
@@ -312,7 +346,7 @@ export default function PilotageDashboard() {
       const tshirtProducts = products.filter(p => p.category === 'tshirt-oversize-civ');
       const tshirtRevenue: { [productId: string]: { name: string; revenue: number; sales: number } } = {};
       
-      filteredOrders.forEach((order) => {
+      currentPeriodOrders.forEach((order) => {
         if (order.items) {
           order.items.forEach((item) => {
             const product = tshirtProducts.find((p) => p.id === item.product_id);
@@ -452,11 +486,11 @@ export default function PilotageDashboard() {
                 className="text-sm border-none bg-transparent focus:outline-none focus:ring-0 dark:text-white cursor-pointer"
                 style={{ fontFamily: 'var(--font-poppins)' }}
               >
-                <option value="today">Aujourd'hui</option>
-                <option value="week">Cette semaine</option>
-                <option value="month">Ce mois</option>
-                <option value="year">Cette année</option>
-                <option value="custom">Période personnalisée</option>
+                <option value="today" className="bg-white dark:bg-gray-800 text-black dark:text-white">Aujourd'hui</option>
+                <option value="week" className="bg-white dark:bg-gray-800 text-black dark:text-white">Cette semaine</option>
+                <option value="month" className="bg-white dark:bg-gray-800 text-black dark:text-white">Ce mois</option>
+                <option value="year" className="bg-white dark:bg-gray-800 text-black dark:text-white">Cette année</option>
+                <option value="custom" className="bg-white dark:bg-gray-800 text-black dark:text-white">Période personnalisée</option>
               </select>
             </div>
             {period === 'custom' && (
@@ -521,10 +555,25 @@ export default function PilotageDashboard() {
                 <ShoppingCart className="h-4 w-4 text-slate-600 dark:text-slate-300" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-black dark:text-white mb-2" style={{ fontFamily: 'var(--font-ubuntu)' }}>
-              {stats.totalOrders}
-            </p>
-            <div className="flex items-center gap-2">
+            <div className="flex justify-between items-end mb-2">
+              <div>
+                <p className="text-2xl font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                  {stats.totalOrders}
+                </p>
+                <div className="text-xs text-slate-500 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                  total
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xl font-bold text-green-600 dark:text-green-400" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                  {ordersByStatus.confirmed || 0}
+                </p>
+                <div className="text-xs text-slate-500 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                  confirmées
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
               {stats.ordersChange >= 0 ? (
                 <>
                   <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium rounded-full">
@@ -585,33 +634,23 @@ export default function PilotageDashboard() {
                 <Package className="h-4 w-4 text-slate-600 dark:text-slate-300" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-black dark:text-white mb-2" style={{ fontFamily: 'var(--font-ubuntu)' }}>
-              {stats.totalProducts}
-            </p>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-                produits en ligne
-              </span>
-            </div>
-          </div>
-
-          {/* Products Ordered */}
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-medium text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-                Produits commandés
-              </h3>
-              <div className="p-2 bg-slate-100 dark:bg-gray-700 rounded-full">
-                <ShoppingCart className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+            <div className="flex justify-between items-end mb-2">
+              <div>
+                <p className="text-2xl font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                  {stats.totalProductsOrdered.toLocaleString('fr-FR')}
+                </p>
+                <div className="text-xs text-slate-500 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                  commandés
+                </div>
               </div>
-            </div>
-            <p className="text-2xl font-bold text-black dark:text-white mb-2" style={{ fontFamily: 'var(--font-ubuntu)' }}>
-              {stats.totalProductsOrdered.toLocaleString('fr-FR')}
-            </p>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-                quantité totale
-              </span>
+              <div className="text-right">
+                <p className="text-xl font-bold text-indigo-600 dark:text-indigo-400" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                  {stats.totalProductsPurchased?.toLocaleString('fr-FR') || 0}
+                </p>
+                <div className="text-xs text-slate-500 dark:text-slate-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                  vendus
+                </div>
+              </div>
             </div>
           </div>
         </div>
