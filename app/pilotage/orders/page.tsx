@@ -1333,31 +1333,31 @@ export default function OrdersPage() {
                 <table className="w-full min-w-max">
                 <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap print-col-client" style={{ fontFamily: 'var(--font-poppins)' }}>
                       Client
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap print-col-pickup" style={{ fontFamily: 'var(--font-poppins)' }}>
                       N° récupération
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap print-col-address" style={{ fontFamily: 'var(--font-poppins)' }}>
                       Adresse de livraison
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap print-col-items" style={{ fontFamily: 'var(--font-poppins)' }}>
                       Articles commandés
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap print:hidden print-hidden" style={{ fontFamily: 'var(--font-poppins)' }}>
                       Statut
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap print-col-date" style={{ fontFamily: 'var(--font-poppins)' }}>
                       Date
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap print-col-notes" style={{ fontFamily: 'var(--font-poppins)' }}>
                       Notes
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    <th className="px-4 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap print-col-amount" style={{ fontFamily: 'var(--font-poppins)' }}>
                       Montant
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap print:hidden print-hidden" style={{ fontFamily: 'var(--font-poppins)' }}>
                       ID
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap print:hidden" style={{ fontFamily: 'var(--font-poppins)' }}>
@@ -1377,7 +1377,7 @@ export default function OrdersPage() {
                           : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                     >
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap print-col-client">
                         <div className="flex items-center gap-2">
                           {isDuplicate && (
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" title="Commande en doublon">
@@ -1408,17 +1408,17 @@ export default function OrdersPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap print-col-pickup">
                         <div className="text-sm font-medium text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-poppins)' }}>
                           {order.pickup_number || 'non disponible'}
                         </div>
                       </td>
-                      <td className="px-4 py-3 max-w-xs">
+                      <td className="px-4 py-3 max-w-xs print-col-address">
                         <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2" style={{ fontFamily: 'var(--font-poppins)' }}>
                           {order.shipping_address || 'N/A'}
                         </div>
                       </td>
-                      <td className="px-4 py-3 max-w-sm">
+                      <td className="px-4 py-3 max-w-sm print-col-items">
                         <div className="text-xs text-gray-900 dark:text-white space-y-1" style={{ fontFamily: 'var(--font-poppins)' }}>
                           {order.items && order.items.length > 0 ? (
                             order.items.map((item, idx) => (
@@ -1442,7 +1442,7 @@ export default function OrdersPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap print:hidden print-hidden">
                         <select
                           value={order.status}
                           onChange={(e) => handleStatusChange(order.id, e.target.value as Order['status'])}
@@ -1456,22 +1456,22 @@ export default function OrdersPage() {
                           ))}
                         </select>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap print-col-date">
                         <div className="text-xs text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
                           {formatDate(order.created_at)}
                         </div>
                       </td>
-                      <td className="px-4 py-3 max-w-xs">
+                      <td className="px-4 py-3 max-w-xs print-col-notes">
                         <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2" style={{ fontFamily: 'var(--font-poppins)' }}>
                           {order.notes || '-'}
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap print-col-amount">
                         <div className="text-sm font-bold text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
                           {order.total_amount.toLocaleString('fr-FR')} FCFA
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap print:hidden print-hidden">
                         <div className="text-xs font-mono text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
                           {order.id.substring(0, 8)}...
                         </div>
@@ -1631,7 +1631,7 @@ export default function OrdersPage() {
                             <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>Adresse de livraison</th>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>Taille</th>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>Quantité</th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>Statut</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 print:hidden print-hidden" style={{ fontFamily: 'var(--font-poppins)' }}>Statut</th>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>Date</th>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>Notes</th>
                           </tr>
@@ -1657,7 +1657,7 @@ export default function OrdersPage() {
                               <td className="px-4 py-2 text-xs text-gray-900 dark:text-white font-semibold" style={{ fontFamily: 'var(--font-poppins)' }}>
                                 {item.quantity}
                               </td>
-                              <td className="px-4 py-2">
+                              <td className="px-4 py-2 print:hidden print-hidden">
                                 <span className={`text-xs px-2 py-1 rounded-full ${STATUS_COLORS[order.status]}`} style={{ fontFamily: 'var(--font-poppins)' }}>
                                   {STATUS_LABELS[order.status]}
                                 </span>
@@ -1913,7 +1913,7 @@ export default function OrdersPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
                       Quantité
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider print:hidden print-hidden" style={{ fontFamily: 'var(--font-poppins)' }}>
                       Statut
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-poppins)' }}>
@@ -1929,19 +1929,19 @@ export default function OrdersPage() {
                     const product = getProductById(preorder.product_id);
                     return (
                       <tr key={preorder.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap print-col-client">
                           <div className="text-xs font-mono text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
                             {preorder.id.substring(0, 8)}...
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap print-col-client">
                           <div className="text-sm font-medium text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-poppins)' }}>
                             {clientNames[preorder.user_id] || 
                              preorder.notes?.match(/NOM:\s*([^|]+)/i)?.[1]?.trim() || 
                              'N/A'}
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap print-col-client">
                           <div className="text-sm text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
                             {preorder.notes?.match(/TEL:\s*([^|]+)/i)?.[1]?.trim() || 
                              (!preorder.user_id?.includes('-') ? preorder.user_id : 'N/A')}
@@ -1957,17 +1957,17 @@ export default function OrdersPage() {
                             {product?.title || preorder.product_id}
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap print-col-client">
                           <div className="text-sm font-medium text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-poppins)' }}>
                             {preorder.size}
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap print-col-client">
                           <div className="text-sm font-medium text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-poppins)' }}>
                             {preorder.quantity}
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap print:hidden print-hidden">
                           <select
                             value={preorder.status}
                             onChange={(e) => handlePreorderStatusChange(preorder.id, e.target.value as Preorder['status'])}
@@ -1981,7 +1981,7 @@ export default function OrdersPage() {
                             ))}
                           </select>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap print-col-client">
                           <div className="text-xs text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
                             {formatDate(preorder.created_at)}
                           </div>

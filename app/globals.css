@@ -121,6 +121,16 @@ html {
     visibility: visible;
   }
 
+  /* Specific rule to hide elements that should be hidden in print */
+  .print\:hidden,
+  .print-hidden,
+  .no-print {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
   /* Position the print-content at the top of the page */
   .print-content {
     position: absolute;
@@ -137,9 +147,11 @@ html {
 
   /* Ensure table fits on page */
   table {
+    table-layout: fixed !important;
     page-break-inside: auto;
     width: 100% !important;
     font-size: 8pt !important;
+    border-collapse: collapse !important;
   }
 
   tr {
@@ -164,8 +176,32 @@ html {
   /* Reduce padding in table cells for better fit */
   th,
   td {
-    padding: 4px 6px !important;
+    padding: 3px 4px !important;
     font-size: 7pt !important;
+    overflow: hidden !important;
+    word-wrap: break-word !important;
+    white-space: normal !important;
+  }
+
+  /* Balanced column distribution for A4 Landscape */
+  .print-col-client { width: 12% !important; }
+  .print-col-pickup { width: 8% !important; }
+  .print-col-address { width: 12% !important; }
+  .print-col-items { width: 23% !important; }
+  .print-col-date { width: 10% !important; }
+  .print-col-notes { width: 25% !important; }
+  .print-col-amount { width: 10% !important; }
+
+  /* Ensure text doesn't get cut off in these specifically requested columns */
+  .print-col-address div,
+  .print-col-notes div,
+  .print-col-items div {
+    display: block !important;
+    -webkit-line-clamp: none !important;
+    line-clamp: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    white-space: normal !important;
   }
 
   th {
