@@ -72,6 +72,7 @@ export default function OrdersPage() {
   const [detailedCurrentPage, setDetailedCurrentPage] = useState(1);
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
   const [duplicateOrderIds, setDuplicateOrderIds] = useState<Set<string>>(new Set());
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   // Check if any advanced filter is active
   const isAdvancedFilterActive = dateFilterType !== 'all';
   
@@ -511,6 +512,66 @@ export default function OrdersPage() {
     } else {
       toast.success(`Statut de la commande mis à jour: ${STATUS_LABELS[newStatus]}`);
       fetchOrders(); // Refresh orders
+    }
+  };
+
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedOrderIds(prev => {
+      const next = new Set(prev);
+      if (next.has(orderId)) {
+        next.delete(orderId);
+      } else {
+        next.add(orderId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (ordersToSelect: Order[]) => {
+    if (selectedOrderIds.size > 0) {
+      setSelectedOrderIds(new Set());
+    } else {
+      setSelectedOrderIds(new Set(ordersToSelect.map(o => o.id)));
+    }
+  };
+
+  const handleBulkStatusUpdate = async (newStatus: Order['status']) => {
+    if (selectedOrderIds.size === 0) return;
+    
+    const count = selectedOrderIds.size;
+    if (!confirm(`Voulez-vous vraiment modifier le statut de ${count} commande(s) vers "${STATUS_LABELS[newStatus]}" ?`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const orderId of Array.from(selectedOrderIds)) {
+        const { error } = await updateOrderStatus(orderId, newStatus);
+        if (error) {
+          errorCount++;
+          console.error(`Error updating order ${orderId}:`, error);
+        } else {
+          successCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`${successCount} commande(s) mise(s) à jour avec succès`);
+      }
+      if (errorCount > 0) {
+        toast.error(`${errorCount} commande(s) n'ont pas pu être mise(s) à jour`);
+      }
+
+      setSelectedOrderIds(new Set());
+      fetchOrders();
+    } catch (err) {
+      console.error('Error in bulk status update:', err);
+      toast.error('Une erreur est survenue lors de la mise à jour en masse');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1329,10 +1390,52 @@ export default function OrdersPage() {
             </div>
           ) : activeTab === 'orders' ? (
             filteredOrders.length > 0 ? (
-              <div className="overflow-x-auto print-content">
+              <div className="overflow-x-auto print-content relative">
+                {/* Bulk Action Bar */}
+                {selectedOrderIds.size > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 shadow-md mb-2 rounded-t-lg flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        {selectedOrderIds.size} commande(s) sélectionnée(s)
+                      </span>
+                      <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block"></div>
+                      <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap hidden sm:inline" style={{ fontFamily: 'var(--font-poppins)' }}>Passer à :</span>
+                        {['confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map((status) => (
+                          <button
+                            key={status}
+                            onClick={() => handleBulkStatusUpdate(status as Order['status'])}
+                            className={`px-3 py-1.5 text-[10px] sm:text-xs font-semibold rounded-lg transition-transform active:scale-95 whitespace-nowrap ${STATUS_COLORS[status as Order['status']]}`}
+                            style={{ fontFamily: 'var(--font-poppins)' }}
+                          >
+                            {STATUS_LABELS[status as Order['status']]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setSelectedOrderIds(new Set())}
+                      className="p-1 px-3 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                    >
+                      Annuler
+                    </button>
+                  </motion.div>
+                )}
                 <table className="w-full min-w-max">
                 <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                   <tr>
+                    <th className="px-4 py-3 text-left print:hidden">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                        checked={selectedOrderIds.size > 0 && selectedOrderIds.size === paginatedOrders.length}
+                        onChange={() => toggleSelectAll(paginatedOrders)}
+                      />
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap print-col-client" style={{ fontFamily: 'var(--font-poppins)' }}>
                       Client
                     </th>
@@ -1377,6 +1480,15 @@ export default function OrdersPage() {
                           : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                     >
+                      <td className="px-4 py-3 whitespace-nowrap print:hidden">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                          checked={selectedOrderIds.has(order.id)}
+                          onChange={() => toggleOrderSelection(order.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </td>
                       <td className="px-4 py-3 whitespace-nowrap print-col-client">
                         <div className="flex items-center gap-2">
                           {isDuplicate && (
