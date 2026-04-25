@@ -13,21 +13,39 @@ export interface User {
 }
 
 /**
- * Get all users from zo-users table
+ * Get all users from zo-users table - version that handles pagination to get all rows
  */
 export async function getAllUsers(): Promise<{ data: User[] | null; error: string | null }> {
   try {
-    const { data, error } = await supabase
-      .from('zo-users')
-      .select('*')
-      .order('created_at', { ascending: false });
+    let allData: User[] = [];
+    let from = 0;
+    const itemsPerPage = 1000;
+    let hasMore = true;
 
-    if (error) {
-      console.error('Error fetching users:', error);
-      return { data: null, error: error.message };
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('zo-users')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, from + itemsPerPage - 1);
+
+      if (error) {
+        console.error('Error fetching chunk of users:', error);
+        return { data: null, error: error.message };
+      }
+
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        from += itemsPerPage;
+        if (data.length < itemsPerPage) {
+          hasMore = false;
+        }
+      } else {
+        hasMore = false;
+      }
     }
 
-    return { data: data || [], error: null };
+    return { data: allData, error: null };
   } catch (error) {
     console.error('Error fetching users:', error);
     return {

@@ -73,9 +73,14 @@ export default function OrdersPage() {
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
   const [duplicateOrderIds, setDuplicateOrderIds] = useState<Set<string>>(new Set());
   // Check if any advanced filter is active
-  const isAdvancedFilterActive = dateFilterType !== 'all' || 
-    (dateFilterType === 'day' && selectedDate !== '') || 
-    (dateFilterType === 'range' && (dateRangeStart !== '' || dateRangeEnd !== ''));
+  const isAdvancedFilterActive = dateFilterType !== 'all';
+  
+  // Check if search query might be a product name or client name (not a phone, ID, or pickup number)
+  const isClientSideSearch = searchQuery && 
+    searchQuery.trim() !== '' && 
+    !searchQuery.match(/^[0-9+\-\s()]+$/) && // Not a phone number
+    !searchQuery.match(/^[0-9a-f\-]+$/i); // Not an ID
+
   const ITEMS_PER_PAGE = isAdvancedFilterActive ? 20 : 13;
   const DETAILED_ITEMS_PER_PAGE = 20;
 
@@ -98,11 +103,7 @@ export default function OrdersPage() {
   // Refetch status counts when any filter changes (but not for client-side searches or duplicates filter)
   useEffect(() => {
     if (isAuthenticated) {
-      // Check if search query might be a product name or client name
-      const isClientSideSearch = searchQuery && 
-        searchQuery.trim() !== '' && 
-        !searchQuery.match(/^[0-9+\-\s()]+$/) && // Not a phone number
-        !searchQuery.match(/^[0-9a-f\-]+$/i); // Not an ID
+      // (isClientSideSearch is now defined in component scope)
       
       // Only fetch status counts from server if not doing a client-side search or showing duplicates
       // (client-side search and duplicates filter calculate counts client-side in fetchOrders)
@@ -179,11 +180,7 @@ export default function OrdersPage() {
   const fetchOrders = async () => {
     setLoading(true);
     
-    // Check if search query might be a product name or client name (not a phone, ID, or pickup number)
-    const isClientSideSearch = searchQuery && 
-      searchQuery.trim() !== '' && 
-      !searchQuery.match(/^[0-9+\-\s()]+$/) && // Not a phone number
-      !searchQuery.match(/^[0-9a-f\-]+$/i); // Not an ID
+    // (isClientSideSearch is now defined in component scope)
     
     // If searching by product/client name OR showing duplicates only OR advanced filters active, fetch all orders and filter client-side
     if (isClientSideSearch || showDuplicatesOnly || isAdvancedFilterActive) {

@@ -114,7 +114,7 @@ export async function sendNewOrderNotification(
   totalAmount: number,
   clientName: string,
   clientPhone: string
-): Promise<void> {
+): Promise<{ success: boolean; error?: string }> {
   try {
     const message = `Nouvelle commande #${orderId.substring(0, 8)}!\nClient: ${clientName} (${clientPhone})\nMontant: ${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(totalAmount)} FCFA`;
     
@@ -125,12 +125,15 @@ export async function sendNewOrderNotification(
     
     if (result.success) {
       console.log('SMS notification sent successfully to', ADMIN_PHONE, result.message);
+      return { success: true };
     } else {
       console.error('Failed to send SMS notification:', result.error);
+      return { success: false, error: result.error };
     }
   } catch (error: any) {
     // Non-blocking: log error but don't fail the order creation
     console.error('Failed to send new order notification SMS:', error.message || error);
+    return { success: false, error: error.message || 'Unknown error' };
   }
 }
 

@@ -123,8 +123,13 @@ export default function PilotageDashboard() {
         periodStart.setHours(0, 0, 0, 0);
       }
 
+      // ---------------------------------------------------------
+      // CALCULATE STATS REFLECTING FILTERS
+      // ---------------------------------------------------------
+      
       const PREORDER_PRODUCT_ID = '4fd85b73-8983-426d-8340-6f390f7ce4d5';
 
+      // 1. Filter orders by date and exclude pure preorders
       const filteredOrders = orders.filter((order) => {
         const orderDate = new Date(order.created_at);
         if (orderDate < periodStart || orderDate > periodEnd) return false;
@@ -136,41 +141,115 @@ export default function PilotageDashboard() {
         return true;
       });
 
-      // Calculate stats - exclude cancelled orders from totals
+      // 2. Further filter for non-cancelled orders for revenue/sales stats
       const currentPeriodOrders = filteredOrders.filter(order => order.status !== 'cancelled');
-      const totalRevenue = currentPeriodOrders.reduce((sum, order) => sum + order.total_amount, 0);
-      const totalOrders = currentPeriodOrders.length;
-      
-      const currentPeriodUsers = users.filter((user) => {
-        const userDate = new Date(user.created_at);
-        return userDate >= periodStart && userDate <= periodEnd;
-      });
-      const totalClients = currentPeriodUsers.length;
-      
-      const totalSatisfiedClients = satisfiedClients.length;
-      const totalProducts = products.length;
-      
-      // Calculate total products ordered (sum of all quantities in ALL orders including cancelled)
-      const totalProductsOrdered = filteredOrders.reduce((sum, order) => {
-        if (order.items) {
-          return sum + order.items.reduce((itemSum, item) => itemSum + (item.product_id !== PREORDER_PRODUCT_ID ? item.quantity : 0), 0);
+
+      // 3. Helper to filter order items by selected category
+      const getCategoryItems = (items: any[]) => {
+        if (!items) return [];
+        if (revenueFilterCategory === 'all') {
+          return items.filter(item => item.product_id !== PREORDER_PRODUCT_ID);
         }
-        return sum;
+        return items.filter(item => {
+          const product = products.find(p => p.id === item.product_id);
+          return product?.category === revenueFilterCategory;
+        });
+      };
+
+      // 4. Calculate Revenue for current period (filtered by category)
+      const totalRevenue = currentPeriodOrders.reduce((sum, order) => {
+        const categoryItems = getCategoryItems(order.items || []);
+        const orderCategoryRevenue = categoryItems.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0);
+        return sum + orderCategoryRevenue;
       }, 0);
 
-      // Calculate total products sold (excluding cancelled and deleted orders)
-      const totalProductsPurchased = currentPeriodOrders.reduce((sum, order) => {
-          if (order.items) {
-            return sum + order.items.reduce((itemSum, item) => itemSum + (item.product_id !== PREORDER_PRODUCT_ID ? item.quantity : 0), 0);
-          }
-          return sum;
-        }, 0);
+      // 5. Calculate Order Count (orders containing at least one product from category)
+      const totalOrders = currentPeriodOrders.filter(order => 
+        getCategoryItems(order.items || []).length > 0
+      ).length;
 
-      // Calculate revenue - either by time period or by product within category
+      // 6. Calculate Clients (clients who bought at least one product from category)
+      const filteredUsers = users.filter(user => {
+        const userOrders = currentPeriodOrders.filter(o => o.user_id === user.id);
+        return userOrders.some(o => getCategoryItems(o.items || []).length > 0);
+      });
+      const totalClients = filteredUsers.length;
+
+      // 7. Calculate Products Sold (non-cancelled) vs Ordered (all)
+      const totalProductsPurchased = currentPeriodOrders.reduce((sum, order) => {
+        const categoryItems = getCategoryItems(order.items || []);
+        return sum + categoryItems.reduce((itemSum, item) => itemSum + item.quantity, 0);
+      }, 0);
+
+      const totalProductsOrdered = filteredOrders.reduce((sum, order) => {
+        const categoryItems = getCategoryItems(order.items || []);
+        return sum + categoryItems.reduce((itemSum, item) => itemSum + item.quantity, 0);
+      }, 0);
+
+      const totalSatisfiedClients = satisfiedClients.length;
+      const totalProducts = revenueFilterCategory === 'all' 
+        ? products.length 
+        : products.filter(p => p.category === revenueFilterCategory).length;
+
+      // ---------------------------------------------------------
+      // CALCULATE CHANGES (Comparing with previous period)
+      // ---------------------------------------------------------
+      
+      const periodDuration = now.getTime() - periodStart.getTime();
+      const previousPeriodStart = new Date(periodStart.getTime() - periodDuration);
+      const previousPeriodEnd = periodStart;
+
+      const previousOrdersRaw = orders.filter((order) => {
+        const orderDate = new Date(order.created_at);
+        return orderDate >= previousPeriodStart && orderDate < previousPeriodEnd;
+      });
+
+      const previousPeriodOrders = previousOrdersRaw.filter(order => {
+        if (order.status === 'cancelled') return false;
+        if (order.items && order.items.length > 0) {
+          if (order.items.every(item => item.product_id === PREORDER_PRODUCT_ID)) return false;
+        }
+        return true;
+      });
+
+      const previousRevenue = previousPeriodOrders.reduce((sum, order) => {
+        const categoryItems = getCategoryItems(order.items || []);
+        const orderCategoryRevenue = categoryItems.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0);
+        return sum + orderCategoryRevenue;
+      }, 0);
+
+      const previousOrdersCount = previousPeriodOrders.filter(order => 
+        getCategoryItems(order.items || []).length > 0
+      ).length;
+
+      const revenueChange = previousRevenue > 0 
+        ? ((totalRevenue - previousRevenue) / previousRevenue) * 100 
+        : (totalRevenue > 0 ? 100 : 0);
+      
+      const ordersChange = previousOrdersCount > 0 
+        ? ((totalOrders - previousOrdersCount) / previousOrdersCount) * 100 
+        : (totalOrders > 0 ? 100 : 0);
+
+      // Clients change
+      const previousPeriodClients = users.filter(user => {
+        const userDate = new Date(user.created_at);
+        if (userDate < previousPeriodStart || userDate >= previousPeriodEnd) return false;
+        
+        const userPrevOrders = previousPeriodOrders.filter(o => o.user_id === user.id);
+        return userPrevOrders.some(o => getCategoryItems(o.items || []).length > 0);
+      }).length;
+      
+      const clientsChange = previousPeriodClients > 0 
+        ? ((totalClients - previousPeriodClients) / previousPeriodClients) * 100 
+        : (totalClients > 0 ? 100 : 0);
+
+      // ---------------------------------------------------------
+      // CHARTS DATA
+      // ---------------------------------------------------------
+
       let chartData: { name: string; value: number }[] = [];
       
       if (revenueFilterCategory === 'all') {
-        // Show revenue by time period (default behavior)
         const revenueByPeriod: { [key: string]: number } = {};
         currentPeriodOrders.forEach((order) => {
           const date = new Date(order.created_at);
@@ -189,34 +268,28 @@ export default function PilotageDashboard() {
           .map(([name, value]) => ({ name, value: Math.round(value) }))
           .sort((a, b) => a.name.localeCompare(b.name));
       } else {
-        // Show revenue by product within selected category
         const revenueByProduct: { [productId: string]: { name: string; revenue: number } } = {};
-        
         currentPeriodOrders.forEach((order) => {
-          if (order.items) {
-            order.items.forEach((item) => {
-              const product = products.find((p) => p.id === item.product_id);
-              if (product && product.category === revenueFilterCategory) {
-                if (!revenueByProduct[product.id]) {
-                  revenueByProduct[product.id] = {
-                    name: product.title,
-                    revenue: 0,
-                  };
-                }
-                revenueByProduct[product.id].revenue += item.price * item.quantity;
-              }
-            });
-          }
+          const categoryItems = getCategoryItems(order.items || []);
+          categoryItems.forEach((item) => {
+            if (!revenueByProduct[item.product_id]) {
+              revenueByProduct[item.product_id] = {
+                name: item.title,
+                revenue: 0,
+              };
+            }
+            revenueByProduct[item.product_id].revenue += item.price * item.quantity;
+          });
         });
 
         chartData = Object.values(revenueByProduct)
           .map(({ name, revenue }) => ({ name, value: Math.round(revenue) }))
-          .sort((a, b) => b.value - a.value); // Sort by revenue descending
+          .sort((a, b) => b.value - a.value);
       }
 
       setRevenueData(chartData);
 
-      // Calculate category sales (exclude cancelled orders)
+      // Category sales donut
       const categorySales: { [key: string]: number } = {};
       currentPeriodOrders.forEach((order) => {
         if (order.items) {
@@ -235,66 +308,31 @@ export default function PilotageDashboard() {
         }
       });
 
-      const categoryChartData = Object.entries(categorySales).map(([name, value]) => ({
-        name,
-        value,
-      }));
+      setCategoryData(Object.entries(categorySales).map(([name, value]) => ({ name, value })));
 
-      setCategoryData(categoryChartData);
-
-      // Calculate orders by status
+      // Status counts
       const statusCounts: Record<string, number> = {};
       filteredOrders.forEach((order) => {
         statusCounts[order.status] = (statusCounts[order.status] || 0) + 1;
       });
       setOrdersByStatus(statusCounts);
 
-      // Calculate changes (comparing current period with previous period)
-      const periodDuration = now.getTime() - periodStart.getTime();
-      const previousPeriodStart = new Date(periodStart.getTime() - periodDuration);
-      const previousPeriodEnd = periodStart;
-
-      const previousOrders = orders.filter((order) => {
-        const orderDate = new Date(order.created_at);
-        const inPeriod = orderDate >= previousPeriodStart && orderDate < previousPeriodEnd && order.status !== 'cancelled';
-        if (!inPeriod) return false;
-        
-        // also exclude pure preorders from previous period comparison
-        if (order.items && order.items.length > 0) {
-          if (order.items.every(item => item.product_id === PREORDER_PRODUCT_ID)) return false;
-        }
-        return true;
-      });
-
-      const currentPeriodRevenue = totalRevenue;
-      const previousRevenue = previousOrders.reduce((sum, order) => sum + order.total_amount, 0);
-      const revenueChange = previousRevenue > 0 ? ((currentPeriodRevenue - previousRevenue) / previousRevenue) * 100 : (currentPeriodRevenue > 0 ? 100 : 0);
-      const ordersChange = previousOrders.length > 0 ? ((totalOrders - previousOrders.length) / previousOrders.length) * 100 : (totalOrders > 0 ? 100 : 0);
-
-      // For clients change, compare with previous period
-      const previousPeriodUsers = users.filter((user) => {
-        const userDate = new Date(user.created_at);
-        return userDate >= previousPeriodStart && userDate < previousPeriodEnd;
-      });
-      const previousClients = previousPeriodUsers.length;
-      const clientsChange = previousClients > 0 ? ((totalClients - previousClients) / previousClients) * 100 : (totalClients > 0 ? 100 : 0);
-
-      // Calculate top clients (exclude cancelled orders)
+      // Top clients
       const clientSpending: { [userId: string]: { totalSpent: number; orderCount: number; user: any } } = {};
       currentPeriodOrders.forEach((order) => {
-        if (!clientSpending[order.user_id]) {
-          const user = users.find(u => u.id === order.user_id);
-          clientSpending[order.user_id] = {
-            totalSpent: 0,
-            orderCount: 0,
-            user,
-          };
+        const categoryItems = getCategoryItems(order.items || []);
+        if (categoryItems.length > 0) {
+          const orderRevenue = categoryItems.reduce((s, i) => s + (i.price * i.quantity), 0);
+          if (!clientSpending[order.user_id]) {
+            const user = users.find(u => u.id === order.user_id);
+            clientSpending[order.user_id] = { totalSpent: 0, orderCount: 0, user };
+          }
+          clientSpending[order.user_id].totalSpent += orderRevenue;
+          clientSpending[order.user_id].orderCount += 1;
         }
-        clientSpending[order.user_id].totalSpent += order.total_amount;
-        clientSpending[order.user_id].orderCount += 1;
       });
 
-      const topClientsList = Object.entries(clientSpending)
+      setTopClients(Object.entries(clientSpending)
         .map(([userId, data]) => ({
           userId,
           email: data.user?.email || 'Client inconnu',
@@ -303,9 +341,7 @@ export default function PilotageDashboard() {
           orderCount: data.orderCount,
         }))
         .sort((a, b) => b.totalSpent - a.totalSpent)
-        .slice(0, 5);
-
-      setTopClients(topClientsList);
+        .slice(0, 5));
 
       setStats({
         totalRevenue,
@@ -318,45 +354,37 @@ export default function PilotageDashboard() {
         revenueChange,
         ordersChange,
         clientsChange,
-        profitChange: revenueChange * 0.8, // Simplified profit (80% of revenue)
+        profitChange: revenueChange * 0.8,
       });
 
-      // Load most sold products from filtered orders (exclude cancelled)
-      const productSales: { [productId: string]: { sales: number; revenue: number } } = {};
+      // Top sold products
+      const productSalesMap: { [productId: string]: { sales: number; revenue: number } } = {};
       currentPeriodOrders.forEach((order) => {
-        if (order.items) {
-          order.items.forEach((item) => {
-            if (!productSales[item.product_id]) {
-              productSales[item.product_id] = { sales: 0, revenue: 0 };
-            }
-            productSales[item.product_id].sales += item.quantity;
-            productSales[item.product_id].revenue += item.price * item.quantity;
-          });
-        }
+        const categoryItems = getCategoryItems(order.items || []);
+        categoryItems.forEach((item) => {
+          if (!productSalesMap[item.product_id]) {
+            productSalesMap[item.product_id] = { sales: 0, revenue: 0 };
+          }
+          productSalesMap[item.product_id].sales += item.quantity;
+          productSalesMap[item.product_id].revenue += item.price * item.quantity;
+        });
       });
 
-      const topProducts = Object.entries(productSales)
+      setMostSoldProducts(Object.entries(productSalesMap)
         .map(([productId, data]) => ({ productId, ...data }))
         .sort((a, b) => b.sales - a.sales)
-        .slice(0, 5);
+        .slice(0, 5));
 
-      setMostSoldProducts(topProducts);
-
-      // Calculate Tshirt Oversize CIV products revenue
+      // Tshirt products specifically
       const tshirtProducts = products.filter(p => p.category === 'tshirt-oversize-civ');
       const tshirtRevenue: { [productId: string]: { name: string; revenue: number; sales: number } } = {};
-      
       currentPeriodOrders.forEach((order) => {
         if (order.items) {
           order.items.forEach((item) => {
             const product = tshirtProducts.find((p) => p.id === item.product_id);
             if (product) {
               if (!tshirtRevenue[product.id]) {
-                tshirtRevenue[product.id] = {
-                  name: product.title,
-                  revenue: 0,
-                  sales: 0,
-                };
+                tshirtRevenue[product.id] = { name: product.title, revenue: 0, sales: 0 };
               }
               tshirtRevenue[product.id].revenue += item.price * item.quantity;
               tshirtRevenue[product.id].sales += item.quantity;
@@ -364,9 +392,7 @@ export default function PilotageDashboard() {
           });
         }
       });
-
-      const tshirtData = Object.values(tshirtRevenue).sort((a, b) => b.revenue - a.revenue);
-      setTshirtProductsData(tshirtData);
+      setTshirtProductsData(Object.values(tshirtRevenue).sort((a, b) => b.revenue - a.revenue));
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {

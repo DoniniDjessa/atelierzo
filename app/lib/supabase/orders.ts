@@ -445,25 +445,43 @@ export async function getUserOrders(
 }
 
 /**
- * Get all orders (admin)
+ * Get all orders (admin) - version that handles pagination to get all rows
  */
 export async function getAllOrders(): Promise<{
   data: Order[] | null;
   error: string | null;
 }> {
   try {
-    const { data, error } = await supabase
-      .from("zo-orders")
-      .select("*, items:zo-order-items(*)")
-      .eq("is_deleted", false)
-      .order("created_at", { ascending: true });
+    let allData: Order[] = [];
+    let from = 0;
+    const itemsPerPage = 1000;
+    let hasMore = true;
 
-    if (error) {
-      console.error("Error fetching all orders:", error);
-      return { data: null, error: error.message };
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from("zo-orders")
+        .select("*, items:zo-order-items(*)")
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: true })
+        .range(from, from + itemsPerPage - 1);
+
+      if (error) {
+        console.error("Error fetching chunk of orders:", error);
+        return { data: null, error: error.message };
+      }
+
+      if (data && data.length > 0) {
+        allData = [...allData, ...(data as unknown as Order[])];
+        from += itemsPerPage;
+        if (data.length < itemsPerPage) {
+          hasMore = false;
+        }
+      } else {
+        hasMore = false;
+      }
     }
 
-    return { data: data as unknown as Order[], error: null };
+    return { data: allData, error: null };
   } catch (error: any) {
     console.error("Unexpected error fetching all orders:", error);
     return { data: null, error: error.message || "Unknown error" };

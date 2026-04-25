@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import NextImage from 'next/image';
 import { useFavorites } from '@/app/contexts/FavoritesContext';
 import { PREORDER_PRODUCT_ID } from './PreorderModal';
 
@@ -57,7 +57,7 @@ export default function ProductCard({
     >
       {/* Product Image - Square on mobile, larger on desktop */}
       <div className="relative w-full aspect-square sm:flex-1 sm:min-h-80 bg-gray-100 dark:bg-gray-700 rounded-t-xl sm:rounded-t-2xl overflow-hidden">
-        <Image
+        <NextImage
           src={imageUrl}
           alt={title}
           fill
