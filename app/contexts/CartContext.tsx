@@ -10,6 +10,7 @@ import React, {
 import { useUser } from "./UserContext";
 import { useProducts } from "./ProductContext";
 import { toast } from "sonner";
+import { getEffectivePrice, countQualifyingItems } from "@/app/lib/utils/discount";
 
 export interface CartItem {
   productId: string;
@@ -190,7 +191,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const getTotal = () => {
-    return items.reduce((total, item) => total + item.price * item.quantity, 0);
+    const totalQualifyingItems = countQualifyingItems(items);
+    return items.reduce((total, item) => {
+      const effectivePrice = getEffectivePrice(item.price, totalQualifyingItems);
+      return total + effectivePrice * item.quantity;
+    }, 0);
   };
 
   const getItemCount = () => {

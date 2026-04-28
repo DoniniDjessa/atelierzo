@@ -12,6 +12,7 @@ import { getColorName } from "@/app/lib/utils/colors";
 import Footer from "@/app/components/Footer";
 import PageTitle from "@/app/components/PageTitle";
 import ReceiptModal from "@/app/components/ReceiptModal";
+import { getEffectivePrice, countQualifyingItems } from "@/app/lib/utils/discount";
 
 export default function CartPage() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export default function CartPage() {
   const [notes, setNotes] = useState("");
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
+  const totalQualifyingItems = countQualifyingItems(items);
 
   const handleCheckout = async () => {
     // Prevent multiple simultaneous submissions or resubmission after order created
@@ -93,7 +95,7 @@ export default function CartPage() {
         items: items.map((item) => ({
           product_id: item.productId,
           title: item.title,
-          price: item.price,
+          price: getEffectivePrice(item.price, totalQualifyingItems),
           image_url: item.imageUrl,
           size: item.size,
           color: item.color,
@@ -122,7 +124,7 @@ export default function CartPage() {
           size: item.size,
           color: getColorName(item.color) || item.color || "N/A",
           quantity: item.quantity,
-          price: item.price,
+          price: getEffectivePrice(item.price, totalQualifyingItems),
         })),
         total: getTotal(),
         shipping_address: shippingAddress,
@@ -153,7 +155,7 @@ export default function CartPage() {
           items: items.map((item) => ({
             title: item.title,
             quantity: item.quantity,
-            price: item.price,
+            price: getEffectivePrice(item.price, totalQualifyingItems),
             size: item.size,
             color: getColorName(item.color) || item.color || undefined,
           })),
@@ -384,7 +386,7 @@ export default function CartPage() {
                       className="text-sm font-bold text-black dark:text-white"
                       style={{ fontFamily: "var(--font-fira-sans)" }}
                     >
-                      {(item.price * item.quantity).toLocaleString("fr-FR")}{" "}
+                      {(getEffectivePrice(item.price, totalQualifyingItems) * item.quantity).toLocaleString("fr-FR")}{" "}
                       FCFA
                     </span>
                   </div>
@@ -523,7 +525,7 @@ export default function CartPage() {
                     className="text-base font-bold text-black dark:text-white"
                     style={{ fontFamily: "var(--font-fira-sans)" }}
                   >
-                    {(item.price * item.quantity).toLocaleString("fr-FR")} FCFA
+                    {(getEffectivePrice(item.price, totalQualifyingItems) * item.quantity).toLocaleString("fr-FR")} FCFA
                   </span>
 
                   {/* Remove Button - Orange X - Extreme right */}
