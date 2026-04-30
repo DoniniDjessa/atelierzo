@@ -185,8 +185,11 @@ export default function ReceiptModal({
             className="mb-4 pb-4"
             style={{ borderBottom: "2px solid #1f2937" }}
           >
-            <div className="flex justify-between text-lg font-bold">
-              <span>TOTAL</span>
+            <div className="flex justify-between items-end text-lg font-bold">
+              <div className="flex flex-col">
+                <span>TOTAL</span>
+                <span className="text-[10px] font-bold" style={{ color: "#ef4444" }}>(Hors livraison)</span>
+              </div>
               <span>{orderData.total.toLocaleString()} FCFA</span>
             </div>
           </div>
