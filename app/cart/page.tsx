@@ -727,7 +727,7 @@ export default function CartPage() {
               <button
                 onClick={handleCheckout}
                 disabled={isProcessing || !user || orderCreated}
-                className="w-full px-6 py-3 bg-gradient-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800 text-white rounded-lg transition-all transform hover:scale-105 active:scale-95 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-green-700 hover:from-green-600 hover:to-green-800 text-white rounded-lg transition-all transform hover:scale-105 active:scale-95 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
                 {orderCreated
@@ -736,20 +736,20 @@ export default function CartPage() {
                   ? "Traitement..."
                   : !user
                   ? "Connectez-vous pour commander"
-                  : "Payer à la livraison"}
+                  : "Retrait en boutique (Riviera CIAD Rue F44, 1099)"}
               </button>
 
               {/* Mobile Payment Button */}
               <button
                 onClick={handleOpenPaymentModal}
                 disabled={!user || orderCreated}
-                className="mt-3 w-full px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-700 hover:from-emerald-600 hover:to-emerald-800 text-white rounded-lg transition-all transform hover:scale-105 active:scale-95 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+                className="mt-3 w-full px-6 py-3 bg-gradient-to-r from-cyan-400 to-cyan-600 hover:from-cyan-500 hover:to-cyan-700 text-white rounded-lg transition-all transform hover:scale-105 active:scale-95 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
                 style={{ fontFamily: "var(--font-poppins)" }}
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
-                Payer maintenant
+                Se faire livrer
               </button>
 
               {!user && (

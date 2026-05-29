@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { useUser } from '@/app/contexts/UserContext';
 import { getUserPayments, Payment } from '@/app/lib/supabase/payments';
+import { supabase } from '@/app/lib/supabase/client';
 import PageTitle from '@/app/components/PageTitle';
 import Footer from '@/app/components/Footer';
+
+const ITEMS_PER_PAGE = 10;
 
 const STATUS_COLORS: Record<Payment['status'], string> = {
   pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -32,6 +36,9 @@ export default function PaiementsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (!user) {
@@ -53,10 +60,31 @@ export default function PaiementsPage() {
     setLoading(false);
   };
 
+  const handleDelete = async (paymentId: string) => {
+    setDeleting(true);
+    const { error } = await supabase.from('zo-payments').delete().eq('id', paymentId);
+    if (error) {
+      toast.error('Erreur lors de la suppression');
+    } else {
+      toast.success('Paiement supprimé');
+      setPayments((prev) => prev.filter((p) => p.id !== paymentId));
+      if (selectedPayment?.id === paymentId) setSelectedPayment(null);
+      // Adjust page if last item on page was deleted
+      const newTotal = payments.length - 1;
+      const newTotalPages = Math.ceil(newTotal / ITEMS_PER_PAGE);
+      if (currentPage > newTotalPages && newTotalPages > 0) setCurrentPage(newTotalPages);
+    }
+    setConfirmDeleteId(null);
+    setDeleting(false);
+  };
+
   if (!user) return null;
 
   const totalPending = payments.filter((p) => p.status === 'pending').reduce((s, p) => s + p.amount, 0);
   const totalValidated = payments.filter((p) => p.status === 'validated').reduce((s, p) => s + p.amount, 0);
+
+  const totalPages = Math.ceil(payments.length / ITEMS_PER_PAGE);
+  const paginatedPayments = payments.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black py-8 px-4 sm:px-6 lg:px-8">
@@ -107,47 +135,141 @@ export default function PaiementsPage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {payments.map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => setSelectedPayment(payment)}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <svg className="h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                            </svg>
-                            <h3 className="text-sm font-semibold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
-                              #{payment.id.substring(0, 8).toUpperCase()}
-                            </h3>
+              <>
+                <div className="space-y-3">
+                  {paginatedPayments.map((payment) => (
+                    <div
+                      key={payment.id}
+                      className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-4 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        {/* Left — clickable area */}
+                        <div
+                          className="flex-1 cursor-pointer"
+                          onClick={() => setSelectedPayment(payment)}
+                        >
+                          <div className="flex items-center gap-3 mb-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <svg className="h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                              <h3 className="text-sm font-semibold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                                #{payment.id.substring(0, 8).toUpperCase()}
+                              </h3>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_COLORS[payment.status]}`} style={{ fontFamily: 'var(--font-poppins)' }}>
+                              {STATUS_LABELS[payment.status]}
+                            </span>
                           </div>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_COLORS[payment.status]}`} style={{ fontFamily: 'var(--font-poppins)' }}>
-                            {STATUS_LABELS[payment.status]}
-                          </span>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {new Date(payment.created_at).toLocaleDateString('fr-FR', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>
+                            {METHOD_LABELS[payment.payment_method] || payment.payment_method} · {payment.payment_phone}
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
-                          {new Date(payment.created_at).toLocaleDateString('fr-FR', { year: 'numeric', month: 'short', day: 'numeric' })}
-                        </p>
-                        <p className="text-xs text-gray-600 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>
-                          {METHOD_LABELS[payment.payment_method] || payment.payment_method} · {payment.payment_phone}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-base font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
-                          {payment.amount.toLocaleString('fr-FR')} FCFA
-                        </p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500" style={{ fontFamily: 'var(--font-poppins)' }}>
-                          {payment.items.length} article{payment.items.length > 1 ? 's' : ''}
-                        </p>
+
+                        {/* Right — amount + delete */}
+                        <div className="flex items-center gap-3">
+                          <div className="text-right cursor-pointer" onClick={() => setSelectedPayment(payment)}>
+                            <p className="text-base font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                              {payment.amount.toLocaleString('fr-FR')} FCFA
+                            </p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500" style={{ fontFamily: 'var(--font-poppins)' }}>
+                              {payment.items.length} article{payment.items.length > 1 ? 's' : ''}
+                            </p>
+                          </div>
+
+                          {/* Delete — only for treated payments */}
+                          {payment.status !== 'pending' && (
+                            confirmDeleteId === payment.id ? (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => handleDelete(payment.id)}
+                                  disabled={deleting}
+                                  className="px-2.5 py-1 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                                  style={{ fontFamily: 'var(--font-poppins)' }}
+                                >
+                                  Confirmer
+                                </button>
+                                <button
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  className="px-2.5 py-1 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-lg text-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                  style={{ fontFamily: 'var(--font-poppins)' }}
+                                >
+                                  Annuler
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(payment.id); }}
+                                className="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                                title="Supprimer"
+                              >
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            )
+                          )}
+                        </div>
                       </div>
                     </div>
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-6 flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    >
+                      Précédent
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                        if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                currentPage === page
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                              }`}
+                              style={{ fontFamily: 'var(--font-poppins)' }}
+                            >
+                              {page}
+                            </button>
+                          );
+                        }
+                        if (page === currentPage - 2 || page === currentPage + 2) {
+                          return <span key={page} className="px-1 text-gray-400">…</span>;
+                        }
+                        return null;
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    >
+                      Suivant
+                    </button>
                   </div>
-                ))}
-              </div>
+                )}
+
+                <p className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
+                  {payments.length} paiement{payments.length > 1 ? 's' : ''}{totalPages > 1 ? ` · Page ${currentPage} sur ${totalPages}` : ''}
+                </p>
+              </>
             )}
           </>
         )}
@@ -214,12 +336,20 @@ export default function PaiementsPage() {
                   ))}
                 </div>
               </div>
-              {selectedPayment.status === 'pending' && (
+              {selectedPayment.status === 'pending' ? (
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3">
                   <p className="text-xs text-yellow-700 dark:text-yellow-400 text-center" style={{ fontFamily: 'var(--font-poppins)' }}>
                     Votre paiement est en cours de validation par notre équipe.
                   </p>
                 </div>
+              ) : (
+                <button
+                  onClick={() => { setSelectedPayment(null); setConfirmDeleteId(selectedPayment.id); }}
+                  className="w-full py-2.5 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  Supprimer de l'historique
+                </button>
               )}
             </div>
           </div>
