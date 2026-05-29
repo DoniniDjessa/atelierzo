@@ -17,6 +17,7 @@ const menuItems = [
   { name: 'Vente Flash', path: '/pilotage/vente-flash', icon: '⚡' },
   { name: 'Clients', path: '/pilotage/clients', icon: '👥' },
   { name: 'Commandes', path: '/pilotage/orders', icon: '🛒' },
+  { name: 'Paiements', path: '/pilotage/paiements', icon: '📱' },
   { name: 'Clients Satisfaits', path: '/pilotage/satisfied-clients', icon: '⭐' },
 ];
 

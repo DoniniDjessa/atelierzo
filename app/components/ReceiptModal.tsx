@@ -6,6 +6,7 @@ import html2canvas from "html2canvas";
 interface ReceiptModalProps {
   isOpen: boolean;
   onClose: () => void;
+  paymentMethod?: string;
   orderData: {
     id: string;
     items: Array<{
@@ -28,6 +29,7 @@ export default function ReceiptModal({
   isOpen,
   onClose,
   orderData,
+  paymentMethod,
 }: ReceiptModalProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
 
@@ -84,6 +86,21 @@ export default function ReceiptModal({
           className="bg-white p-8"
           style={{ fontFamily: "monospace", color: "#000000" }}
         >
+          {/* Mobile payment badge */}
+          {paymentMethod && (
+            <div
+              className="flex items-center justify-center gap-2 mb-4 py-2 px-4 rounded-lg"
+              style={{ backgroundColor: '#ecfdf5', border: '1px solid #6ee7b7' }}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#059669" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#059669', textTransform: 'uppercase' }}>
+                Paiement Mobile — {paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)}
+              </span>
+            </div>
+          )}
+
           {/* Header */}
           <div
             className="text-center pb-4 mb-4"

@@ -12,6 +12,7 @@ import { getColorName } from "@/app/lib/utils/colors";
 import Footer from "@/app/components/Footer";
 import PageTitle from "@/app/components/PageTitle";
 import ReceiptModal from "@/app/components/ReceiptModal";
+import PaymentModal from "@/app/components/PaymentModal";
 
 
 export default function CartPage() {
@@ -28,6 +29,8 @@ export default function CartPage() {
   const [notes, setNotes] = useState("");
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [mobilePaymentId, setMobilePaymentId] = useState<string | null>(null);
 
 
   const handleCheckout = async () => {
@@ -177,8 +180,62 @@ export default function CartPage() {
 
   const handleCloseReceipt = () => {
     setShowReceipt(false);
-    // Cart is already cleared, just navigate to order details
-    router.push(`/orders/${receiptData?.id}`);
+    if (mobilePaymentId) {
+      router.push('/paiements');
+    } else {
+      router.push(`/orders/${receiptData?.id}`);
+    }
+  };
+
+  const handleOpenPaymentModal = () => {
+    if (!user) {
+      toast.error('Veuillez vous connecter pour effectuer un paiement');
+      router.push('/');
+      return;
+    }
+    if (items.length === 0) {
+      toast.error('Votre panier est vide');
+      return;
+    }
+    if (!shippingAddress.trim()) {
+      toast.error('Veuillez entrer une adresse de livraison');
+      return;
+    }
+    if (!shippingPhone.trim()) {
+      toast.error('Veuillez entrer un numéro de téléphone');
+      return;
+    }
+    if (!pickupNumber.trim()) {
+      toast.error('Veuillez entrer votre numéro de récupération');
+      return;
+    }
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentSuccess = (paymentId: string) => {
+    setMobilePaymentId(paymentId);
+    setShowPaymentModal(false);
+    clearCart();
+
+    const receipt = {
+      id: paymentId,
+      items: items.map((item) => ({
+        title: item.title,
+        size: item.size,
+        color: getColorName(item.color) || item.color || 'N/A',
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      total: getTotal(),
+      shipping_address: shippingAddress,
+      shipping_phone: shippingPhone,
+      created_at: new Date().toISOString(),
+      customerName: user?.name || 'Client',
+      notes: notes || undefined,
+    };
+    setReceiptData(receipt);
+    setShowReceipt(true);
+    toast.success('Paiement initié ! Complétez le paiement sur Wave.');
   };
 
   if (items.length === 0 && !showReceipt) {
@@ -679,7 +736,20 @@ export default function CartPage() {
                   ? "Traitement..."
                   : !user
                   ? "Connectez-vous pour commander"
-                  : "Passer la commande"}
+                  : "Payer à la livraison"}
+              </button>
+
+              {/* Mobile Payment Button */}
+              <button
+                onClick={handleOpenPaymentModal}
+                disabled={!user || orderCreated}
+                className="mt-3 w-full px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-700 hover:from-emerald-600 hover:to-emerald-800 text-white rounded-lg transition-all transform hover:scale-105 active:scale-95 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+                style={{ fontFamily: "var(--font-poppins)" }}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                Payer maintenant
               </button>
 
               {!user && (
@@ -702,6 +772,23 @@ export default function CartPage() {
           isOpen={showReceipt}
           onClose={handleCloseReceipt}
           orderData={receiptData}
+          paymentMethod={mobilePaymentId ? 'wave' : undefined}
+        />
+      )}
+
+      {/* Payment Modal */}
+      {showPaymentModal && user && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={handlePaymentSuccess}
+          total={getTotal()}
+          items={items}
+          userId={user.id}
+          customerName={user.name}
+          customerPhone={shippingPhone}
+          shippingAddress={shippingAddress}
+          notes={notes}
         />
       )}
     </div>
