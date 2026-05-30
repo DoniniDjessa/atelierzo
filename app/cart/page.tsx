@@ -736,7 +736,12 @@ export default function CartPage() {
                   ? "Traitement..."
                   : !user
                   ? "Connectez-vous pour commander"
-                  : "Retrait en boutique (Riviera CIAD Rue F44, 1099)"}
+                  : (
+                    <span className="flex flex-col items-center leading-tight">
+                      <span className="text-[0.7rem] sm:text-xs lg:text-sm font-bold">Retrait en boutique</span>
+                      <span className="text-[0.58rem] sm:text-[0.65rem] lg:text-xs font-normal opacity-75">Riviera CIAD Rue F44, 1099</span>
+                    </span>
+                  )}
               </button>
 
               {/* Mobile Payment Button */}
