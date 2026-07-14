@@ -10,18 +10,19 @@ import {
 function applyPromoUnitPrices(
   items: CreateOrderInput["items"]
 ): { pricedItems: CreateOrderInput["items"]; totalAmount: number } {
-  const byProduct = new Map<string, CreateOrderInput["items"]>();
+  // Group by unit price so different products at 18k / 12k count together,
+  // but the two tiers unlock independently.
+  const byPrice = new Map<number, CreateOrderInput["items"]>();
   for (const item of items) {
-    const group = byProduct.get(item.product_id) || [];
+    const group = byPrice.get(item.price) || [];
     group.push(item);
-    byProduct.set(item.product_id, group);
+    byPrice.set(item.price, group);
   }
 
   const pricedItems: CreateOrderInput["items"] = [];
   let totalAmount = 0;
 
-  for (const group of byProduct.values()) {
-    const unitPrice = group[0].price;
+  for (const [unitPrice, group] of byPrice) {
     const totalQty = group.reduce((sum, item) => sum + item.quantity, 0);
     const promoTotal = getPromoTotal(unitPrice, totalQty);
     totalAmount += promoTotal;
@@ -34,7 +35,8 @@ function applyPromoUnitPrices(
 
     for (const item of group) {
       const key = cartItemKey(item.product_id, item.size, item.color);
-      const lineTotal = shares[key] ?? getPromoTotal(item.price, item.quantity);
+      const lineTotal =
+        shares[key] ?? getPromoTotal(item.price, item.quantity, totalQty);
       pricedItems.push({
         ...item,
         // Effective unit price so price × quantity reflects the promo line total

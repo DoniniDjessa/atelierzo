@@ -15,6 +15,7 @@ import {
   cartItemKey,
   getPromoTotal,
   getPromoSavings,
+  getPriceTierQuantity,
   hasPromoPricing,
 } from "@/app/lib/utils/promo-pricing";
 
@@ -42,7 +43,7 @@ interface CartContextType {
   clearCart: () => void;
   getTotal: () => number;
   getItemCount: () => number;
-  /** Line total after multi-buy promo (same product across sizes/colors). */
+  /** Line total after multi-buy promo (2+ items at the same price tier). */
   getLineTotal: (item: CartItem) => number;
   getLineSavings: (item: CartItem) => number;
   getProductQuantity: (productId: string) => number;
@@ -208,20 +209,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const getLineTotalsMap = () => {
-    const byProduct = new Map<string, CartItem[]>();
+    const byPrice = new Map<number, CartItem[]>();
     for (const item of items) {
-      const group = byProduct.get(item.productId) || [];
+      const group = byPrice.get(item.price) || [];
       group.push(item);
-      byProduct.set(item.productId, group);
+      byPrice.set(item.price, group);
     }
 
     const totals: Record<string, number> = {};
-    for (const group of byProduct.values()) {
-      const unitPrice = group[0].price;
+    for (const [unitPrice, group] of byPrice) {
       const lines = group.map((item) => ({
         key: cartItemKey(item.productId, item.size, item.color),
         quantity: item.quantity,
       }));
+      // Unlock uses qty at this price only (18k and 12k are independent)
       Object.assign(totals, allocatePromoLineTotals(lines, unitPrice));
     }
     return totals;
@@ -231,33 +232,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const key = cartItemKey(item.productId, item.size, item.color);
     const map = getLineTotalsMap();
     if (key in map) return map[key];
-    return getPromoTotal(item.price, item.quantity);
+    const tierQty = getPriceTierQuantity(items, item.price);
+    return getPromoTotal(item.price, item.quantity, tierQty);
   };
 
   const getLineSavings = (item: CartItem) => {
     if (!hasPromoPricing(item.price)) return 0;
-    const productQty = getProductQuantity(item.productId);
-    const productSavings = getPromoSavings(item.price, productQty);
-    if (productSavings <= 0 || productQty <= 0) return 0;
-    return Math.round((item.quantity / productQty) * productSavings);
+    const tierQty = getPriceTierQuantity(items, item.price);
+    return getPromoSavings(item.price, item.quantity, tierQty);
   };
 
   const getTotal = () => {
-    const byProduct = new Map<string, { price: number; quantity: number }>();
+    const byPrice = new Map<number, number>();
     for (const item of items) {
-      const existing = byProduct.get(item.productId);
-      if (existing) {
-        existing.quantity += item.quantity;
-      } else {
-        byProduct.set(item.productId, {
-          price: item.price,
-          quantity: item.quantity,
-        });
-      }
+      byPrice.set(item.price, (byPrice.get(item.price) || 0) + item.quantity);
     }
-
     let total = 0;
-    for (const { price, quantity } of byProduct.values()) {
+    for (const [price, quantity] of byPrice) {
       total += getPromoTotal(price, quantity);
     }
     return total;

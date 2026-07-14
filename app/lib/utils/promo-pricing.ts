@@ -1,11 +1,13 @@
 /**
- * Multi-buy promo pricing by unit price.
- * From 2+ items: 18.000 → 15.000 / pc, 12.000 → 10.000 / pc.
+ * Multi-buy promo pricing by unit price (per price tier).
+ * 2+ items at 18.000 (any products) → 15.000 / pc.
+ * 2+ items at 12.000 (any products) → 10.000 / pc.
+ * Mixing one 18k with one 12k does not unlock either promo.
  */
 
 export type PromoTier = { qty: number; price: number };
 
-/** Regular unit price → promo unit price (applies when qty >= 2). */
+/** Regular unit price → promo unit price (applies when that tier has qty >= 2). */
 const PROMO_UNIT: Record<number, number> = {
   18000: 15000,
   12000: 10000,
@@ -32,13 +34,19 @@ export function getPromoTiers(unitPrice: number): PromoTier[] | null {
 
 /**
  * Total for `quantity` pieces at `unitPrice`.
- * 1 item = regular price; 2+ = promo unit × quantity.
+ * Promo unlocks when `unlockQuantity` (defaults to `quantity`) is >= 2
+ * for that same unit price only.
  */
-export function getPromoTotal(unitPrice: number, quantity: number): number {
+export function getPromoTotal(
+  unitPrice: number,
+  quantity: number,
+  unlockQuantity?: number
+): number {
   if (quantity <= 0) return 0;
 
   const promoUnit = PROMO_UNIT[unitPrice];
-  if (!promoUnit || quantity < 2) return unitPrice * quantity;
+  const countForUnlock = unlockQuantity ?? quantity;
+  if (!promoUnit || countForUnlock < 2) return unitPrice * quantity;
 
   return promoUnit * quantity;
 }
@@ -47,20 +55,33 @@ export function getRegularTotal(unitPrice: number, quantity: number): number {
   return unitPrice * quantity;
 }
 
-export function getPromoSavings(unitPrice: number, quantity: number): number {
+export function getPromoSavings(
+  unitPrice: number,
+  quantity: number,
+  unlockQuantity?: number
+): number {
   if (!hasPromoPricing(unitPrice)) return 0;
-  return Math.max(0, getRegularTotal(unitPrice, quantity) - getPromoTotal(unitPrice, quantity));
+  return Math.max(
+    0,
+    getRegularTotal(unitPrice, quantity) -
+      getPromoTotal(unitPrice, quantity, unlockQuantity)
+  );
 }
 
 /**
- * Split a product-level promo total across cart lines of that product (by quantity share).
+ * Split a promo total across cart lines of the same unit price (by quantity share).
  */
 export function allocatePromoLineTotals(
   lines: Array<{ key: string; quantity: number }>,
-  unitPrice: number
+  unitPrice: number,
+  unlockQuantity?: number
 ): Record<string, number> {
   const totalQty = lines.reduce((sum, line) => sum + line.quantity, 0);
-  const promoTotal = getPromoTotal(unitPrice, totalQty);
+  const promoTotal = getPromoTotal(
+    unitPrice,
+    totalQty,
+    unlockQuantity ?? totalQty
+  );
   const result: Record<string, number> = {};
 
   if (totalQty === 0 || lines.length === 0) return result;
@@ -77,6 +98,16 @@ export function allocatePromoLineTotals(
   });
 
   return result;
+}
+
+/** Total quantity of cart items at a given unit price. */
+export function getPriceTierQuantity(
+  items: Array<{ price: number; quantity: number }>,
+  unitPrice: number
+): number {
+  return items
+    .filter((item) => item.price === unitPrice)
+    .reduce((sum, item) => sum + item.quantity, 0);
 }
 
 export function cartItemKey(
