@@ -705,26 +705,6 @@ export default function CartPage() {
 
               {/* Total */}
               <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mb-6">
-                {items.some((item) => getLineSavings(item) > 0) && (
-                  <div className="flex items-center justify-between mb-2">
-                    <span
-                      className="text-sm text-emerald-600 dark:text-emerald-400"
-                      style={{ fontFamily: "var(--font-poppins)" }}
-                    >
-                      Promo multi-achats
-                    </span>
-                    <span
-                      className="text-sm font-medium text-emerald-600 dark:text-emerald-400"
-                      style={{ fontFamily: "var(--font-fira-sans)" }}
-                    >
-                      -
-                      {items
-                        .reduce((sum, item) => sum + getLineSavings(item), 0)
-                        .toLocaleString("fr-FR")}{" "}
-                      FCFA
-                    </span>
-                  </div>
-                )}
                 <div className="flex items-center justify-between mb-2">
                   <span
                     className="text-sm text-gray-600 dark:text-gray-400"
@@ -768,12 +748,7 @@ export default function CartPage() {
                   ? "Traitement..."
                   : !user
                   ? "Connectez-vous pour commander"
-                  : (
-                    <span className="flex flex-col items-center leading-tight">
-                      <span className="text-[0.7rem] sm:text-xs lg:text-sm font-bold">Retrait en boutique</span>
-                      <span className="text-[0.58rem] sm:text-[0.65rem] lg:text-xs font-normal opacity-75">Riviera CIAD Rue F44, 1099</span>
-                    </span>
-                  )}
+                  : "Commander"}
               </button>
 
               {/* Mobile Payment Button (Hidden temporarily)
