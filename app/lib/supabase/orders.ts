@@ -1,6 +1,50 @@
 import { supabase } from "./client";
 import { sendNewOrderNotification } from "@/app/lib/sms/service";
 import { checkUserOrderLimit } from "./stock-history";
+import {
+  allocatePromoLineTotals,
+  cartItemKey,
+  getPromoTotal,
+} from "@/app/lib/utils/promo-pricing";
+
+function applyPromoUnitPrices(
+  items: CreateOrderInput["items"]
+): { pricedItems: CreateOrderInput["items"]; totalAmount: number } {
+  const byProduct = new Map<string, CreateOrderInput["items"]>();
+  for (const item of items) {
+    const group = byProduct.get(item.product_id) || [];
+    group.push(item);
+    byProduct.set(item.product_id, group);
+  }
+
+  const pricedItems: CreateOrderInput["items"] = [];
+  let totalAmount = 0;
+
+  for (const group of byProduct.values()) {
+    const unitPrice = group[0].price;
+    const totalQty = group.reduce((sum, item) => sum + item.quantity, 0);
+    const promoTotal = getPromoTotal(unitPrice, totalQty);
+    totalAmount += promoTotal;
+
+    const lines = group.map((item) => ({
+      key: cartItemKey(item.product_id, item.size, item.color),
+      quantity: item.quantity,
+    }));
+    const shares = allocatePromoLineTotals(lines, unitPrice);
+
+    for (const item of group) {
+      const key = cartItemKey(item.product_id, item.size, item.color);
+      const lineTotal = shares[key] ?? getPromoTotal(item.price, item.quantity);
+      pricedItems.push({
+        ...item,
+        // Effective unit price so price × quantity reflects the promo line total
+        price: item.quantity > 0 ? lineTotal / item.quantity : item.price,
+      });
+    }
+  }
+
+  return { pricedItems, totalAmount };
+}
 
 export interface OrderItem {
   id: string;
@@ -85,11 +129,8 @@ export async function createOrder(
       }
     }
 
-    // Calculate total amount
-    const totalAmount = input.items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
+    // Calculate total amount with multi-buy promo (18k / 12k packs)
+    const { pricedItems, totalAmount } = applyPromoUnitPrices(input.items);
 
     // Check for duplicate orders within the last 10 seconds
     const tenSecondsAgo = new Date(Date.now() - 10000).toISOString();
@@ -114,7 +155,7 @@ export async function createOrder(
 
     // CRITICAL: Decrease stock FIRST with atomic operations to prevent race conditions
     // This ensures that if 10 people order 5 items simultaneously, only 5 will succeed
-    for (const item of input.items) {
+    for (const item of pricedItems) {
       try {
         let retries = 5; // Increase retries for high concurrency
         let success = false;
@@ -287,8 +328,8 @@ export async function createOrder(
       };
     }
 
-    // Create order items
-    const orderItems = input.items.map((item) => ({
+    // Create order items (prices already reflect promo unit rates)
+    const orderItems = pricedItems.map((item) => ({
       order_id: order.id,
       product_id: item.product_id,
       title: item.title,
@@ -364,7 +405,7 @@ export async function createOrder(
       // Send Email notification via API route
       try {
         // Prepare items for email
-        const emailItems = input.items.map((item) => ({
+        const emailItems = pricedItems.map((item) => ({
           title: item.title,
           quantity: item.quantity,
           price: item.price * item.quantity,

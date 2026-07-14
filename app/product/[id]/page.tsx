@@ -11,6 +11,12 @@ import { getColorName } from '@/app/lib/utils/colors';
 import CartNotification from '@/app/components/CartNotification';
 import AuthModal from '@/app/components/AuthModal';
 import PreorderModal, { PREORDER_PRODUCT_ID } from '@/app/components/PreorderModal';
+import {
+  getPromoTiers,
+  getPromoTotal,
+  getPromoSavings,
+  hasPromoPricing,
+} from '@/app/lib/utils/promo-pricing';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -192,7 +198,7 @@ export default function ProductDetailPage() {
             </p>
 
             {/* Price */}
-            <div className="flex items-center gap-0 sm:gap-2 mb-6">
+            <div className={`flex items-center gap-0 sm:gap-2 ${hasPromoPricing(product.price) ? 'mb-2' : 'mb-6'}`}>
               {product.oldPrice && (
                 <span
                   className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 line-through"
@@ -208,6 +214,57 @@ export default function ProductDetailPage() {
                 {product.price.toLocaleString('fr-FR')} XOF
               </span>
             </div>
+
+            {/* Multi-buy promo */}
+            {hasPromoPricing(product.price) && (
+              <div className="mb-6 rounded-xl border border-cyan-200 dark:border-cyan-800 bg-cyan-50/80 dark:bg-cyan-950/40 px-4 py-3">
+                <p
+                  className="text-xs font-semibold text-cyan-800 dark:text-cyan-200 mb-2"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  Promo multi-achats
+                </p>
+                <ul className="space-y-1">
+                  {getPromoTiers(product.price)!.map((tier) => (
+                    <li
+                      key={tier.qty}
+                      className="flex justify-between text-xs text-cyan-900 dark:text-cyan-100"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    >
+                      <span>
+                        {String(tier.qty).padStart(2, '0')} article{tier.qty > 1 ? 's' : ''}
+                      </span>
+                      <span className="font-semibold">
+                        {tier.price.toLocaleString('fr-FR')} FCFA
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {(() => {
+                  const selectedQty = selectedSizes.reduce(
+                    (sum, size) => sum + (quantities[size] || 1),
+                    0
+                  );
+                  if (selectedQty < 2) return null;
+                  const promoTotal = getPromoTotal(product.price, selectedQty);
+                  const savings = getPromoSavings(product.price, selectedQty);
+                  return (
+                    <p
+                      className="mt-2 text-xs font-medium text-cyan-700 dark:text-cyan-300"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    >
+                      Votre sélection ({selectedQty}) :{' '}
+                      {promoTotal.toLocaleString('fr-FR')} FCFA
+                      {savings > 0 && (
+                        <span className="ml-1">
+                          (économie {savings.toLocaleString('fr-FR')} FCFA)
+                        </span>
+                      )}
+                    </p>
+                  );
+                })()}
+              </div>
+            )}
 
             {/* Size Selection */}
             {product.sizes && product.sizes.length > 0 && (

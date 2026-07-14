@@ -18,7 +18,7 @@ import PaymentModal from "@/app/components/PaymentModal";
 export default function CartPage() {
   const router = useRouter();
   const { user } = useUser();
-  const { items, removeFromCart, updateQuantity, clearCart, getTotal } =
+  const { items, removeFromCart, updateQuantity, clearCart, getTotal, getLineTotal, getLineSavings } =
     useCart();
   const { getProductById, updateProduct } = useProducts();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -119,7 +119,8 @@ export default function CartPage() {
       // Stock is automatically decreased on the server side (in createOrder function)
       // No need to decrease it here on the client side
 
-      // Prepare receipt data
+      // Prepare receipt data (capture totals before clearing cart)
+      const orderTotal = getTotal();
       const receipt = {
         id: order?.id || "",
         items: items.map((item) => ({
@@ -127,9 +128,9 @@ export default function CartPage() {
           size: item.size,
           color: getColorName(item.color) || item.color || "N/A",
           quantity: item.quantity,
-          price: item.price,
+          price: item.quantity > 0 ? getLineTotal(item) / item.quantity : item.price,
         })),
-        total: getTotal(),
+        total: orderTotal,
         shipping_address: shippingAddress,
         shipping_phone: shippingPhone,
         created_at: new Date().toISOString(),
@@ -149,18 +150,18 @@ export default function CartPage() {
         body: JSON.stringify({
           type: 'order_notification',
           orderId: order?.id || '',
-          totalAmount: getTotal(),
+          totalAmount: orderTotal,
           clientName: user?.name || 'Client',
           clientPhone: shippingPhone,
           deliveryAddress: shippingAddress,
           pickupNumber: pickupNumber,
           notes: notes || undefined,
-          items: items.map((item) => ({
+          items: receipt.items.map((item) => ({
             title: item.title,
             quantity: item.quantity,
             price: item.price,
             size: item.size,
-            color: getColorName(item.color) || item.color || undefined,
+            color: item.color !== "N/A" ? item.color : undefined,
           })),
         }),
       }).catch((err) => console.error('Failed to send order notification email:', err));
@@ -215,8 +216,8 @@ export default function CartPage() {
   const handlePaymentSuccess = (paymentId: string) => {
     setMobilePaymentId(paymentId);
     setShowPaymentModal(false);
-    clearCart();
 
+    const orderTotal = getTotal();
     const receipt = {
       id: paymentId,
       items: items.map((item) => ({
@@ -224,15 +225,16 @@ export default function CartPage() {
         size: item.size,
         color: getColorName(item.color) || item.color || 'N/A',
         quantity: item.quantity,
-        price: item.price,
+        price: item.quantity > 0 ? getLineTotal(item) / item.quantity : item.price,
       })),
-      total: getTotal(),
+      total: orderTotal,
       shipping_address: shippingAddress,
       shipping_phone: shippingPhone,
       created_at: new Date().toISOString(),
       customerName: user?.name || 'Client',
       notes: notes || undefined,
     };
+    clearCart();
     setReceiptData(receipt);
     setShowReceipt(true);
     toast.success('Paiement initié ! Complétez le paiement sur Wave.');
@@ -443,7 +445,12 @@ export default function CartPage() {
                       className="text-sm font-bold text-black dark:text-white"
                       style={{ fontFamily: "var(--font-fira-sans)" }}
                     >
-                      {(item.price * item.quantity).toLocaleString("fr-FR")}{" "}
+                      {getLineSavings(item) > 0 && (
+                        <span className="text-[10px] text-gray-400 line-through mr-1">
+                          {(item.price * item.quantity).toLocaleString("fr-FR")}
+                        </span>
+                      )}
+                      {getLineTotal(item).toLocaleString("fr-FR")}{" "}
                       FCFA
                     </span>
                   </div>
@@ -582,7 +589,12 @@ export default function CartPage() {
                     className="text-base font-bold text-black dark:text-white"
                     style={{ fontFamily: "var(--font-fira-sans)" }}
                   >
-                    {(item.price * item.quantity).toLocaleString("fr-FR")} FCFA
+                    {getLineSavings(item) > 0 && (
+                      <span className="text-xs text-gray-400 line-through mr-2">
+                        {(item.price * item.quantity).toLocaleString("fr-FR")}
+                      </span>
+                    )}
+                    {getLineTotal(item).toLocaleString("fr-FR")} FCFA
                   </span>
 
                   {/* Remove Button - Orange X - Extreme right */}
@@ -693,6 +705,26 @@ export default function CartPage() {
 
               {/* Total */}
               <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mb-6">
+                {items.some((item) => getLineSavings(item) > 0) && (
+                  <div className="flex items-center justify-between mb-2">
+                    <span
+                      className="text-sm text-emerald-600 dark:text-emerald-400"
+                      style={{ fontFamily: "var(--font-poppins)" }}
+                    >
+                      Promo multi-achats
+                    </span>
+                    <span
+                      className="text-sm font-medium text-emerald-600 dark:text-emerald-400"
+                      style={{ fontFamily: "var(--font-fira-sans)" }}
+                    >
+                      -
+                      {items
+                        .reduce((sum, item) => sum + getLineSavings(item), 0)
+                        .toLocaleString("fr-FR")}{" "}
+                      FCFA
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between mb-2">
                   <span
                     className="text-sm text-gray-600 dark:text-gray-400"
