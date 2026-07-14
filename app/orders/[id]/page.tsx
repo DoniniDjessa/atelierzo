@@ -86,7 +86,7 @@ export default function OrderDetailsPage() {
       shipping_address: order.shipping_address || '',
       shipping_phone: order.shipping_phone || '',
       created_at: order.created_at,
-      customerName: user?.name || user?.email || 'Client',
+      customerName: user?.name || 'Client',
       notes: order.notes,
     };
 

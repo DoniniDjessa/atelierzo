@@ -219,7 +219,7 @@ export default function Navbar() {
                     )}
                   </button>
 
-                  {/* Mes paiements */}
+                  {/* Mes paiements (Hidden temporarily)
                   <button
                     onClick={() => handleNavigate('/paiements')}
                     className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -227,6 +227,7 @@ export default function Navbar() {
                   >
                     Mes paiements
                   </button>
+                  */}
 
                   {/* Divider */}
                   <div className="my-2 border-t border-gray-200 dark:border-gray-700"></div>

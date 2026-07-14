@@ -776,7 +776,7 @@ export default function CartPage() {
                   )}
               </button>
 
-              {/* Mobile Payment Button */}
+              {/* Mobile Payment Button (Hidden temporarily)
               <button
                 onClick={handleOpenPaymentModal}
                 disabled={!user || orderCreated}
@@ -788,6 +788,7 @@ export default function CartPage() {
                 </svg>
                 Se faire livrer
               </button>
+              */}
 
               {!user && (
                 <p

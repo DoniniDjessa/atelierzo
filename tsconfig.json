@@ -43,5 +43,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "COMPARISON_TAB_CODE.tsx"]
 }

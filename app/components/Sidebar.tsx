@@ -265,6 +265,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         </span>
                       </button>
 
+                      {/* Mes paiements (Hidden temporarily)
                       <button
                         onClick={() => handleNavigate('/paiements')}
                         className="w-full flex items-center gap-3 py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
@@ -276,6 +277,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                           Mes paiements
                         </span>
                       </button>
+                      */}
                     </>
                   )}
                 </nav>
