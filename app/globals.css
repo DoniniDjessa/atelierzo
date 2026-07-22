@@ -91,6 +91,38 @@ html {
   animation: slide-up 0.3s ease-out;
 }
 
+@keyframes destockage-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes destockage-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.destockage-float {
+  animation: destockage-float 3s ease-in-out infinite;
+  transition: none;
+}
+
+.destockage-blink {
+  animation:
+    destockage-float 3s ease-in-out infinite,
+    destockage-blink 1.4s ease-in-out infinite;
+  transition: none;
+}
+
 /* Phone Input Styles - Default Design with Minimal Customization */
 .PhoneInput {
   font-family: var(--font-poppins) !important;
