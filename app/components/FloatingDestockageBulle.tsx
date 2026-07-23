@@ -25,7 +25,7 @@ export default function FloatingDestockageBulle() {
           className="h-2 w-2 shrink-0 rounded-full bg-white/90"
           aria-hidden
         />
-        <span className="whitespace-nowrap">Prochain destockage le 30 juillet</span>
+        <span className="whitespace-nowrap">Prochain restockage le 30 juillet</span>
         <button
           type="button"
           onClick={() => setVisible(false)}
