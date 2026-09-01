@@ -90,7 +90,12 @@ export default function Home() {
               subtitle="Célébrez la victoire avec style"
               products={products
                 .filter((p) => (p as any).category === 'tshirt-oversize-civ')
-                .slice(0, 8)
+                .sort((a, b) => {
+                  const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                  const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                  return aTime - bTime;
+                })
+                .slice(0, 12)
                 .map((p) => ({
                   ...p,
                   isOutOfStock: !(p as any).inStock,

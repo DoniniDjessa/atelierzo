@@ -24,6 +24,7 @@ export interface Product {
   isBestSeller?: boolean;
   isCurrentOffer?: boolean;
   isKidsProduct?: boolean;
+  createdAt?: string;
 }
 
 interface ProductContextType {

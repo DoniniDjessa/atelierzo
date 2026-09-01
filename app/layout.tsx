@@ -4,7 +4,6 @@ import ConditionalNavbar from "./components/ConditionalNavbar";
 import Loader from "./components/Loader";
 import ScrollToTop from "./components/ScrollToTop";
 import FloatingCartButton from "./components/FloatingCartButton";
-import FloatingDestockageBulle from "./components/FloatingDestockageBulle";
 import { UserProvider } from "./contexts/UserContext";
 import { ProductProvider } from "./contexts/ProductContext";
 import { FavoritesProvider } from "./contexts/FavoritesContext";
@@ -158,7 +157,6 @@ export default function RootLayout({
               <CartProvider>
                 <Loader />
                 <ConditionalNavbar />
-                <FloatingDestockageBulle />
                 {children}
                 <ScrollToTop />
                 <FloatingCartButton />

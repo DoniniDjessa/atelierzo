@@ -124,6 +124,8 @@ export async function getAllProducts(): Promise<{ data: Product[] | null; error:
         isCurrentOffer: item.is_current_offer,
         is_kids_product: item.is_kids_product,
         isKidsProduct: item.is_kids_product,
+        created_at: item.created_at,
+        createdAt: item.created_at,
       };
     });
 
