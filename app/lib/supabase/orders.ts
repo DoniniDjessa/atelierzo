@@ -131,7 +131,7 @@ export async function createOrder(
       }
     }
 
-    // Calculate total amount with multi-buy promo (18k / 12k packs)
+    // Line totals (promo helper is a no-op while PROMO_UNIT is empty)
     const { pricedItems, totalAmount } = applyPromoUnitPrices(input.items);
 
     // Check for duplicate orders within the last 10 seconds

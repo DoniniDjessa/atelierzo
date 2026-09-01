@@ -1,17 +1,14 @@
 /**
  * Multi-buy promo pricing by unit price (per price tier).
- * 2+ items at 18.000 (any products) → 15.000 / pc.
- * 2+ items at 12.000 (any products) → 10.000 / pc.
+ * Currently inactive — customers pay the listed unit price.
+ * To re-enable: { 18000: 15000, 12000: 10000 }
  * Mixing one 18k with one 12k does not unlock either promo.
  */
 
 export type PromoTier = { qty: number; price: number };
 
 /** Regular unit price → promo unit price (applies when that tier has qty >= 2). */
-const PROMO_UNIT: Record<number, number> = {
-  18000: 15000,
-  12000: 10000,
-};
+const PROMO_UNIT: Record<number, number> = {};
 
 export function hasPromoPricing(unitPrice: number): boolean {
   return Object.prototype.hasOwnProperty.call(PROMO_UNIT, unitPrice);
