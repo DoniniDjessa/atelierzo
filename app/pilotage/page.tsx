@@ -300,6 +300,7 @@ export default function PilotageDashboard() {
                 'bermuda': 'Chemise Bermuda',
                 'pantalon': 'Chemise Pantalon',
                 'tshirt-oversize-civ': 'Tshirt Oversize CIV Champions d\'Afrique',
+                'tshirts-oversizes-imprimes': 'T-SHIRTS OVERSIZES IMPRIMÉS',
               };
               const category = categoryMap[product.category] || product.category;
               categorySales[category] = (categorySales[category] || 0) + item.quantity;

@@ -39,6 +39,7 @@ export default function CategorySection({
       'Chemise Bermuda': 'bermuda',
       'Chemise Pantalon': 'pantalon',
       'Tshirt Oversize CIV Champions d\'Afrique': 'tshirt-oversize-civ',
+      'T-SHIRTS OVERSIZES IMPRIMÉS': 'tshirts-oversizes-imprimes',
       'Enfants': 'kids',
     };
     

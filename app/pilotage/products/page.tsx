@@ -850,6 +850,7 @@ export default function ProductsPage() {
                       <option value="bermuda">Chemise Bermuda</option>
                       <option value="pantalon">Chemise Pantalon</option>
                       <option value="tshirt-oversize-civ">Tshirt Oversize Côte d'Ivoire Champions d'Afrique</option>
+                      <option value="tshirts-oversizes-imprimes">T-SHIRTS OVERSIZES IMPRIMÉS</option>
                     </select>
                   </div>
                   <div>

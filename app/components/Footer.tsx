@@ -57,20 +57,20 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="/products?category=pantalon"
-                  className="text-sm text-gray-300 hover:text-white transition-colors"
-                  style={{ fontFamily: 'var(--font-poppins)' }}
-                >
-                  Chemise Pantalon
-                </a>
-              </li>
-              <li>
-                <a
                   href="/products?category=tshirt-oversize-civ"
                   className="text-sm text-gray-300 hover:text-white transition-colors"
                   style={{ fontFamily: 'var(--font-poppins)' }}
                 >
                   Tshirt Oversize CIV Champions d'Afrique
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/products?category=tshirts-oversizes-imprimes"
+                  className="text-sm text-gray-300 hover:text-white transition-colors"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  T-SHIRTS OVERSIZES IMPRIMÉS
                 </a>
               </li>
             </ul>

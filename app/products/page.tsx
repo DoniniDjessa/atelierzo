@@ -13,8 +13,8 @@ const CATEGORIES = [
   { value: 'all', label: 'Tous les produits' },
   { value: 'kids', label: 'Enfants' },
   { value: 'bermuda', label: 'Chemise Bermuda' },
-  { value: 'pantalon', label: 'Chemise Pantalon' },
   { value: 'tshirt-oversize-civ', label: 'Tshirt Oversize Côte d\'Ivoire Champions d\'Afrique' },
+  { value: 'tshirts-oversizes-imprimes', label: 'T-SHIRTS OVERSIZES IMPRIMÉS' },
 ];
 
 function ProductsPageContent() {
