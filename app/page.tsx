@@ -49,10 +49,10 @@ export default function Home() {
       {/* Category Sections */}
       <section className="py-12 px-3 sm:px-6 lg:px-8 bg-gray-50 dark:bg-black">
         <div className="max-w-7xl mx-auto">
-          {/* Chemise Bermuda Section */}
+          {/* Bermuda Section */}
           {products.filter((p) => (p as any).category === 'bermuda').length > 0 && (
             <CategorySection
-              title="Chemise Bermuda"
+              title="T-SHIRTS OVERSIZES IMPRIMES"
               subtitle="Découvrez nos ensembles élégants pour un style décontracté et moderne"
               products={products
                 .filter((p) => (p as any).category === 'bermuda')
@@ -84,28 +84,6 @@ export default function Home() {
                   isOutOfStock: !(p as any).inStock,
                 }))}
               categoryPath="/products?category=tshirt-oversize-civ"
-              onProductClick={(productId) => router.push(`/product/${productId}`)}
-            />
-          )}
-
-          {/* T-Shirts Oversizes Imprimés Section */}
-          {products.filter((p) => (p as any).category === 'tshirts-oversizes-imprimes').length > 0 && (
-            <CategorySection
-              title="T-SHIRTS OVERSIZES IMPRIMÉS"
-              subtitle="Style moderne et pièces uniques à porter avec personnalité"
-              products={products
-                .filter((p) => (p as any).category === 'tshirts-oversizes-imprimes')
-                .sort((a, b) => {
-                  const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-                  const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                  return aTime - bTime;
-                })
-                .slice(0, 12)
-                .map((p) => ({
-                  ...p,
-                  isOutOfStock: !(p as any).inStock,
-                }))}
-              categoryPath="/products?category=tshirts-oversizes-imprimes"
               onProductClick={(productId) => router.push(`/product/${productId}`)}
             />
           )}

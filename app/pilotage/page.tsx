@@ -297,10 +297,9 @@ export default function PilotageDashboard() {
             const product = products.find((p) => p.id === item.product_id);
             if (product) {
               const categoryMap: Record<string, string> = {
-                'bermuda': 'Chemise Bermuda',
+                'bermuda': 'T-SHIRTS OVERSIZES IMPRIMES',
                 'pantalon': 'Chemise Pantalon',
                 'tshirt-oversize-civ': 'Tshirt Oversize CIV Champions d\'Afrique',
-                'tshirts-oversizes-imprimes': 'T-SHIRTS OVERSIZES IMPRIMÉS',
               };
               const category = categoryMap[product.category] || product.category;
               categorySales[category] = (categorySales[category] || 0) + item.quantity;
@@ -727,7 +726,7 @@ export default function PilotageDashboard() {
                 }`}
                 style={{ fontFamily: 'var(--font-poppins)' }}
               >
-                Chemise Bermuda
+                T-SHIRTS OVERSIZES IMPRIMES
               </button>
               <button
                 onClick={() => setRevenueFilterCategory('pantalon')}

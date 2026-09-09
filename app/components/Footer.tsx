@@ -52,7 +52,7 @@ export default function Footer() {
                   className="text-sm text-gray-300 hover:text-white transition-colors"
                   style={{ fontFamily: 'var(--font-poppins)' }}
                 >
-                  Chemise Bermuda
+                  T-SHIRTS OVERSIZES IMPRIMES
                 </a>
               </li>
               <li>
@@ -62,15 +62,6 @@ export default function Footer() {
                   style={{ fontFamily: 'var(--font-poppins)' }}
                 >
                   Tshirt Oversize CIV Champions d'Afrique
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/products?category=tshirts-oversizes-imprimes"
-                  className="text-sm text-gray-300 hover:text-white transition-colors"
-                  style={{ fontFamily: 'var(--font-poppins)' }}
-                >
-                  T-SHIRTS OVERSIZES IMPRIMÉS
                 </a>
               </li>
             </ul>

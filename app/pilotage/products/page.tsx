@@ -847,10 +847,9 @@ export default function ProductsPage() {
                       className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
                       style={{ fontFamily: 'var(--font-poppins)' }}
                     >
-                      <option value="bermuda">Chemise Bermuda</option>
+                      <option value="bermuda">T-SHIRTS OVERSIZES IMPRIMES</option>
                       <option value="pantalon">Chemise Pantalon</option>
                       <option value="tshirt-oversize-civ">Tshirt Oversize Côte d'Ivoire Champions d'Afrique</option>
-                      <option value="tshirts-oversizes-imprimes">T-SHIRTS OVERSIZES IMPRIMÉS</option>
                     </select>
                   </div>
                   <div>
@@ -1526,7 +1525,7 @@ export default function ProductsPage() {
                         </span>
                         <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>
                           {selectedProductForDetails.category === 'bermuda' 
-                            ? 'Chemise Bermuda' 
+                            ? 'T-SHIRTS OVERSIZES IMPRIMES' 
                             : selectedProductForDetails.category === 'pantalon' 
                             ? 'Chemise Pantalon' 
                             : selectedProductForDetails.category === 'tshirt-oversize-civ'

@@ -36,10 +36,9 @@ export default function CategorySection({
   const handleViewAll = () => {
     // Map category titles to category values
     const categoryMap: Record<string, string> = {
-      'Chemise Bermuda': 'bermuda',
+      'T-SHIRTS OVERSIZES IMPRIMES': 'bermuda',
       'Chemise Pantalon': 'pantalon',
       'Tshirt Oversize CIV Champions d\'Afrique': 'tshirt-oversize-civ',
-      'T-SHIRTS OVERSIZES IMPRIMÉS': 'tshirts-oversizes-imprimes',
       'Enfants': 'kids',
     };
     

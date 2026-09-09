@@ -12,9 +12,8 @@ import { Filter, X } from 'lucide-react';
 const CATEGORIES = [
   { value: 'all', label: 'Tous les produits' },
   { value: 'kids', label: 'Enfants' },
-  { value: 'bermuda', label: 'Chemise Bermuda' },
+  { value: 'bermuda', label: 'T-SHIRTS OVERSIZES IMPRIMES' },
   { value: 'tshirt-oversize-civ', label: 'Tshirt Oversize Côte d\'Ivoire Champions d\'Afrique' },
-  { value: 'tshirts-oversizes-imprimes', label: 'T-SHIRTS OVERSIZES IMPRIMÉS' },
 ];
 
 function ProductsPageContent() {

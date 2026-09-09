@@ -200,7 +200,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                       className="text-base font-medium"
                       style={{ fontFamily: 'var(--font-poppins)' }}
                     >
-                      Chemise Bermuda
+                      T-SHIRTS OVERSIZES IMPRIMES
                     </span>
                   </button>
                   <button
@@ -212,18 +212,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                       style={{ fontFamily: 'var(--font-poppins)' }}
                     >
                       Tshirt Oversize CIV Champions d'Afrique
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => handleNavigate('/products?category=tshirts-oversizes-imprimes')}
-                    className="w-full flex items-center justify-between py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
-                  >
-                    <span
-                      className="text-base font-medium"
-                      style={{ fontFamily: 'var(--font-poppins)' }}
-                    >
-                      T-SHIRTS OVERSIZES IMPRIMÉS
                     </span>
                   </button>
 
