@@ -8,8 +8,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AdminNavbar from '@/app/components/AdminNavbar';
 import { getAllOrders, getPaginatedOrders, getOrdersCountByStatus, updateOrderStatus, getOrderById, deleteOrder, deleteDuplicateOrder, Order } from '@/app/lib/supabase/orders';
 import { getAllPreorders, updatePreorderStatus, deletePreorder, Preorder } from '@/app/lib/supabase/preorders';
-import { updateProduct } from '@/app/lib/supabase/products';
+import { getProductById as fetchProductById } from '@/app/lib/supabase/products';
 import { useProducts } from '@/app/contexts/ProductContext';
+import { UNICOLOR_CATEGORY_SLUG } from '@/app/lib/supabase/categories';
 import { getUserById, getAllUsers } from '@/app/lib/supabase/users';
 import { getColorName } from '@/app/lib/utils/colors';
 
@@ -484,10 +485,47 @@ export default function OrdersPage() {
     if (newStatus === 'cancelled' && previousStatus !== 'cancelled') {
       const { data: orderWithItems } = await getOrderById(orderId, true);
       if (orderWithItems?.items) {
+        let stockRestorationFailed = false;
         for (const item of orderWithItems.items) {
           try {
-            const product = getProductById(item.product_id);
+            const { data: product, error: productError } = await fetchProductById(item.product_id);
+            if (productError || !product) {
+              throw new Error(productError || `Produit introuvable: ${item.product_id}`);
+            }
             if (product && product.sizeQuantities && item.size) {
+              if (product.category === UNICOLOR_CATEGORY_SLUG) {
+                const variants = product.colorVariants || [];
+                const selectedVariantIndex = variants.findIndex((variant) => variant.color === item.color);
+                if (selectedVariantIndex < 0) {
+                  console.error(`Cannot restore stock: color variant ${item.color} is missing for product ${item.product_id}`);
+                  stockRestorationFailed = true;
+                  continue;
+                }
+                const updatedVariants = variants.map((variant, index) =>
+                  index === selectedVariantIndex
+                    ? {
+                        ...variant,
+                        sizeQuantities: {
+                          ...variant.sizeQuantities,
+                          [item.size]: (variant.sizeQuantities[item.size] || 0) + item.quantity,
+                        },
+                      }
+                    : variant
+                );
+                const aggregateSizes: Record<string, number> = {};
+                updatedVariants.forEach((variant) => {
+                  Object.entries(variant.sizeQuantities).forEach(([size, quantity]) => {
+                    aggregateSizes[size] = (aggregateSizes[size] || 0) + quantity;
+                  });
+                });
+                await updateProduct(item.product_id, {
+                  category: UNICOLOR_CATEGORY_SLUG,
+                  colorVariants: updatedVariants,
+                  sizeQuantities: aggregateSizes,
+                });
+                continue;
+              }
+
               // Restore quantities for the size in the database
               const currentQty = product.sizeQuantities[item.size] || 0;
               const updatedSizeQuantities = {
@@ -501,7 +539,12 @@ export default function OrdersPage() {
             }
           } catch (error) {
             console.error(`Error restoring quantity for product ${item.product_id}:`, error);
+            stockRestorationFailed = true;
           }
+        }
+        if (stockRestorationFailed) {
+          toast.error('La commande n’a pas été annulée : une partie du stock n’a pas pu être restaurée.');
+          return;
         }
       }
     }
@@ -2351,13 +2394,15 @@ export default function OrdersPage() {
                           {product && (
                             <div className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                               <div className="relative w-16 h-16 shrink-0 overflow-hidden rounded-lg">
-                                <Image
-                                  src={product.imageUrl}
-                                  alt={product.title}
-                                  fill
-                                  className="object-cover"
-                                  sizes="64px"
-                                />
+                                {product.imageUrl && (
+                                  <Image
+                                    src={product.imageUrl}
+                                    alt={product.title}
+                                    fill
+                                    className="object-cover"
+                                    sizes="64px"
+                                  />
+                                )}
                               </div>
                               <div className="flex-1">
                                 <h4 className="text-sm font-semibold text-black dark:text-white mb-1" style={{ fontFamily: 'var(--font-ubuntu)' }}>

@@ -19,13 +19,21 @@ export interface Product {
   colors?: string[];
   sizes?: string[]; // For backward compatibility, kept as array
   sizeQuantities?: Record<string, number>; // Object with size as key and quantity as value
+  colorVariants?: ProductColorVariant[];
   inStock?: boolean;
+  isVisible?: boolean;
   category?: string;
   subcategory?: string | null;
   isBestSeller?: boolean;
   isCurrentOffer?: boolean;
   isKidsProduct?: boolean;
   createdAt?: string;
+}
+
+export interface ProductColorVariant {
+  color: string;
+  imageUrl: string;
+  sizeQuantities: Record<string, number>;
 }
 
 interface ProductContextType {
@@ -87,7 +95,13 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         colors: product.colors || [],
         sizes: product.sizes || [],
         sizeQuantities: product.sizeQuantities || {},
+        color_variants: product.colorVariants?.map((variant) => ({
+          color: variant.color,
+          image_url: variant.imageUrl,
+          sizes: variant.sizeQuantities,
+        })),
         in_stock: product.inStock !== false,
+        is_visible: product.isVisible !== false,
         category: product.category || 'bermuda',
         is_best_seller: product.isBestSeller || false,
         is_current_offer: product.isCurrentOffer || false,
@@ -128,7 +142,15 @@ export function ProductProvider({ children }: { children: ReactNode }) {
       if (product.colors !== undefined) supabaseUpdates.colors = product.colors;
       if (product.sizes !== undefined) supabaseUpdates.sizes = product.sizes;
       if (product.sizeQuantities !== undefined) supabaseUpdates.sizeQuantities = product.sizeQuantities;
+      if (product.colorVariants !== undefined) {
+        supabaseUpdates.color_variants = product.colorVariants.map((variant) => ({
+          color: variant.color,
+          image_url: variant.imageUrl,
+          sizes: variant.sizeQuantities,
+        }));
+      }
       if (product.inStock !== undefined) supabaseUpdates.in_stock = product.inStock;
+      if (product.isVisible !== undefined) supabaseUpdates.is_visible = product.isVisible;
       if (product.category !== undefined) supabaseUpdates.category = product.category;
       if (product.subcategory !== undefined) supabaseUpdates.subcategory = product.subcategory;
       if (product.isBestSeller !== undefined) supabaseUpdates.is_best_seller = product.isBestSeller;
@@ -206,4 +228,3 @@ export function useProducts() {
   }
   return context;
 }
-

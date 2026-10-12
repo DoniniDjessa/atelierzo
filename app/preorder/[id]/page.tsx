@@ -17,7 +17,8 @@ export default function PreorderPage() {
   const productId = params.id as string;
   const { getProductById } = useProducts();
   const { user } = useUser();
-  const product = getProductById(productId);
+  const loadedProduct = getProductById(productId);
+  const product = loadedProduct?.isVisible === false ? undefined : loadedProduct;
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -236,4 +237,3 @@ export default function PreorderPage() {
     </div>
   );
 }
-

@@ -14,7 +14,11 @@ export interface Product {
   colors?: string[];
   sizes?: string[]; // Array of sizes for backward compatibility
   sizeQuantities?: Record<string, number>; // Object with size as key and quantity as value
+  color_variants?: Array<{ color: string; image_url: string; sizes: Record<string, number> }>;
+  colorVariants?: Array<{ color: string; imageUrl: string; sizeQuantities: Record<string, number> }>;
   in_stock?: boolean;
+  is_visible?: boolean;
+  isVisible?: boolean;
   category?: string;
   subcategory?: string | null; // slug of a child row in zo-categories
   is_best_seller?: boolean;
@@ -36,7 +40,9 @@ export interface CreateProductPayload {
   colors?: string[];
   sizes?: string[];
   sizeQuantities?: Record<string, number>;
+  color_variants?: Array<{ color: string; image_url: string; sizes: Record<string, number> }>;
   in_stock?: boolean;
+  is_visible?: boolean;
   category?: string;
   subcategory?: string | null; // slug of a child row in zo-categories
   is_best_seller?: boolean;
@@ -45,6 +51,19 @@ export interface CreateProductPayload {
 }
 
 export interface UpdateProductPayload extends Partial<CreateProductPayload> {}
+
+function mapColorVariants(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((variant): variant is { color: string; image_url: string; sizes: Record<string, number> } =>
+    !!variant &&
+    typeof variant === 'object' &&
+    typeof (variant as { color?: unknown }).color === 'string' &&
+    typeof (variant as { image_url?: unknown }).image_url === 'string' &&
+    !!(variant as { sizes?: unknown }).sizes &&
+    typeof (variant as { sizes: unknown }).sizes === 'object' &&
+    !Array.isArray((variant as { sizes: unknown }).sizes)
+  );
+}
 
 /**
  * Get all products
@@ -98,6 +117,17 @@ export async function getAllProducts(): Promise<{ data: Product[] | null; error:
         }
       }
 
+      const colorVariants = mapColorVariants(item.color_variants);
+      if (item.category === 'vetements-unicolores' && colorVariants.length > 0) {
+        sizeQuantities = {};
+        colorVariants.forEach((variant) => {
+          Object.entries(variant.sizes).forEach(([size, quantity]) => {
+            sizeQuantities[size] = (sizeQuantities[size] || 0) + Number(quantity || 0);
+          });
+        });
+        sizes = Object.keys(sizeQuantities);
+      }
+
       // Check if product is in stock based on quantities
       // Product is in stock if at least one size has quantity > 0
       let inStock = item.in_stock !== false; // Default to true
@@ -117,8 +147,16 @@ export async function getAllProducts(): Promise<{ data: Product[] | null; error:
         colors: item.colors || [],
         sizes: sizes,
         sizeQuantities: Object.keys(sizeQuantities).length > 0 ? sizeQuantities : undefined,
+        color_variants: colorVariants,
+        colorVariants: colorVariants.map((variant) => ({
+          color: variant.color,
+          imageUrl: variant.image_url,
+          sizeQuantities: variant.sizes,
+        })),
         in_stock: inStock,
         inStock: inStock,
+        is_visible: item.is_visible !== false,
+        isVisible: item.is_visible !== false,
         category: item.category,
         subcategory: item.subcategory ?? null,
         is_best_seller: item.is_best_seller,
@@ -194,6 +232,17 @@ export async function getProductById(productId: string): Promise<{ data: Product
       }
     }
 
+    const colorVariants = mapColorVariants(data.color_variants);
+    if (data.category === 'vetements-unicolores' && colorVariants.length > 0) {
+      sizeQuantities = {};
+      colorVariants.forEach((variant) => {
+        Object.entries(variant.sizes).forEach(([size, quantity]) => {
+          sizeQuantities[size] = (sizeQuantities[size] || 0) + Number(quantity || 0);
+        });
+      });
+      sizes = Object.keys(sizeQuantities);
+    }
+
     // Check if product is in stock based on quantities
     // Product is in stock if at least one size has quantity > 0
     let inStock = data.in_stock !== false; // Default to true
@@ -213,8 +262,16 @@ export async function getProductById(productId: string): Promise<{ data: Product
       colors: data.colors || [],
       sizes: sizes,
       sizeQuantities: Object.keys(sizeQuantities).length > 0 ? sizeQuantities : undefined,
+      color_variants: colorVariants,
+      colorVariants: colorVariants.map((variant) => ({
+        color: variant.color,
+        imageUrl: variant.image_url,
+        sizeQuantities: variant.sizes,
+      })),
       in_stock: inStock,
       inStock: inStock,
+      is_visible: data.is_visible !== false,
+      isVisible: data.is_visible !== false,
       category: data.category,
       subcategory: data.subcategory ?? null,
       is_best_seller: data.is_best_seller,
@@ -245,6 +302,7 @@ export async function createProduct(product: CreateProductPayload): Promise<{ da
       image_url: product.image_url,
       category: product.category || 'bermuda',
       in_stock: product.in_stock !== false,
+      is_visible: product.is_visible !== false,
       is_best_seller: product.is_best_seller || false,
       is_current_offer: product.is_current_offer || false,
       is_kids_product: product.is_kids_product || false,
@@ -257,6 +315,9 @@ export async function createProduct(product: CreateProductPayload): Promise<{ da
 
     if (product.colors && product.colors.length > 0) {
       dbProduct.colors = product.colors;
+    }
+    if (product.color_variants) {
+      dbProduct.color_variants = product.color_variants;
     }
 
     // Store sizes as JSONB - prefer sizeQuantities if available, otherwise use sizes array
@@ -319,8 +380,16 @@ export async function createProduct(product: CreateProductPayload): Promise<{ da
       colors: data.colors || [],
       sizes: sizes,
       sizeQuantities: Object.keys(sizeQuantities).length > 0 ? sizeQuantities : undefined,
+      color_variants: mapColorVariants(data.color_variants),
+      colorVariants: mapColorVariants(data.color_variants).map((variant) => ({
+        color: variant.color,
+        imageUrl: variant.image_url,
+        sizeQuantities: variant.sizes,
+      })),
       in_stock: data.in_stock !== false,
       inStock: data.in_stock !== false,
+      is_visible: data.is_visible !== false,
+      isVisible: data.is_visible !== false,
       category: data.category,
       subcategory: data.subcategory ?? null,
       is_best_seller: data.is_best_seller,
@@ -356,12 +425,16 @@ export async function updateProduct(
     if (updates.category !== undefined) dbUpdates.category = updates.category;
     if (updates.subcategory !== undefined) dbUpdates.subcategory = updates.subcategory;
     if (updates.in_stock !== undefined) dbUpdates.in_stock = updates.in_stock;
+    if (updates.is_visible !== undefined) dbUpdates.is_visible = updates.is_visible;
     if (updates.is_best_seller !== undefined) dbUpdates.is_best_seller = updates.is_best_seller;
     if (updates.is_current_offer !== undefined) dbUpdates.is_current_offer = updates.is_current_offer;
     if (updates.is_kids_product !== undefined) dbUpdates.is_kids_product = updates.is_kids_product;
 
     if (updates.colors !== undefined) {
       dbUpdates.colors = updates.colors;
+    }
+    if (updates.color_variants !== undefined) {
+      dbUpdates.color_variants = updates.color_variants;
     }
 
     // Handle sizes updates
@@ -378,6 +451,16 @@ export async function updateProduct(
       });
       dbUpdates.sizes = sizesObj;
       dbUpdates.in_stock = false; // No stock until quantities set
+    }
+    if (updates.color_variants !== undefined && updates.category === 'vetements-unicolores') {
+      const totals: Record<string, number> = {};
+      updates.color_variants.forEach((variant) => {
+        Object.entries(variant.sizes).forEach(([size, quantity]) => {
+          totals[size] = (totals[size] || 0) + Number(quantity || 0);
+        });
+      });
+      dbUpdates.sizes = totals;
+      dbUpdates.in_stock = Object.values(totals).some((quantity) => quantity > 0);
     }
 
     const { data, error } = await supabase
@@ -423,6 +506,8 @@ export async function updateProduct(
       sizeQuantities: Object.keys(sizeQuantities).length > 0 ? sizeQuantities : undefined,
       in_stock: data.in_stock !== false,
       inStock: data.in_stock !== false,
+      is_visible: data.is_visible !== false,
+      isVisible: data.is_visible !== false,
       category: data.category,
       subcategory: data.subcategory ?? null,
       is_best_seller: data.is_best_seller,
@@ -478,7 +563,7 @@ export async function getCurrentOffers(): Promise<{ data: Product[] | null; erro
       return { data: null, error: error.message };
     }
 
-    const transformedData = (data || []).map((item: any) => {
+    const transformedData = (data || []).filter((item: any) => item.is_visible !== false).map((item: any) => {
       let sizes: string[] = [];
       let sizeQuantities: Record<string, number> = {};
 
@@ -524,6 +609,8 @@ export async function getCurrentOffers(): Promise<{ data: Product[] | null; erro
         sizeQuantities: Object.keys(sizeQuantities).length > 0 ? sizeQuantities : undefined,
         in_stock: inStock,
         inStock,
+        is_visible: item.is_visible !== false,
+        isVisible: item.is_visible !== false,
         category: item.category,
         subcategory: item.subcategory ?? null,
       };
@@ -552,7 +639,7 @@ export async function getBestSellers(): Promise<{ data: Product[] | null; error:
       return { data: null, error: error.message };
     }
 
-    const transformedData = (data || []).map((item: any) => {
+    const transformedData = (data || []).filter((item: any) => item.is_visible !== false).map((item: any) => {
       let sizes: string[] = [];
       let sizeQuantities: Record<string, number> = {};
 
@@ -598,6 +685,8 @@ export async function getBestSellers(): Promise<{ data: Product[] | null; error:
         sizeQuantities: Object.keys(sizeQuantities).length > 0 ? sizeQuantities : undefined,
         in_stock: inStock,
         inStock,
+        is_visible: item.is_visible !== false,
+        isVisible: item.is_visible !== false,
         category: item.category,
         subcategory: item.subcategory ?? null,
       };
@@ -609,4 +698,3 @@ export async function getBestSellers(): Promise<{ data: Product[] | null; error:
     return { data: null, error: error.message || 'Unknown error' };
   }
 }
-

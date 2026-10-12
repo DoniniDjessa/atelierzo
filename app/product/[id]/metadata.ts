@@ -8,7 +8,7 @@ interface GenerateMetadataProps {
 export async function generateMetadata({ params }: GenerateMetadataProps): Promise<Metadata> {
   const result = await getProductById(params.id);
 
-  if (result.error || !result.data) {
+  if (result.error || !result.data || result.data.is_visible === false) {
     return {
       title: 'Produit non trouvé',
       description: 'Le produit que vous recherchez n\'existe pas ou n\'est plus disponible.',

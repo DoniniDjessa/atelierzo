@@ -198,7 +198,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                   {/* Categories (managed in /pilotage/categories), only those with products */}
                   {roots
-                    .filter((category) => products.some((p) => p.category === category.slug))
+                    .filter((category) => products.some((p) => p.isVisible !== false && p.category === category.slug))
                     .map((category) => (
                       <button
                         key={category.id}
@@ -460,4 +460,3 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     </>
   );
 }
-

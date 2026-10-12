@@ -34,7 +34,7 @@ export default function VenteFlashPage() {
           if (vf.products) {
             vf.products.forEach((vfProduct: any) => {
               const product = getProductById(vfProduct.product_id);
-              if (product) {
+              if (product && product.isVisible !== false) {
                 const discount = vfProduct.discount_percentage || vf.global_discount_percentage || 0;
                 const discountedPrice = calculateFlashSalePrice(product.price, discount);
                 allProducts.push({
@@ -172,4 +172,3 @@ export default function VenteFlashPage() {
     </div>
   );
 }
-

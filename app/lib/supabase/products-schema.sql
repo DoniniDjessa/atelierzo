@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS "zo-products" (
   image_url TEXT NOT NULL,
   colors TEXT[], -- Array of color hex codes
   sizes JSONB NOT NULL DEFAULT '{"M": 0, "L": 0, "XL": 0, "2XL": 0, "3XL": 0, "4XL": 0, "5XL": 0}'::jsonb, -- Object with size as key and quantity as value, e.g. {"M": 5, "L": 0, "XL": 10}
+  color_variants JSONB NOT NULL DEFAULT '[]'::jsonb, -- Color-specific image and stock, used by unicolor garments
   in_stock BOOLEAN DEFAULT false, -- Global stock status - true if any size has quantity > 0
+  is_visible BOOLEAN NOT NULL DEFAULT true, -- Whether the product is displayed on the public storefront
   category TEXT NOT NULL CHECK (category IN ('bermuda', 'pantalon', 'tshirt-oversize-civ')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -73,4 +75,3 @@ CREATE TRIGGER update_zo_products_updated_at
   BEFORE UPDATE ON "zo-products"
   FOR EACH ROW
   EXECUTE FUNCTION update_zo_products_updated_at();
-

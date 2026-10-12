@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -11,7 +11,7 @@ import {
   HeroSlide,
   updateHeroSlide,
 } from '@/app/lib/supabase/hero-slides';
-import { compressImageToWebP, generateImageFilename } from '@/app/lib/utils/image';
+import { compressImageToWebP, generateImageFilename, IMAGE_ACCEPT } from '@/app/lib/utils/image';
 import { deleteImageFromUrl, isSupabaseImageUrl, uploadImage } from '@/app/lib/supabase/storage';
 
 async function uploadHeroImage(file: File): Promise<string> {
@@ -51,7 +51,7 @@ function HeroManager() {
         const { error } = await createHeroSlide({ image_url: url, sort_order: ++order });
         if (error) throw new Error(error);
       }
-      toast.success(files.length > 1 ? `${files.length} images ajoutées` : 'Image ajoutée');
+      toast.success(files.length > 1 ? `${files.length} images ajoutÃ©es` : 'Image ajoutÃ©e');
       await load();
     } catch (error: any) {
       toast.error(`Erreur lors de l'ajout : ${error.message}`);
@@ -69,7 +69,7 @@ function HeroManager() {
       const { error } = await updateHeroSlide(slide.id, { image_url: url });
       if (error) throw new Error(error);
       if (isSupabaseImageUrl(slide.image_url)) await deleteImageFromUrl(slide.image_url);
-      toast.success('Image remplacée');
+      toast.success('Image remplacÃ©e');
       await load();
     } catch (error: any) {
       toast.error(`Erreur : ${error.message}`);
@@ -111,7 +111,7 @@ function HeroManager() {
     if (error) toast.error(`Erreur : ${error}`);
     else {
       if (isSupabaseImageUrl(slide.image_url)) await deleteImageFromUrl(slide.image_url);
-      toast.success('Image supprimée');
+      toast.success('Image supprimÃ©e');
       await load();
     }
     setBusy(null);
@@ -125,7 +125,7 @@ function HeroManager() {
         <div>
           <p className="pz-eyebrow mb-1">Boutique</p>
           <h1 className="text-2xl">Carrousel d&apos;accueil</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Images affichées en haut de la page d&apos;accueil, dans l&apos;ordre ci-dessous.</p>
+          <p className="text-sm text-slate-500 mt-0.5">Images affichÃ©es en haut de la page d&apos;accueil, dans l&apos;ordre ci-dessous.</p>
         </div>
       </div>
 
@@ -138,7 +138,7 @@ function HeroManager() {
             <div>
               <h2 className="pz-card-title">{visibleCount} image{visibleCount > 1 ? 's' : ''} visible{visibleCount > 1 ? 's' : ''}</h2>
               <p className="text-xs text-slate-500">
-                Format portrait 3:4 conseillé (ex. 1080 × 1440) · affichées 1 à la fois sur mobile, 2 sur tablette, 3 à 4 sur grand écran, défilement toutes les 5 s
+                Format portrait 3:4 conseillÃ© (ex. 1080 Ã— 1440) Â· affichÃ©es 1 Ã  la fois sur mobile, 2 sur tablette, 3 Ã  4 sur grand Ã©cran, dÃ©filement toutes les 5 s
               </p>
             </div>
           </div>
@@ -148,7 +148,7 @@ function HeroManager() {
             <input
               ref={addInputRef}
               type="file"
-              accept="image/*"
+              accept={IMAGE_ACCEPT}
               multiple
               className="sr-only"
               disabled={readOnly || !!busy}
@@ -158,9 +158,9 @@ function HeroManager() {
         </div>
 
         {loading ? (
-          <div className="pz-empty">Chargement…</div>
+          <div className="pz-empty">Chargementâ€¦</div>
         ) : slides.length === 0 ? (
-          <div className="pz-empty">Aucune image : le carrousel est masqué sur le site.</div>
+          <div className="pz-empty">Aucune image : le carrousel est masquÃ© sur le site.</div>
         ) : (
           <ul className="divide-y divide-gray-200 dark:divide-gray-700">
             {slides.map((slide, index) => (
@@ -177,9 +177,9 @@ function HeroManager() {
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex items-center gap-2">
                     <span className={`pz-badge ${slide.is_active ? 'pz-badge-up' : 'pz-badge-neutral'}`}>
-                      {slide.is_active ? 'Visible' : 'Masquée'}
+                      {slide.is_active ? 'Visible' : 'MasquÃ©e'}
                     </span>
-                    {slide.link_url && <span className="text-xs text-slate-500 truncate">→ {slide.link_url}</span>}
+                    {slide.link_url && <span className="text-xs text-slate-500 truncate">â†’ {slide.link_url}</span>}
                   </div>
                   <div className="relative max-w-md">
                     <Link2 className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -190,7 +190,7 @@ function HeroManager() {
                       disabled={readOnly}
                       onBlur={(e) => {
                         const value = e.target.value.trim() || null;
-                        if (value !== slide.link_url) handleUpdate(slide, { link_url: value }, 'Lien enregistré');
+                        if (value !== slide.link_url) handleUpdate(slide, { link_url: value }, 'Lien enregistrÃ©');
                       }}
                       className="w-full pl-8 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 bg-transparent text-black dark:text-white focus:outline-none"
                     />
@@ -207,7 +207,7 @@ function HeroManager() {
                   <button
                     className="pz-btn pz-btn-outline"
                     disabled={readOnly || !!busy}
-                    onClick={() => handleUpdate(slide, { is_active: !slide.is_active }, slide.is_active ? 'Image masquée' : 'Image visible')}
+                    onClick={() => handleUpdate(slide, { is_active: !slide.is_active }, slide.is_active ? 'Image masquÃ©e' : 'Image visible')}
                   >
                     {slide.is_active ? 'Masquer' : 'Afficher'}
                   </button>
@@ -215,7 +215,7 @@ function HeroManager() {
                     {busy === slide.id ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Remplacer'}
                     <input
                       type="file"
-                      accept="image/*"
+                      accept={IMAGE_ACCEPT}
                       className="sr-only"
                       disabled={readOnly || !!busy}
                       onChange={(e) => handleReplace(slide, e.target.files?.[0])}

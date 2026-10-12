@@ -3,6 +3,7 @@
 import React, {
   createContext,
   useContext,
+  useMemo,
   useState,
   useEffect,
   ReactNode,
@@ -10,6 +11,7 @@ import React, {
 import { useUser } from "./UserContext";
 import { useProducts } from "./ProductContext";
 import { toast } from "sonner";
+import { UNICOLOR_CATEGORY_SLUG } from "@/app/lib/supabase/categories";
 import {
   allocatePromoLineTotals,
   cartItemKey,
@@ -53,8 +55,19 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useUser();
-  const { getProductById } = useProducts();
-  const [items, setItems] = useState<CartItem[]>([]);
+  const { getProductById, products, loading: productsLoading } = useProducts();
+  const [storedItems, setItems] = useState<CartItem[]>([]);
+  const items = useMemo(
+    () =>
+      productsLoading
+        ? storedItems
+        : storedItems.filter(
+            (item) =>
+              products.find((product) => product.id === item.productId)
+                ?.isVisible !== false
+          ),
+    [storedItems, products, productsLoading]
+  );
 
   // Load cart from localStorage when user changes or on initial mount
   useEffect(() => {
@@ -97,7 +110,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     // Check stock availability before adding
     const product = getProductById(item.productId);
     if (product && product.sizeQuantities) {
-      const availableQty = product.sizeQuantities[item.size] || 0;
+      const availableQty = product.category === UNICOLOR_CATEGORY_SLUG
+        ? product.colorVariants?.find((variant) => variant.color === item.color)?.sizeQuantities[item.size] || 0
+        : product.sizeQuantities[item.size] || 0;
 
       // Check if item already exists to calculate total quantity
       const existingItem = items.find(
@@ -167,7 +182,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     // Check stock availability before updating
     const product = getProductById(productId);
     if (product && product.sizeQuantities) {
-      const availableQty = product.sizeQuantities[size] || 0;
+      const availableQty = product.category === UNICOLOR_CATEGORY_SLUG
+        ? product.colorVariants?.find((variant) => variant.color === color)?.sizeQuantities[size] || 0
+        : product.sizeQuantities[size] || 0;
 
       if (quantity > availableQty) {
         toast.error(

@@ -37,6 +37,28 @@ export const FASHION_COLORS: ColorOption[] = [
   { name: 'caramel', hex: '#AF6E4D', displayName: 'Caramel' },
   { name: 'taupe', hex: '#8B7355', displayName: 'Taupe' },
   { name: 'vin', hex: '#722F37', displayName: 'Vin' },
+  { name: 'bleu-nuit', hex: '#191970', displayName: 'Bleu nuit' },
+  { name: 'vert-treillis', hex: '#4B5320', displayName: 'Vert treillis' },
+  { name: 'marron', hex: '#7B3F00', displayName: 'Marron' },
+  { name: 'jaune-orange', hex: '#F5A623', displayName: 'Jaune orangé' },
+  { name: 'vert-fonce', hex: '#006400', displayName: 'Vert foncé' },
+];
+
+// Colors the shop produces most for unicolor garments, shown first in that category
+const UNICOLOR_PRIORITY_COLOR_NAMES = [
+  'rouge-bordeaux',
+  'bleu-nuit',
+  'vert-treillis',
+  'gris-fonce',
+  'marron',
+  'jaune-orange',
+  'vert-fonce',
+  'beige',
+];
+
+export const UNICOLOR_COLORS: ColorOption[] = [
+  ...UNICOLOR_PRIORITY_COLOR_NAMES.map((name) => FASHION_COLORS.find((color) => color.name === name)!),
+  ...FASHION_COLORS.filter((color) => !UNICOLOR_PRIORITY_COLOR_NAMES.includes(color.name)),
 ];
 
 /**

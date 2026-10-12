@@ -3,6 +3,34 @@
  */
 
 /**
+ * Accept attribute for image inputs, including iPhone HEIC/HEIF photos
+ */
+export const IMAGE_ACCEPT = 'image/*,.heic,.heif';
+
+/**
+ * Check whether a file is an iPhone HEIC/HEIF photo
+ */
+export function isHeicFile(file: File): boolean {
+  const type = file.type.toLowerCase();
+  return type === 'image/heic' || type === 'image/heif' || /\.(heic|heif)$/i.test(file.name);
+}
+
+/**
+ * Convert HEIC/HEIF photos to JPEG so browsers other than Safari can display and compress them.
+ * Other files are returned unchanged.
+ */
+export async function normalizeImageFile(file: File): Promise<File> {
+  if (!isHeicFile(file)) return file;
+
+  // Loaded on demand: heic2any is large and touches `window` at import time
+  const heic2any = (await import('heic2any')).default;
+  const result = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+  const blob = Array.isArray(result) ? result[0] : result;
+  const name = file.name.replace(/\.(heic|heif)$/i, '') + '.jpg';
+  return new File([blob], name, { type: 'image/jpeg' });
+}
+
+/**
  * Compress and convert an image file to WebP format
  * @param file - The image file to compress
  * @param maxWidth - Maximum width (default: 1200)
@@ -16,6 +44,7 @@ export async function compressImageToWebP(
   maxHeight: number = 1200,
   quality: number = 0.7
 ): Promise<Blob> {
+  file = await normalizeImageFile(file);
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 

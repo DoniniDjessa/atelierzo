@@ -1,4 +1,5 @@
 import { supabase } from "./client";
+import { UNICOLOR_CATEGORY_SLUG } from "./categories";
 import { sendNewOrderNotification } from "@/app/lib/sms/service";
 import { checkUserOrderLimit } from "./stock-history";
 import {
@@ -167,7 +168,7 @@ export async function createOrder(
           // Get current product with version control
           const { data: product, error: productError } = await supabase
             .from("zo-products")
-            .select("sizes, title, updated_at")
+            .select("sizes, title, updated_at, category, color_variants")
             .eq("id", item.product_id)
             .single();
 
@@ -182,7 +183,72 @@ export async function createOrder(
             };
           }
 
-          if (
+          if (product.category === UNICOLOR_CATEGORY_SLUG) {
+            const variants = Array.isArray(product.color_variants) ? product.color_variants : [];
+            const variantIndex = variants.findIndex((variant: { color?: string }) => variant.color === item.color);
+            const selectedVariant = variants[variantIndex];
+            const variantSizes = selectedVariant?.sizes;
+            const productTitle = product.title || "Ce produit";
+
+            if (!selectedVariant || !variantSizes || typeof variantSizes !== "object") {
+              return { data: null, error: `${productTitle} (${item.color || "couleur"}) n’a plus de stock disponible.` };
+            }
+
+            const availableQty = Number(variantSizes[item.size] || 0);
+            if (availableQty < item.quantity) {
+              return {
+                data: null,
+                error: availableQty === 0
+                  ? `${productTitle} (${item.color}, taille ${item.size}) n'est plus disponible en stock.`
+                  : `${productTitle} (${item.color}, taille ${item.size}) n'a plus que ${availableQty} article(s) en stock.`,
+              };
+            }
+
+            const updatedVariants = variants.map((variant: { color: string; sizes: Record<string, number> }, index: number) =>
+              index === variantIndex
+                ? { ...variant, sizes: { ...variant.sizes, [item.size]: availableQty - item.quantity } }
+                : variant
+            );
+            const aggregateSizes: Record<string, number> = {};
+            updatedVariants.forEach((variant: { sizes?: Record<string, number> }) => {
+              Object.entries(variant.sizes || {}).forEach(([size, quantity]) => {
+                aggregateSizes[size] = (aggregateSizes[size] || 0) + Number(quantity || 0);
+              });
+            });
+
+            const { data: updateResult, error: updateError } = await supabase
+              .from("zo-products")
+              .update({
+                color_variants: updatedVariants,
+                sizes: aggregateSizes,
+                in_stock: Object.values(aggregateSizes).some((quantity) => quantity > 0),
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", item.product_id)
+              .eq("updated_at", product.updated_at)
+              .select("id");
+
+            if (updateError) {
+              console.error(`Error updating variant stock for product ${item.product_id}:`, updateError);
+              lastError = updateError;
+              retries--;
+              if (retries > 0) {
+                await new Promise((resolve) => setTimeout(resolve, 50 * (6 - retries)));
+                continue;
+              }
+              return { data: null, error: "Le produit est très demandé. Veuillez réessayer dans quelques instants." };
+            }
+            if (!updateResult || updateResult.length === 0) {
+              lastError = new Error("Stock conflict");
+              retries--;
+              if (retries > 0) {
+                await new Promise((resolve) => setTimeout(resolve, 50 * (6 - retries)));
+                continue;
+              }
+              return { data: null, error: "Le produit est très demandé. Veuillez réessayer dans quelques instants." };
+            }
+            success = true;
+          } else if (
             product.sizes &&
             typeof product.sizes === "object" &&
             !Array.isArray(product.sizes)

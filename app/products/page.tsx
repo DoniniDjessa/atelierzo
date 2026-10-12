@@ -14,7 +14,8 @@ import { useCategories } from '../lib/hooks/useCategories';
 function ProductsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { products } = useProducts();
+  const { products: allProducts } = useProducts();
+  const products = allProducts.filter((product) => product.isVisible !== false);
   const { roots, childrenOf } = useCategories();
 
   // Get category and search from URL or default to 'all' and empty
@@ -585,4 +586,3 @@ export default function ProductsPage() {
     </Suspense>
   );
 }
-

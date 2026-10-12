@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useCart } from "@/app/contexts/CartContext";
 import { useUser } from "@/app/contexts/UserContext";
 import { useProducts } from "@/app/contexts/ProductContext";
+import { UNICOLOR_CATEGORY_SLUG } from "@/app/lib/supabase/categories";
 import { createOrder } from "@/app/lib/supabase/orders";
 import { getColorName } from "@/app/lib/utils/colors";
 import Footer from "@/app/components/Footer";
@@ -74,7 +75,9 @@ export default function CartPage() {
     for (const item of items) {
       const product = getProductById(item.productId);
       if (product && product.sizeQuantities) {
-        const availableQty = product.sizeQuantities[item.size] || 0;
+        const availableQty = product.category === UNICOLOR_CATEGORY_SLUG
+          ? product.colorVariants?.find((variant) => variant.color === item.color)?.sizeQuantities[item.size] || 0
+          : product.sizeQuantities[item.size] || 0;
         if (availableQty < item.quantity) {
           if (availableQty === 0) {
             toast.error(
@@ -290,6 +293,24 @@ export default function CartPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-4">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm("Voulez-vous vraiment vider votre panier ?")) {
+                    clearCart();
+                    toast.success("Panier vidé");
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/30"
+                style={{ fontFamily: "var(--font-poppins)" }}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16" />
+                </svg>
+                Vider le panier
+              </button>
+            </div>
             {items.map((item, index) => (
               <div
                 key={`${item.productId}-${item.size}-${

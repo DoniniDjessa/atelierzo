@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { toast } from 'sonner';
 import AdminNavbar from '@/app/components/AdminNavbar';
 import { getAllSatisfiedClients, addSatisfiedClient, updateSatisfiedClient, deleteSatisfiedClient, SatisfiedClient } from '@/app/lib/supabase/satisfied-clients';
-import { compressImageToWebP, generateImageFilename } from '@/app/lib/utils/image';
+import { compressImageToWebP, generateImageFilename, IMAGE_ACCEPT, normalizeImageFile } from '@/app/lib/utils/image';
 import { uploadImage, deleteImageFromUrl, isSupabaseImageUrl } from '@/app/lib/supabase/storage';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -198,9 +198,16 @@ export default function SatisfiedClientsPage() {
     setShowAddForm(false);
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      let file: File;
+      try {
+        file = await normalizeImageFile(selectedFile);
+      } catch {
+        toast.error('Impossible de lire cette image HEIC');
+        return;
+      }
       setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -377,7 +384,7 @@ export default function SatisfiedClientsPage() {
                     </label>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept={IMAGE_ACCEPT}
                       onChange={handleImageChange}
                       className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700"
                       style={{ fontFamily: 'var(--font-poppins)' }}

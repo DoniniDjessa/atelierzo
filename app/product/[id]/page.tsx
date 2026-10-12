@@ -17,18 +17,21 @@ import {
   getPromoSavings,
   hasPromoPricing,
 } from '@/app/lib/utils/promo-pricing';
+import { UNICOLOR_CATEGORY_SLUG } from '@/app/lib/supabase/categories';
 
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
   const productId = params.id as string;
   const { getProductById } = useProducts();
-  const product = getProductById(productId);
+  const loadedProduct = getProductById(productId);
+  const product = loadedProduct?.isVisible === false ? undefined : loadedProduct;
   const { addToCart, getItemCount } = useCart();
   const { user } = useUser();
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
+  const [selectedVariantColor, setSelectedVariantColor] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
   const [showCartNotification, setShowCartNotification] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -58,9 +61,21 @@ export default function ProductDetailPage() {
     );
   }
 
+  const isUnicolorProduct = product.category === UNICOLOR_CATEGORY_SLUG;
+  const selectedVariant = product.colorVariants?.find((variant) => variant.color === selectedVariantColor);
+  const displayImageUrl = isUnicolorProduct ? selectedVariant?.imageUrl || product.imageUrl : product.imageUrl;
+  const availableSizes = isUnicolorProduct
+    ? Object.keys(selectedVariant?.sizeQuantities || {})
+    : product.sizes || [];
+
   const handleAddToCart = () => {
     if (!user) {
       setIsAuthModalOpen(true);
+      return;
+    }
+
+    if (isUnicolorProduct && !selectedVariant) {
+      toast.error('Veuillez d’abord sélectionner une couleur');
       return;
     }
 
@@ -71,13 +86,13 @@ export default function ProductDetailPage() {
 
     // Add each size-color combination to cart
     selectedSizes.forEach((size) => {
-      const color = selectedColors.length > 0 ? selectedColors[0] : undefined; // Use first selected color or undefined
+      const color = isUnicolorProduct ? selectedVariantColor : selectedColors.length > 0 ? selectedColors[0] : undefined;
       const qty = quantities[size] || 1;
       addToCart({
         productId: product.id,
         title: product.title,
         price: product.price,
-        imageUrl: product.imageUrl,
+        imageUrl: displayImageUrl,
         size,
         color,
         quantity: qty,
@@ -85,7 +100,9 @@ export default function ProductDetailPage() {
     });
 
     const sizesText = selectedSizes.length > 1 ? `tailles ${selectedSizes.join(', ')}` : `taille ${selectedSizes[0]}`;
-    const colorsText = selectedColors.length > 0 ? ` - Couleurs: ${selectedColors.map(c => getColorName(c) || c).join(', ')}` : '';
+    const colorsText = isUnicolorProduct
+      ? ` - Couleur: ${getColorName(selectedVariantColor) || selectedVariantColor}`
+      : selectedColors.length > 0 ? ` - Couleurs: ${selectedColors.map(c => getColorName(c) || c).join(', ')}` : '';
     toast.success(`Produit ajouté au panier ! ${sizesText}${colorsText}`);
     setShowCartNotification(true);
     // Don't redirect immediately, let user see the notification
@@ -111,7 +128,9 @@ export default function ProductDetailPage() {
   const updateQty = (size: string, delta: number) => {
     setQuantities((prev) => {
       const current = prev[size] || 1;
-      const availableQty = product.sizeQuantities?.[size] || 0;
+      const availableQty = isUnicolorProduct
+        ? selectedVariant?.sizeQuantities[size] || 0
+        : product.sizeQuantities?.[size] || 0;
       const newQty = Math.max(1, Math.min(availableQty, current + delta));
       return { ...prev, [size]: newQty };
     });
@@ -148,13 +167,13 @@ export default function ProductDetailPage() {
           {/* Product Image */}
           <div className="relative w-full aspect-square bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
             <Image
-              src={product.imageUrl}
+              src={displayImageUrl}
               alt={product.title}
               fill
               className="object-cover"
               sizes="(max-width: 1024px) 100vw, 50vw"
               priority
-              unoptimized={product.imageUrl.includes('unsplash.com')}
+              unoptimized={displayImageUrl.includes('unsplash.com')}
             />
             {/* Favorite Button */}
             <button
@@ -266,8 +285,38 @@ export default function ProductDetailPage() {
               </div>
             )}
 
+            {isUnicolorProduct && (
+              <div className="mb-5">
+                <label className="mb-2 block text-xs font-semibold text-black dark:text-white" style={{ fontFamily: 'var(--font-poppins)' }}>
+                  1. Choisissez une couleur
+                  {selectedVariantColor && <span className="ml-2 text-gray-500">{getColorName(selectedVariantColor) || selectedVariantColor}</span>}
+                </label>
+                <div className="flex flex-wrap gap-3">
+                  {(product.colorVariants || []).map((variant) => (
+                    <button
+                      key={variant.color}
+                      type="button"
+                      onClick={() => {
+                        setSelectedVariantColor(variant.color);
+                        setSelectedSizes([]);
+                        setQuantities({});
+                      }}
+                      className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-xs ${
+                        selectedVariantColor === variant.color
+                          ? 'border-sky-500 bg-sky-50 dark:bg-sky-950/30'
+                          : 'border-gray-200 dark:border-gray-700'
+                      }`}
+                    >
+                      <span className="h-5 w-5 rounded-full border border-black/10" style={{ backgroundColor: variant.color }} />
+                      {getColorName(variant.color) || variant.color}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Size Selection */}
-            {product.sizes && product.sizes.length > 0 && (
+            {availableSizes.length > 0 && (
               <div className="mb-4">
                 <label
                   className="block text-xs font-semibold text-black dark:text-white mb-2"
@@ -275,15 +324,17 @@ export default function ProductDetailPage() {
                 >
                   
                   <br />
-                  Tailles <span className="ml-2 Ninline-flex items-center text-black bg-blue-300 px-3 py-1 rounded-2xl text-[10px] mb-2">
+                  {isUnicolorProduct ? '2. Choisissez les tailles' : 'Tailles'} <span className="ml-2 Ninline-flex items-center text-black bg-blue-300 px-3 py-1 rounded-2xl text-[10px] mb-2">
                     Disponibilités actuelles
                   </span> {selectedSizes.length > 0 && <span className="text-gray-500">({selectedSizes.join(', ')})</span>}
                 </label>
                 <div className="flex flex-wrap gap-4">
-                  {product.sizes.map((size) => {
+                  {availableSizes.map((size) => {
                     const isSelected = selectedSizes.includes(size);
                     const qty = quantities[size] || 0;
-                    const availableQty = product.sizeQuantities?.[size] || 0;
+                    const availableQty = isUnicolorProduct
+                      ? selectedVariant?.sizeQuantities[size] || 0
+                      : product.sizeQuantities?.[size] || 0;
                     const isOutOfStock = availableQty === 0;
                     
                     return (
@@ -340,7 +391,7 @@ export default function ProductDetailPage() {
             )}
 
             {/* Color Selection */}
-            {product.colors && product.colors.length > 0 && (
+            {!isUnicolorProduct && product.colors && product.colors.length > 0 && (
               <div className="mb-6">
                 <label
                   className="block text-xs font-semibold text-black dark:text-white mb-2"
@@ -452,7 +503,7 @@ export default function ProductDetailPage() {
           onClose={() => setShowPreorder(false)}
           productId={product.id}
           productTitle={product.title}
-          productImage={product.imageUrl}
+          productImage={displayImageUrl}
           productPrice={product.price}
           availableSizes={product.sizes || ['S', 'M', 'L', 'XL', '2XL', '3XL']}
         />
@@ -460,4 +511,3 @@ export default function ProductDetailPage() {
     </div>
   );
 }
-

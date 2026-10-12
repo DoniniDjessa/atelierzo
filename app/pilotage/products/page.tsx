@@ -7,15 +7,35 @@ import Image from 'next/image';
 import { toast } from 'sonner';
 import AdminNavbar from '@/app/components/AdminNavbar';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
-import { compressImageToWebP, generateImageFilename } from '@/app/lib/utils/image';
+import { Eye, EyeOff, ImageOff, LayoutGrid, List, Package, Search, X } from 'lucide-react';
+import { compressImageToWebP, generateImageFilename, IMAGE_ACCEPT, normalizeImageFile } from '@/app/lib/utils/image';
 import { uploadImage, deleteImageFromUrl, isSupabaseImageUrl } from '@/app/lib/supabase/storage';
-import { FASHION_COLORS } from '@/app/lib/utils/colors';
+import { FASHION_COLORS, UNICOLOR_COLORS } from '@/app/lib/utils/colors';
 import { getAllVenteFlash, addProductToVenteFlash } from '@/app/lib/supabase/vente-flash';
 import { Zap } from 'lucide-react';
 import { getProductStats, ProductSalesStats } from '@/app/lib/utils/product-stats';
 import { addStockHistory } from '@/app/lib/supabase/stock-history';
 import { useCategories } from '@/app/lib/hooks/useCategories';
+import { UNICOLOR_CATEGORY_SLUG } from '@/app/lib/supabase/categories';
+
+type ColorVariantDraft = {
+  color: string;
+  imageUrl: string;
+  imageFile: File | null;
+  sizeQuantities: Record<string, number>;
+};
+
+const DEFAULT_VARIANT_SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+
+function validateColorVariants(variants: ColorVariantDraft[]) {
+  if (!variants.length || variants.some((variant) => !Object.keys(variant.sizeQuantities).length)) {
+    return 'Ajoutez au moins une couleur et ses tailles.';
+  }
+  return null;
+}
+
+// Hidden products are drafts and may be saved before their image is ready
+const MISSING_IMAGE_MESSAGE = 'Ajoutez une image, ou masquez le produit pour l’enregistrer en brouillon';
 
 const ADMIN_PASSWORD = '0044';
 
@@ -34,8 +54,14 @@ export default function ProductsPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedColors, setSelectedColors] = useState<string[]>([]); // Array of hex codes
+  const [colorVariantDrafts, setColorVariantDrafts] = useState<ColorVariantDraft[]>([]);
+  const [variantSizeOptions, setVariantSizeOptions] = useState<string[]>(DEFAULT_VARIANT_SIZES);
+  const [newVariantSize, setNewVariantSize] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState<'all' | 'adults' | 'kids'>('all');
+  const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'visible' | 'hidden'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [productView, setProductView] = useState<'grid' | 'table'>('grid');
   const PRODUCTS_PER_PAGE = 20;
 
   // Form state
@@ -51,6 +77,7 @@ export default function ProductsPage() {
     isBestSeller: false,
     isCurrentOffer: false,
     isKidsProduct: false,
+    isVisible: true,
   });
   const [sizeQuantities, setSizeQuantities] = useState<Record<string, number>>({ M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0, '4XL': 0, '5XL': 0 });
   const [editingSizeValues, setEditingSizeValues] = useState<Record<string, string>>({});
@@ -68,6 +95,7 @@ export default function ProductsPage() {
   const [showNewStockModal, setShowNewStockModal] = useState(false);
   const [selectedProductForNewStock, setSelectedProductForNewStock] = useState<Product | null>(null);
   const [newStockQuantities, setNewStockQuantities] = useState<Record<string, number>>({});
+  const isUnicolorForm = formData.category === UNICOLOR_CATEGORY_SLUG;
 
   // Check if already authenticated
   useEffect(() => {
@@ -108,6 +136,15 @@ export default function ProductsPage() {
     setIsUploading(true);
 
     try {
+      const isUnicolor = formData.category === UNICOLOR_CATEGORY_SLUG;
+      if (isUnicolor) {
+        const validationError = validateColorVariants(colorVariantDrafts);
+        if (validationError) {
+          toast.error(validationError);
+          setIsUploading(false);
+          return;
+        }
+      }
       let imageUrl = formData.imageUrl;
 
       // If image file is provided, upload it
@@ -127,14 +164,42 @@ export default function ProductsPage() {
           return;
         }
         imageUrl = uploadResult.url;
-      } else if (!formData.imageUrl) {
-        toast.error('Veuillez sélectionner une image ou fournir une URL');
+      } else if (!formData.imageUrl && formData.isVisible) {
+        toast.error(MISSING_IMAGE_MESSAGE);
         setIsUploading(false);
         return;
       }
 
+      let colorVariants: NonNullable<Product['colorVariants']>;
+      if (isUnicolor) {
+        colorVariants = [];
+        for (const variant of colorVariantDrafts) {
+          let variantImageUrl = variant.imageUrl;
+          if (variant.imageFile) {
+            const filename = generateImageFilename(`${Date.now()}-${variant.color.replace('#', '')}`, variant.imageFile.name);
+            const compressedBlob = await compressImageToWebP(variant.imageFile, 1200, 1200, 0.7);
+            const uploadResult = await uploadImage(compressedBlob, `products/${filename}`);
+            if (uploadResult.error || !uploadResult.url) {
+              throw new Error(`Erreur lors de l'upload de l'image ${variant.color}: ${uploadResult.error || 'URL non disponible'}`);
+            }
+            variantImageUrl = uploadResult.url;
+          }
+          colorVariants.push({ color: variant.color, imageUrl: variantImageUrl, sizeQuantities: variant.sizeQuantities });
+        }
+      } else {
+        colorVariants = [];
+      }
+
       // Validate that at least one size is provided
-      const validSizes = Object.entries(sizeQuantities).filter(([size]) => size.trim() !== '');
+      const effectiveSizeQuantities = isUnicolor
+        ? colorVariants.reduce<Record<string, number>>((totals, variant) => {
+            Object.entries(variant.sizeQuantities).forEach(([size, quantity]) => {
+              totals[size] = (totals[size] || 0) + quantity;
+            });
+            return totals;
+          }, {})
+        : sizeQuantities;
+      const validSizes = Object.entries(effectiveSizeQuantities).filter(([size]) => size.trim() !== '');
       if (validSizes.length === 0) {
         toast.error('Veuillez ajouter au moins une taille');
         setIsUploading(false);
@@ -147,10 +212,10 @@ export default function ProductsPage() {
         filteredSizeQuantities[size.trim()] = quantity;
       });
       const sizes = Object.keys(filteredSizeQuantities);
-      
+
       // Check if at least one size has quantity > 0, if not, mark product as out of stock
       const hasAvailableSize = Object.values(filteredSizeQuantities).some(quantity => quantity > 0);
-      
+
       const newProduct: Omit<Product, 'id'> = {
         title: formData.title,
         description: formData.description,
@@ -159,13 +224,15 @@ export default function ProductsPage() {
         imageUrl,
         sizes,
         sizeQuantities: filteredSizeQuantities,
-        colors: selectedColors.length > 0 ? selectedColors : (formData.colors ? formData.colors.split(',').map((c) => c.trim()).filter((c) => c.length > 0) : []),
+        colorVariants: isUnicolor ? colorVariants : undefined,
+        colors: isUnicolor ? colorVariants.map((variant) => variant.color) : selectedColors.length > 0 ? selectedColors : (formData.colors ? formData.colors.split(',').map((c) => c.trim()).filter((c) => c.length > 0) : []),
         inStock: hasAvailableSize,
         category: formData.category,
         subcategory: formData.subcategory || undefined,
         isBestSeller: formData.isBestSeller,
         isCurrentOffer: formData.isCurrentOffer,
         isKidsProduct: formData.isKidsProduct,
+        isVisible: formData.isVisible,
       };
       await addProduct(newProduct);
       resetForm();
@@ -173,7 +240,7 @@ export default function ProductsPage() {
       toast.success('Produit ajouté avec succès');
     } catch (error) {
       console.error('Error adding product:', error);
-      toast.error('Erreur lors de l\'ajout du produit');
+      toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'ajout du produit');
     } finally {
       setIsUploading(false);
     }
@@ -194,9 +261,18 @@ export default function ProductsPage() {
       isBestSeller: product.isBestSeller || false,
       isCurrentOffer: product.isCurrentOffer || false,
       isKidsProduct: product.isKidsProduct || false,
+      isVisible: product.isVisible !== false,
     });
     // Initialize selectedColors from product
     setSelectedColors(product.colors || []);
+    setColorVariantDrafts((product.colorVariants || []).map((variant) => ({
+      color: variant.color,
+      imageUrl: variant.imageUrl,
+      imageFile: null,
+      sizeQuantities: { ...variant.sizeQuantities },
+    })));
+    const existingVariantSizes = Array.from(new Set((product.colorVariants || []).flatMap((variant) => Object.keys(variant.sizeQuantities))));
+    setVariantSizeOptions(existingVariantSizes.length ? existingVariantSizes : DEFAULT_VARIANT_SIZES);
     // Initialize sizeQuantities from product
     if (product.sizeQuantities) {
       setSizeQuantities(product.sizeQuantities);
@@ -224,6 +300,15 @@ export default function ProductsPage() {
     try {
       let imageUrl = formData.imageUrl;
       let oldImageUrl: string | null = null;
+      const isUnicolor = formData.category === UNICOLOR_CATEGORY_SLUG;
+      if (isUnicolor) {
+        const validationError = validateColorVariants(colorVariantDrafts);
+        if (validationError) {
+          toast.error(validationError);
+          setIsUploading(false);
+          return;
+        }
+      }
 
       // If new image file is provided, upload it
       if (imageFile) {
@@ -251,10 +336,42 @@ export default function ProductsPage() {
         if (oldImageUrl) {
           await deleteImageFromUrl(oldImageUrl);
         }
+      } else if (!formData.imageUrl && formData.isVisible) {
+        toast.error(MISSING_IMAGE_MESSAGE);
+        setIsUploading(false);
+        return;
+      }
+
+      let colorVariants: NonNullable<Product['colorVariants']>;
+      if (isUnicolor) {
+        colorVariants = [];
+        for (const variant of colorVariantDrafts) {
+          let variantImageUrl = variant.imageUrl;
+          if (variant.imageFile) {
+            const filename = generateImageFilename(`${editingProduct.id}-${variant.color.replace('#', '')}`, variant.imageFile.name);
+            const compressedBlob = await compressImageToWebP(variant.imageFile, 1200, 1200, 0.7);
+            const uploadResult = await uploadImage(compressedBlob, `products/${filename}`);
+            if (uploadResult.error || !uploadResult.url) {
+              throw new Error(`Erreur lors de l'upload de l'image ${variant.color}: ${uploadResult.error || 'URL non disponible'}`);
+            }
+            variantImageUrl = uploadResult.url;
+          }
+          colorVariants.push({ color: variant.color, imageUrl: variantImageUrl, sizeQuantities: variant.sizeQuantities });
+        }
+      } else {
+        colorVariants = [];
       }
 
       // Validate that at least one size is provided
-      const validSizes = Object.entries(sizeQuantities).filter(([size]) => size.trim() !== '');
+      const effectiveSizeQuantities = isUnicolor
+        ? colorVariants.reduce<Record<string, number>>((totals, variant) => {
+            Object.entries(variant.sizeQuantities).forEach(([size, quantity]) => {
+              totals[size] = (totals[size] || 0) + quantity;
+            });
+            return totals;
+          }, {})
+        : sizeQuantities;
+      const validSizes = Object.entries(effectiveSizeQuantities).filter(([size]) => size.trim() !== '');
       if (validSizes.length === 0) {
         toast.error('Veuillez ajouter au moins une taille');
         setIsUploading(false);
@@ -279,7 +396,8 @@ export default function ProductsPage() {
         imageUrl,
         sizes,
         sizeQuantities: filteredSizeQuantities,
-        colors: selectedColors.length > 0 ? selectedColors : (formData.colors ? formData.colors.split(',').map((c) => c.trim()).filter((c) => c.length > 0) : []),
+        colorVariants: isUnicolor ? colorVariants : [],
+        colors: isUnicolor ? colorVariants.map((variant) => variant.color) : selectedColors.length > 0 ? selectedColors : (formData.colors ? formData.colors.split(',').map((c) => c.trim()).filter((c) => c.length > 0) : []),
         inStock: hasAvailableSize,
         category: formData.category,
         // Only sent when set or cleared, so saving works before the sub-category column exists
@@ -287,6 +405,7 @@ export default function ProductsPage() {
         isBestSeller: formData.isBestSeller,
         isCurrentOffer: formData.isCurrentOffer,
         isKidsProduct: formData.isKidsProduct,
+        isVisible: formData.isVisible,
       });
       resetForm();
       setIsEditing(false);
@@ -295,7 +414,7 @@ export default function ProductsPage() {
       toast.success('Produit mis à jour avec succès');
     } catch (error) {
       console.error('Error updating product:', error);
-      toast.error('Erreur lors de la mise à jour du produit');
+      toast.error(error instanceof Error ? error.message : 'Erreur lors de la mise à jour du produit');
     } finally {
       setIsUploading(false);
     }
@@ -341,6 +460,22 @@ export default function ProductsPage() {
       );
     } catch (error) {
       toast.error('Erreur lors de la mise à jour');
+    }
+  };
+
+  const handleToggleVisibility = async (product: Product) => {
+    const nextVisible = product.isVisible === false;
+    if (nextVisible && !product.imageUrl) {
+      toast.error('Ajoutez une image avant d’afficher ce produit sur la boutique');
+      return;
+    }
+    try {
+      await updateProduct(product.id, { isVisible: nextVisible });
+      setCurrentPage(1);
+      toast.success(nextVisible ? 'Produit affiché sur la boutique' : 'Produit masqué de la boutique');
+    } catch (error) {
+      console.error('Error updating product visibility:', error);
+      toast.error('Impossible de modifier la visibilité du produit');
     }
   };
 
@@ -422,6 +557,7 @@ export default function ProductsPage() {
       isBestSeller: false,
       isCurrentOffer: false,
       isKidsProduct: false,
+      isVisible: true,
     });
     setSizeQuantities({ M: 10, L: 10, XL: 10, '2XL': 10, '3XL': 10, '4XL': 10, '5XL': 10 });
     setEditingSizeValues({});
@@ -430,6 +566,9 @@ export default function ProductsPage() {
     Object.values(sizeUpdateTimers.current).forEach(timer => clearTimeout(timer));
     sizeUpdateTimers.current = {};
     setSelectedColors([]);
+    setColorVariantDrafts([]);
+    setVariantSizeOptions(DEFAULT_VARIANT_SIZES);
+    setNewVariantSize('');
     setImageFile(null);
     setImagePreview(null);
   };
@@ -451,9 +590,16 @@ export default function ProductsPage() {
       activeTab === 'all' || 
       (activeTab === 'adults' && !product.isKidsProduct) || 
       (activeTab === 'kids' && product.isKidsProduct);
-      
-    return matchesSearch && matchesTab;
+    const matchesVisibility =
+      visibilityFilter === 'all' ||
+      (visibilityFilter === 'visible' && product.isVisible !== false) ||
+      (visibilityFilter === 'hidden' && product.isVisible === false);
+    const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
+
+    return matchesSearch && matchesTab && matchesVisibility && matchesCategory;
   });
+  const visibleProductCount = products.filter((product) => product.isVisible !== false).length;
+  const hiddenProductCount = products.length - visibleProductCount;
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
@@ -512,62 +658,135 @@ export default function ProductsPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-950 p-5 shadow-lg sm:p-7">
           <div>
-            <h1 className="text-xl font-bold text-black dark:text-white mb-1" style={{ fontFamily: 'var(--font-ubuntu)' }}>
-              Gestion des Produits
-            </h1>
-            <p className="text-xs text-gray-600 dark:text-gray-400" style={{ fontFamily: 'var(--font-poppins)' }}>
-              {filteredProducts.length} produit(s) {searchQuery ? 'trouvé(s)' : 'au total'}
-              {filteredProducts.length > PRODUCTS_PER_PAGE && ` (Page ${currentPage}/${totalPages})`}
-            </p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">Catalogue boutique</p>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h1 className="mb-1 text-2xl font-bold text-white sm:text-3xl" style={{ fontFamily: 'var(--font-ubuntu)' }}>
+                  Gestion des produits
+                </h1>
+                <p className="text-sm text-slate-300" style={{ fontFamily: 'var(--font-poppins)' }}>
+                  Gérez votre catalogue, vos stocks et la visibilité de vos articles.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  resetForm();
+                  setIsEditing(false);
+                  setEditingProduct(null);
+                  setShowAddForm(true);
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00aeee] px-5 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-[#0088b8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                <span className="text-lg leading-none">+</span>
+                Ajouter un produit
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => {
-              resetForm();
-              setIsEditing(false);
-              setEditingProduct(null);
-              setShowAddForm(true);
-            }}
-            className="px-4 py-2 text-sm bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors font-semibold"
-            style={{ fontFamily: 'var(--font-poppins)' }}
-          >
-            + Ajouter un produit
-          </button>
+        </div>
+
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[
+            { label: 'Tous les produits', value: products.length, icon: Package, tone: 'text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300' },
+            { label: 'Visibles en boutique', value: visibleProductCount, icon: Eye, tone: 'text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-300' },
+            { label: 'Produits masqués', value: hiddenProductCount, icon: EyeOff, tone: 'text-amber-700 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-300' },
+          ].map(({ label, value, icon: Icon, tone }) => (
+            <div key={label} className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${tone}`}>
+                <Icon className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-2xl font-bold leading-none text-gray-950 dark:text-white">{value}</p>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{label}</p>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Search Form */}
-        <div className="mb-4">
+        <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-4">
           <div className="relative">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Rechercher un produit..."
-              className="w-full px-4 py-2 pl-10 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pl-11 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#00aeee] focus:ring-4 focus:ring-cyan-500/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               style={{ fontFamily: 'var(--font-poppins)' }}
             />
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden="true" />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2" aria-label="Filtrer par visibilité">
+              {([
+                ['all', `Toutes les visibilités (${products.length})`],
+                ['visible', `En ligne (${visibleProductCount})`],
+                ['hidden', `Masqués (${hiddenProductCount})`],
+              ] as const).map(([filter, label]) => (
+                <button
+                  key={filter}
+                  type="button"
+                  onClick={() => {
+                    setVisibilityFilter(filter);
+                    setCurrentPage(1);
+                  }}
+                  className={`rounded-full px-3.5 py-2 text-xs font-semibold transition-colors ${
+                    visibilityFilter === filter
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {filteredProducts.length} résultat{filteredProducts.length === 1 ? '' : 's'}
+                {filteredProducts.length > PRODUCTS_PER_PAGE && ` · Page ${currentPage}/${totalPages}`}
+              </p>
+              <div className="inline-flex rounded-xl bg-gray-100 p-1 dark:bg-gray-800" aria-label="Mode d'affichage des produits">
+                <button
+                  type="button"
+                  onClick={() => setProductView('grid')}
+                  aria-label="Afficher les produits en cartes"
+                  aria-pressed={productView === 'grid'}
+                  className={`rounded-lg p-2 transition-colors ${
+                    productView === 'grid'
+                      ? 'bg-white text-[#0088b8] shadow-sm dark:bg-gray-700 dark:text-cyan-300'
+                      : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                  }`}
+                >
+                  <LayoutGrid className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProductView('table')}
+                  aria-label="Afficher les produits en tableau"
+                  aria-pressed={productView === 'table'}
+                  className={`rounded-lg p-2 transition-colors ${
+                    productView === 'table'
+                      ? 'bg-white text-[#0088b8] shadow-sm dark:bg-gray-700 dark:text-cyan-300'
+                      : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                  }`}
+                >
+                  <List className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex border-b border-gray-200 dark:border-gray-800 mb-6 overflow-x-auto scrollbar-hide">
+        <div className="mb-5 flex gap-2 overflow-x-auto rounded-2xl border border-gray-200 bg-white p-2 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <button
             onClick={() => setActiveTab('all')}
-            className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
+            className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${
               activeTab === 'all'
-                ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                ? 'bg-cyan-50 text-[#0088b8] dark:bg-cyan-950/50 dark:text-cyan-300'
+                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
             }`}
             style={{ fontFamily: 'var(--font-poppins)' }}
           >
@@ -577,8 +796,8 @@ export default function ProductsPage() {
             onClick={() => setActiveTab('adults')}
             className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
               activeTab === 'adults'
-                ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                ? 'bg-cyan-50 text-[#0088b8] dark:bg-cyan-950/50 dark:text-cyan-300'
+                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
             }`}
             style={{ fontFamily: 'var(--font-poppins)' }}
           >
@@ -588,22 +807,51 @@ export default function ProductsPage() {
             onClick={() => setActiveTab('kids')}
             className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
               activeTab === 'kids'
-                ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                ? 'bg-cyan-50 text-[#0088b8] dark:bg-cyan-950/50 dark:text-cyan-300'
+                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
             }`}
             style={{ fontFamily: 'var(--font-poppins)' }}
           >
             Enfants ({products.filter(p => p.isKidsProduct).length})
           </button>
+          <span className="mx-1 w-px shrink-0 self-stretch bg-gray-200 dark:bg-gray-700" aria-hidden="true" />
+          {[{ slug: 'all', name: 'Toutes catégories' }, ...categoryRoots].map((category) => {
+            const count = category.slug === 'all'
+              ? products.length
+              : products.filter((p) => p.category === category.slug).length;
+            return (
+              <button
+                key={category.slug}
+                onClick={() => {
+                  setCategoryFilter(category.slug);
+                  setCurrentPage(1);
+                }}
+                aria-pressed={categoryFilter === category.slug}
+                className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${
+                  categoryFilter === category.slug
+                    ? 'bg-cyan-50 text-[#0088b8] dark:bg-cyan-950/50 dark:text-cyan-300'
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+                }`}
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                {category.name} ({count})
+              </button>
+            );
+          })}
         </div>
 
         {/* Products List */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="rounded-3xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-5">
+          {productView === 'grid' ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5">
             {paginatedProducts.map((product) => (
               <div 
                 key={product.id} 
-                className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                className={`group cursor-pointer overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:bg-gray-900 ${
+                  product.isVisible === false
+                    ? 'border-amber-200 opacity-80 dark:border-amber-900'
+                    : 'border-gray-200 dark:border-gray-700'
+                }`}
                 onClick={async () => {
                   setSelectedProductForDetails(product);
                   setShowProductDetails(true);
@@ -613,15 +861,22 @@ export default function ProductsPage() {
                   setLoadingStats(false);
                 }}
               >
-                <div className="relative w-full aspect-square bg-gray-100 dark:bg-gray-700">
-                  <Image
-                    src={product.imageUrl}
-                    alt={product.title}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
-                    unoptimized={product.imageUrl.includes('unsplash.com')}
-                  />
+                <div className="relative aspect-square w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+                  {product.imageUrl ? (
+                    <Image
+                      src={product.imageUrl}
+                      alt={product.title}
+                      fill
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
+                      unoptimized={product.imageUrl.includes('unsplash.com')}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-gray-400">
+                      <ImageOff className="h-8 w-8" />
+                      <span className="text-[10px] font-medium">Image à ajouter</span>
+                    </div>
+                  )}
                   <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
                     <button
                       title="Télécharger les codes-barres"
@@ -662,30 +917,48 @@ export default function ProductsPage() {
                       🏷️
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    title={product.isVisible === false ? 'Afficher sur la boutique' : 'Masquer de la boutique'}
+                    aria-label={product.isVisible === false ? `Afficher ${product.title} sur la boutique` : `Masquer ${product.title} de la boutique`}
+                    aria-pressed={product.isVisible !== false}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleVisibility(product);
+                    }}
+                    className={`absolute right-2 top-2 z-10 flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-semibold shadow-md backdrop-blur transition-colors ${
+                      product.isVisible === false
+                        ? 'bg-amber-500 text-white hover:bg-amber-600'
+                        : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    }`}
+                  >
+                    {product.isVisible === false ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {product.isVisible === false ? 'Masqué' : 'En ligne'}
+                  </button>
                   {!product.inStock && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                      <span className="text-white text-[10px] font-semibold" style={{ fontFamily: 'var(--font-poppins)' }}>
+                    <div className={`absolute inset-0 flex items-center justify-center ${product.isVisible === false ? 'bg-black/20' : 'bg-black/45'}`}>
+                      <span className="rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-sm" style={{ fontFamily: 'var(--font-poppins)' }}>
                         Rupture
                       </span>
                     </div>
                   )}
                 </div>
-                <div className="p-2">
-                  <h3 className="text-[11px] font-bold text-black dark:text-white mb-0.5 line-clamp-1" style={{ fontFamily: 'var(--font-fira-sans)' }}>
+                <div className="p-2.5 sm:p-3">
+                  <h3 className="mb-1 line-clamp-2 min-h-8 text-xs font-bold leading-4 text-gray-950 dark:text-white sm:text-sm" style={{ fontFamily: 'var(--font-ubuntu)' }}>
                     {product.title}
                   </h3>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-fira-sans)' }}>
+                  <div className="mb-2 flex items-center justify-between gap-1">
+                    <span className="text-xs font-bold text-gray-900 dark:text-gray-100 sm:text-sm" style={{ fontFamily: 'var(--font-poppins)' }}>
                       {product.price.toLocaleString('fr-FR')} XOF
                     </span>
                   </div>
                   {/* Size quantities display */}
                   {product.sizeQuantities && (
-                    <div className="flex flex-wrap gap-1 mb-1.5">
-                      {Object.entries(product.sizeQuantities).map(([size, qty]) => (
+                    <div className="mb-2 flex flex-wrap gap-1">
+                      {Object.entries(product.sizeQuantities).slice(0, 5).map(([size, qty]) => (
                         <span
                           key={size}
-                          className={`text-[9px] px-1.5 py-0.5 rounded ${
+                          className={`rounded-md px-1.5 py-0.5 text-[9px] font-medium ${
                             qty === 0
                               ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
                               : qty < 5
@@ -697,27 +970,33 @@ export default function ProductsPage() {
                           {size}: {qty}
                         </span>
                       ))}
+                      {Object.keys(product.sizeQuantities).length > 5 && (
+                        <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[9px] text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                          +{Object.keys(product.sizeQuantities).length - 5}
+                        </span>
+                      )}
                     </div>
                   )}
-                  <div className="flex gap-1">
+                  <div className="flex gap-1.5 border-t border-gray-100 pt-2 dark:border-gray-800">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEditProduct(product);
                       }}
-                      className="flex-1 px-2 py-1 bg-indigo-600 text-white rounded text-[10px] font-medium hover:bg-indigo-700 transition-colors"
+                      className="flex-1 rounded-lg bg-slate-900 px-2 py-1.5 text-[10px] font-semibold text-white transition-colors hover:bg-[#0088b8] dark:bg-slate-700 dark:hover:bg-cyan-700"
                       style={{ fontFamily: 'var(--font-poppins)' }}
                     >
                       Modifier
                     </button>
                     <button
+                      disabled={product.category === UNICOLOR_CATEGORY_SLUG}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOpenNewStockModal(product);
                       }}
-                      className="px-2 py-1 bg-green-600 text-white rounded text-[10px] font-medium hover:bg-green-700 transition-colors"
+                      className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[10px] font-semibold text-white transition-colors hover:bg-emerald-700"
                       style={{ fontFamily: 'var(--font-poppins)' }}
-                      title="Ajouter nouveau stock"
+                      title={product.category === UNICOLOR_CATEGORY_SLUG ? 'Modifiez le stock dans les variantes couleur' : 'Ajouter nouveau stock'}
                     >
                       +
                     </button>
@@ -726,7 +1005,7 @@ export default function ProductsPage() {
                         e.stopPropagation();
                         handleDeleteProduct(product.id);
                       }}
-                      className="px-2 py-1 bg-red-600 text-white rounded text-[10px] font-medium hover:bg-red-700 transition-colors"
+                      className="rounded-lg bg-rose-50 px-2.5 py-1.5 text-[10px] font-semibold text-rose-700 transition-colors hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-900/60"
                       style={{ fontFamily: 'var(--font-poppins)' }}
                     >
                       Del
@@ -736,6 +1015,121 @@ export default function ProductsPage() {
               </div>
             ))}
           </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-gray-200 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                    <th className="px-3 py-3">Produit</th>
+                    <th className="px-3 py-3">Catégorie</th>
+                    <th className="px-3 py-3">Prix</th>
+                    <th className="px-3 py-3">Stock</th>
+                    <th className="px-3 py-3">Visibilité</th>
+                    <th className="px-3 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedProducts.map((product) => (
+                    <tr
+                      key={product.id}
+                      className="cursor-pointer border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/60"
+                      onClick={async () => {
+                        setSelectedProductForDetails(product);
+                        setShowProductDetails(true);
+                        setLoadingStats(true);
+                        const stats = await getProductStats(product.id);
+                        setProductStats(stats);
+                        setLoadingStats(false);
+                      }}
+                    >
+                      <td className="px-3 py-3">
+                        <div className="flex min-w-52 items-center gap-3">
+                          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
+                            {product.imageUrl ? (
+                              <Image
+                                src={product.imageUrl}
+                                alt=""
+                                fill
+                                className="object-cover"
+                                sizes="48px"
+                                unoptimized={product.imageUrl.includes('unsplash.com')}
+                              />
+                            ) : (
+                              <ImageOff className="absolute inset-0 m-auto h-5 w-5 text-gray-400" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-semibold text-gray-900 dark:text-white">{product.title}</p>
+                            <p className="mt-0.5 truncate text-[10px] text-gray-500 dark:text-gray-400">{product.description}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-xs text-gray-600 dark:text-gray-300">
+                        {labelOf(product.subcategory || product.category || '')}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs font-semibold text-gray-900 dark:text-white">
+                        {product.price.toLocaleString('fr-FR')} XOF
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                          product.inStock
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                            : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
+                        }`}>
+                          {product.inStock ? 'En stock' : 'Rupture'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleToggleVisibility(product);
+                          }}
+                          aria-label={product.isVisible === false ? `Afficher ${product.title}` : `Masquer ${product.title}`}
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                            product.isVisible === false
+                              ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                              : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                          }`}
+                        >
+                          {product.isVisible === false ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                          {product.isVisible === false ? 'Masqué' : 'En ligne'}
+                        </button>
+                      </td>
+                      <td className="px-3 py-3" onClick={(event) => event.stopPropagation()}>
+                        <div className="flex justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleEditProduct(product)}
+                            className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-[10px] font-semibold text-white transition-colors hover:bg-[#0088b8] dark:bg-slate-700"
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            type="button"
+                            disabled={product.category === UNICOLOR_CATEGORY_SLUG}
+                            onClick={() => handleOpenNewStockModal(product)}
+                            aria-label={product.category === UNICOLOR_CATEGORY_SLUG ? `Modifier le stock des variantes couleur de ${product.title}` : `Ajouter du stock pour ${product.title}`}
+                            className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[10px] font-semibold text-white hover:bg-emerald-700"
+                          >
+                            Stock
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProduct(product.id)}
+                            className="rounded-lg bg-rose-50 px-2.5 py-1.5 text-[10px] font-semibold text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           {paginatedProducts.length === 0 && (
             <p className="text-center text-xs text-gray-500 dark:text-gray-400 py-6" style={{ fontFamily: 'var(--font-poppins)' }}>
               {searchQuery ? 'Aucun produit trouvé.' : 'Aucun produit. Ajoutez-en un pour commencer.'}
@@ -900,8 +1294,37 @@ export default function ProductsPage() {
                     />
                   </div>
                   <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-3 border border-gray-200 dark:border-gray-700">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Collection</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Publication et collection</p>
                     <div className="flex flex-col gap-3">
+                      <label className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
+                        formData.isVisible
+                          ? 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/30'
+                          : 'border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/30'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={formData.isVisible}
+                          onChange={(e) => setFormData({ ...formData, isVisible: e.target.checked })}
+                          className="h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                          formData.isVisible
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
+                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300'
+                        }`}>
+                          {formData.isVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                        </span>
+                        <span>
+                          <span className="block text-xs font-semibold text-gray-900 dark:text-white">
+                            {formData.isVisible ? 'Visible sur la boutique' : 'Masqué de la boutique'}
+                          </span>
+                          <span className="mt-0.5 block text-[10px] text-gray-500 dark:text-gray-400">
+                            {formData.isVisible
+                              ? 'Ce produit apparaît dans le catalogue et les sélections publiques.'
+                              : 'Seuls les administrateurs peuvent voir ce produit.'}
+                          </span>
+                        </span>
+                      </label>
                       <label className="flex items-center gap-3 cursor-pointer group">
                         <div className="relative flex items-center">
                           <input
@@ -947,16 +1370,166 @@ export default function ProductsPage() {
                       />
                     </div>
                   </div>
+                  {isUnicolorForm && (
+                    <div className="space-y-4 rounded-xl border border-sky-200 bg-sky-50/60 p-4 dark:border-sky-900 dark:bg-sky-950/20">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">Variantes par couleur</p>
+                        <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                          Ajoutez chaque couleur, sa photo et les quantités disponibles pour chaque taille.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                        {UNICOLOR_COLORS.map((color) => {
+                          const variantIndex = colorVariantDrafts.findIndex((variant) => variant.color === color.hex);
+                          const isSelected = variantIndex >= 0;
+                          return (
+                            <button
+                              key={color.hex}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  setColorVariantDrafts((variants) => variants.filter((variant) => variant.color !== color.hex));
+                                } else {
+                                  setColorVariantDrafts((variants) => [...variants, {
+                                    color: color.hex,
+                                    imageUrl: '',
+                                    imageFile: null,
+                                    sizeQuantities: Object.fromEntries(variantSizeOptions.map((size) => [size, 0])),
+                                  }]);
+                                }
+                              }}
+                              className={`rounded-lg border-2 p-2 text-left ${isSelected ? 'border-sky-600' : 'border-gray-200 dark:border-gray-700'}`}
+                              title={color.displayName}
+                            >
+                              <span className="block h-7 rounded" style={{ backgroundColor: color.hex }} />
+                              <span className="mt-1 block truncate text-[9px] text-gray-700 dark:text-gray-300">{color.displayName}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          value={newVariantSize}
+                          onChange={(event) => setNewVariantSize(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              const size = newVariantSize.trim();
+                              if (!size || variantSizeOptions.some((existing) => existing.toLowerCase() === size.toLowerCase())) return;
+                              setVariantSizeOptions((sizes) => [...sizes, size]);
+                              setColorVariantDrafts((variants) => variants.map((variant) => ({
+                                ...variant,
+                                sizeQuantities: { ...variant.sizeQuantities, [size]: 0 },
+                              })));
+                              setNewVariantSize('');
+                            }
+                          }}
+                          placeholder="Ex. S, XS, 38"
+                          className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const size = newVariantSize.trim();
+                            if (!size || variantSizeOptions.some((existing) => existing.toLowerCase() === size.toLowerCase())) return;
+                            setVariantSizeOptions((sizes) => [...sizes, size]);
+                            setColorVariantDrafts((variants) => variants.map((variant) => ({
+                              ...variant,
+                              sizeQuantities: { ...variant.sizeQuantities, [size]: 0 },
+                            })));
+                            setNewVariantSize('');
+                          }}
+                          className="rounded-lg bg-sky-600 px-3 text-xs font-semibold text-white"
+                        >
+                          Ajouter taille
+                        </button>
+                      </div>
+                      {colorVariantDrafts.map((variant, index) => {
+                        const colorLabel = FASHION_COLORS.find((color) => color.hex === variant.color)?.displayName || variant.color;
+                        return (
+                          <div key={variant.color} className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+                            <div className="mb-3 flex items-center justify-between">
+                              <span className="flex items-center gap-2 text-xs font-semibold text-gray-800 dark:text-white">
+                                <span className="h-4 w-4 rounded-full border" style={{ backgroundColor: variant.color }} />
+                                {colorLabel}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setColorVariantDrafts((variants) => variants.filter((item) => item.color !== variant.color))}
+                                className="text-xs text-red-600 hover:text-red-700"
+                              >
+                                Retirer
+                              </button>
+                            </div>
+                            <label className="mb-1 block text-[10px] font-medium text-gray-600 dark:text-gray-400">
+                              Image de cette couleur (facultative, sinon l’image principale est utilisée)
+                            </label>
+                            <input
+                              type="file"
+                              accept={IMAGE_ACCEPT}
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (file) {
+                                  setColorVariantDrafts((variants) => variants.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, imageFile: file, imageUrl: '' } : item
+                                  ));
+                                }
+                              }}
+                              className="w-full text-xs text-gray-600 dark:text-gray-300"
+                            />
+                            {variant.imageUrl && !variant.imageFile && (
+                              <Image src={variant.imageUrl} alt={`Photo ${colorLabel}`} width={96} height={96} className="mt-2 h-24 w-24 rounded-lg object-cover" />
+                            )}
+                            {variant.imageFile && <p className="mt-1 truncate text-[10px] text-gray-500">{variant.imageFile.name}</p>}
+                            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                              {variantSizeOptions.map((size) => (
+                                <label key={size} className="text-[10px] text-gray-600 dark:text-gray-400">
+                                  {size}
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={variant.sizeQuantities[size] || 0}
+                                    onChange={(event) => {
+                                      const nextQuantity = Math.max(0, Number(event.target.value) || 0);
+                                      setColorVariantDrafts((variants) => variants.map((item, itemIndex) =>
+                                        itemIndex === index
+                                          ? { ...item, sizeQuantities: { ...item.sizeQuantities, [size]: nextQuantity } }
+                                          : item
+                                      ));
+                                    }}
+                                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                  />
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
-                      Image *
+                      {isUnicolorForm ? 'Image principale du produit' : 'Image'}
+                      {formData.isVisible ? ' *' : ' (facultative tant que le produit est masqué)'}
                     </label>
+                    {isUnicolorForm && (
+                      <p className="mb-1 text-[10px] text-gray-500 dark:text-gray-400">
+                        Utilisée par défaut pour toutes les couleurs sans photo dédiée.
+                      </p>
+                    )}
                     <input
                       type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
+                      accept={IMAGE_ACCEPT}
+                      onChange={async (e) => {
+                        const selectedFile = e.target.files?.[0];
+                        if (selectedFile) {
+                          let file: File;
+                          try {
+                            file = await normalizeImageFile(selectedFile);
+                          } catch {
+                            toast.error('Impossible de lire cette image HEIC');
+                            return;
+                          }
                           setImageFile(file);
                           setFormData({ ...formData, imageUrl: '' });
                           // Create preview
@@ -994,6 +1567,8 @@ export default function ProductsPage() {
                       </div>
                     )}
                   </div>
+                  {!isUnicolorForm && (
+                    <>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
                       Tailles et quantités en stock
@@ -1306,6 +1881,8 @@ export default function ProductsPage() {
                       💡 Le statut "En stock" est automatiquement déterminé : si toutes les tailles ont une quantité de 0, le produit est en rupture de stock.
                     </p>
                   </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1522,13 +2099,17 @@ export default function ProductsPage() {
                   <div className="space-y-4">
                     {/* Product Image */}
                     <div className="relative w-full aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-                      <Image
-                        src={selectedProductForDetails.imageUrl}
-                        alt={selectedProductForDetails.title}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 500px) 100vw, 500px"
-                      />
+                      {selectedProductForDetails.imageUrl ? (
+                        <Image
+                          src={selectedProductForDetails.imageUrl}
+                          alt={selectedProductForDetails.title}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 500px) 100vw, 500px"
+                        />
+                      ) : (
+                        <ImageOff className="absolute inset-0 m-auto h-10 w-10 text-gray-400" />
+                      )}
                     </div>
 
                     {/* Product Info */}
@@ -1821,4 +2402,3 @@ export default function ProductsPage() {
     </div>
   );
 }
-

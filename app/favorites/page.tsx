@@ -15,7 +15,9 @@ export default function FavoritesPage() {
   const { products } = useProducts();
 
   // Get favorite products
-  const favoriteProducts = products.filter((product) => favorites.includes(product.id));
+  const favoriteProducts = products.filter(
+    (product) => product.isVisible !== false && favorites.includes(product.id)
+  );
 
   if (!user) {
     return (
@@ -120,4 +122,3 @@ export default function FavoritesPage() {
     </div>
   );
 }
-

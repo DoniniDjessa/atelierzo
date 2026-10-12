@@ -26,9 +26,11 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'default-bermuda', slug: 'bermuda', name: 'T-SHIRTS OVERSIZES IMPRIMES', description: 'Découvrez nos ensembles élégants pour un style décontracté et moderne', parent_id: null, sort_order: 1, is_active: true, show_on_home: true, home_limit: 4 },
   { id: 'default-tshirt-oversize-civ', slug: 'tshirt-oversize-civ', name: "Tshirt Oversize CIV Champions d'Afrique", description: 'Célébrez la victoire avec style', parent_id: null, sort_order: 2, is_active: true, show_on_home: true, home_limit: 12 },
   { id: 'default-pantalon', slug: 'pantalon', name: 'Chemise Pantalon', description: null, parent_id: null, sort_order: 3, is_active: true, show_on_home: true, home_limit: 4 },
+  { id: 'default-vetements-unicolores', slug: 'vetements-unicolores', name: 'TEXTILES SANS IMPRESSION', description: 'Choisissez votre couleur puis les tailles disponibles.', parent_id: null, sort_order: 4, is_active: true, show_on_home: true, home_limit: 4 },
 ];
 
 const TABLE = 'zo-categories';
+export const UNICOLOR_CATEGORY_SLUG = 'vetements-unicolores';
 
 /** All categories and sub-categories, ordered. `fromDatabase` is false when the table is missing. */
 export async function getAllCategories(): Promise<{ data: Category[]; fromDatabase: boolean; error: string | null }> {

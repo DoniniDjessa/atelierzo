@@ -57,7 +57,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
     
     const productPages: MetadataRoute.Sitemap = result.data
-      .filter(product => product.in_stock) // Only include in-stock products
+      .filter(product => product.in_stock && product.is_visible !== false) // Only include visible, in-stock products
       .map((product) => ({
         url: `${baseUrl}/product/${product.id}`,
         lastModified: new Date(),

@@ -17,6 +17,7 @@ export default function Home() {
   const router = useRouter();
   const { products } = useProducts();
   const { roots } = useCategories();
+  const visibleProducts = products.filter((product) => product.isVisible !== false);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black">
@@ -55,7 +56,7 @@ export default function Home() {
           {roots
             .filter((category) => category.show_on_home)
             .map((category) => {
-              const categoryProducts = products.filter((p) => p.category === category.slug);
+              const categoryProducts = visibleProducts.filter((p) => p.category === category.slug);
               if (categoryProducts.length === 0) return null;
               return (
                 <CategorySection
@@ -74,12 +75,12 @@ export default function Home() {
             })}
 
           {/* Kids Section */}
-          {products.filter((p) => p.isKidsProduct).length > 0 && (
+          {visibleProducts.filter((p) => p.isKidsProduct).length > 0 && (
             <CategorySection
               title="Enfants"
               subtitle="Découvrez nos collections pour les tout-petits"
-              totalCount={products.filter((p) => p.isKidsProduct).length}
-              products={products
+              totalCount={visibleProducts.filter((p) => p.isKidsProduct).length}
+              products={visibleProducts
                 .filter((p) => p.isKidsProduct)
                 .slice(0, 4)
                 .map((p) => ({

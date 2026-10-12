@@ -32,7 +32,7 @@ export default function FlashSaleSection() {
         // Get products (max 5)
         const productsToShow = activeFlashSale.products.slice(0, 5).map((vfProduct: any) => {
           const product = getProductById(vfProduct.product_id);
-          if (product) {
+          if (product && product.isVisible !== false) {
             const discount = vfProduct.discount_percentage || activeFlashSale.global_discount_percentage || 0;
             const discountedPrice = calculateFlashSalePrice(product.price, discount);
             return {
@@ -139,4 +139,3 @@ export default function FlashSaleSection() {
     </section>
   );
 }
-

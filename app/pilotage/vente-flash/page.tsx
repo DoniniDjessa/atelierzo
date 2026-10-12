@@ -456,13 +456,15 @@ export default function VenteFlashPage() {
                         >
                           <div className="flex items-center gap-4 flex-1">
                             <div className="relative w-16 h-16 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden flex-shrink-0">
-                              <Image
-                                src={product.imageUrl}
-                                alt={product.title}
-                                fill
-                                className="object-cover"
-                                sizes="64px"
-                              />
+                              {product.imageUrl && (
+                                <Image
+                                  src={product.imageUrl}
+                                  alt={product.title}
+                                  fill
+                                  className="object-cover"
+                                  sizes="64px"
+                                />
+                              )}
                             </div>
                             <div className="flex-1">
                               <h3 className="text-sm font-bold text-black dark:text-white" style={{ fontFamily: 'var(--font-ubuntu)' }}>
