@@ -5,7 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { getAllHeroSlides, HeroSlide } from "@/app/lib/supabase/hero-slides";
 
-const AUTOPLAY_MS = 3500;
+const MOBILE_AUTOPLAY_MS = 3000;
+const DESKTOP_AUTOPLAY_MS = 2500;
 const GAP_PX = 0; // pictures touch each other; the strip itself has the rounded corners
 
 // How many portrait (3:4) pictures fit side by side: exactly 1 on phones, up to 4 on wide screens
@@ -187,6 +188,8 @@ function SlideTrack({ slides }: { slides: HeroSlide[] }) {
 
   const count = slides.length;
   const perView = slidesPerView(windowWidth);
+  const autoplayMs =
+    windowWidth < 640 ? MOBILE_AUTOPLAY_MS : DESKTOP_AUTOPLAY_MS;
   const slideWidth = width ? (width - GAP_PX * (perView - 1)) / perView : 0;
   const step = slideWidth + GAP_PX;
   const maxIndex = Math.max(0, count - perView);
@@ -206,9 +209,9 @@ function SlideTrack({ slides }: { slides: HeroSlide[] }) {
 
   useEffect(() => {
     if (!canSlide || paused || reducedMotion) return;
-    const timer = setTimeout(() => go(1), AUTOPLAY_MS);
+    const timer = setTimeout(() => go(1), autoplayMs);
     return () => clearTimeout(timer);
-  }, [index, canSlide, paused, reducedMotion, go]);
+  }, [index, canSlide, paused, reducedMotion, autoplayMs, go]);
 
   // Swipe / drag
   const onPointerDown = (e: React.PointerEvent) => {
@@ -339,7 +342,7 @@ function SlideTrack({ slides }: { slides: HeroSlide[] }) {
                     style={
                       paused || reducedMotion
                         ? undefined
-                        : { animation: `hero-progress ${AUTOPLAY_MS}ms linear forwards` }
+                        : { animation: `hero-progress ${autoplayMs}ms linear forwards` }
                     }
                   />
                 )}
