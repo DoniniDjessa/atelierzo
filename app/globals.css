@@ -93,29 +93,6 @@ html {
   animation: slide-up 0.3s ease-out;
 }
 
-@keyframes view-all-content-pulse {
-  from {
-    background-color: #00aeee;
-    color: #ffffff;
-  }
-  to {
-    background-color: #ffffff;
-    color: #0088b8;
-  }
-}
-
-.animate-view-all-content {
-  animation: view-all-content-pulse 1.2s ease-in-out infinite alternate;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-view-all-content {
-    animation: none;
-    background-color: #00aeee;
-    color: #ffffff;
-  }
-}
-
 /* Phone Input Styles - Default Design with Minimal Customization */
 .PhoneInput {
   font-family: var(--font-poppins) !important;
