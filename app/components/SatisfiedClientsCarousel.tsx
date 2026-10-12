@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { getAllSatisfiedClients, SatisfiedClient } from '@/app/lib/supabase/satisfied-clients';
 
+const MAX_DOTS = 7;
+
 export default function SatisfiedClientsCarousel() {
   const [clients, setClients] = useState<SatisfiedClient[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -133,20 +135,35 @@ export default function SatisfiedClientsCarousel() {
 
           {/* Dots Indicator */}
           {clients.length > 1 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-              {clients.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentIndex(index)}
-                  className={`h-2 rounded-full transition-all ${
-                    index === currentIndex
-                      ? 'w-8 bg-white'
-                      : 'w-2 bg-white/50 hover:bg-white/75'
-                  }`}
-                  aria-label={`Go to slide ${index + 1}`}
-                />
-              ))}
-            </div>
+            // A window of MAX_DOTS around the current slide (one dot per client overflowed phone screens);
+            // edge dots shrink when more exist beyond them
+            (() => {
+              const count = Math.min(MAX_DOTS, clients.length);
+              const start = Math.min(Math.max(0, currentIndex - Math.floor(count / 2)), clients.length - count);
+              return (
+                <div className="absolute bottom-4 inset-x-0 flex justify-center items-center gap-2 z-10 overflow-hidden px-4">
+                  {Array.from({ length: count }, (_, i) => {
+                    const index = start + i;
+                    const isEdge = (i === 0 && start > 0) || (i === count - 1 && start + count < clients.length);
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => setCurrentIndex(index)}
+                        className={`shrink-0 rounded-full transition-all ${
+                          index === currentIndex
+                            ? 'h-2 w-8 bg-white'
+                            : isEdge
+                              ? 'h-1.5 w-1.5 bg-white/40 hover:bg-white/75'
+                              : 'h-2 w-2 bg-white/50 hover:bg-white/75'
+                        }`}
+                        aria-label={`Aller à l'image ${index + 1} sur ${clients.length}`}
+                        aria-current={index === currentIndex}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })()
           )}
         </div>
           </div>

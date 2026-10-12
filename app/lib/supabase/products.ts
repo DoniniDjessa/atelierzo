@@ -16,6 +16,7 @@ export interface Product {
   sizeQuantities?: Record<string, number>; // Object with size as key and quantity as value
   in_stock?: boolean;
   category?: string;
+  subcategory?: string | null; // slug of a child row in zo-categories
   is_best_seller?: boolean;
   isBestSeller?: boolean;
   is_current_offer?: boolean;
@@ -37,6 +38,7 @@ export interface CreateProductPayload {
   sizeQuantities?: Record<string, number>;
   in_stock?: boolean;
   category?: string;
+  subcategory?: string | null; // slug of a child row in zo-categories
   is_best_seller?: boolean;
   is_current_offer?: boolean;
   is_kids_product?: boolean;
@@ -118,6 +120,7 @@ export async function getAllProducts(): Promise<{ data: Product[] | null; error:
         in_stock: inStock,
         inStock: inStock,
         category: item.category,
+        subcategory: item.subcategory ?? null,
         is_best_seller: item.is_best_seller,
         isBestSeller: item.is_best_seller,
         is_current_offer: item.is_current_offer,
@@ -213,6 +216,7 @@ export async function getProductById(productId: string): Promise<{ data: Product
       in_stock: inStock,
       inStock: inStock,
       category: data.category,
+      subcategory: data.subcategory ?? null,
       is_best_seller: data.is_best_seller,
       isBestSeller: data.is_best_seller,
       is_current_offer: data.is_current_offer,
@@ -244,6 +248,7 @@ export async function createProduct(product: CreateProductPayload): Promise<{ da
       is_best_seller: product.is_best_seller || false,
       is_current_offer: product.is_current_offer || false,
       is_kids_product: product.is_kids_product || false,
+      ...(product.subcategory ? { subcategory: product.subcategory } : {}),
     };
 
     if (product.old_price !== undefined) {
@@ -317,6 +322,7 @@ export async function createProduct(product: CreateProductPayload): Promise<{ da
       in_stock: data.in_stock !== false,
       inStock: data.in_stock !== false,
       category: data.category,
+      subcategory: data.subcategory ?? null,
       is_best_seller: data.is_best_seller,
       isBestSeller: data.is_best_seller,
       is_current_offer: data.is_current_offer,
@@ -348,6 +354,7 @@ export async function updateProduct(
     if (updates.old_price !== undefined) dbUpdates.old_price = updates.old_price;
     if (updates.image_url !== undefined) dbUpdates.image_url = updates.image_url;
     if (updates.category !== undefined) dbUpdates.category = updates.category;
+    if (updates.subcategory !== undefined) dbUpdates.subcategory = updates.subcategory;
     if (updates.in_stock !== undefined) dbUpdates.in_stock = updates.in_stock;
     if (updates.is_best_seller !== undefined) dbUpdates.is_best_seller = updates.is_best_seller;
     if (updates.is_current_offer !== undefined) dbUpdates.is_current_offer = updates.is_current_offer;
@@ -417,6 +424,7 @@ export async function updateProduct(
       in_stock: data.in_stock !== false,
       inStock: data.in_stock !== false,
       category: data.category,
+      subcategory: data.subcategory ?? null,
       is_best_seller: data.is_best_seller,
       isBestSeller: data.is_best_seller,
       is_current_offer: data.is_current_offer,
@@ -517,6 +525,7 @@ export async function getCurrentOffers(): Promise<{ data: Product[] | null; erro
         in_stock: inStock,
         inStock,
         category: item.category,
+        subcategory: item.subcategory ?? null,
       };
     });
 
@@ -590,6 +599,7 @@ export async function getBestSellers(): Promise<{ data: Product[] | null; error:
         in_stock: inStock,
         inStock,
         category: item.category,
+        subcategory: item.subcategory ?? null,
       };
     });
 

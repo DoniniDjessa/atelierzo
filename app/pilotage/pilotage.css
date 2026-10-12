@@ -1,0 +1,383 @@
+/* ==========================================
+   PILOTAGE - DESIGN SYSTEM (ported from imo-platform / Phoenix)
+   Everything is scoped to .pz (set by AdminClientLayout), so the storefront is untouched.
+   Pages keep their Tailwind indigo/purple/blue/gray/slate utilities: those scales are
+   remapped below onto the home page blue (#00aeee) and a cool neutral gray, and the
+   inline var(--font-ubuntu)/var(--font-poppins) styles onto the imo fonts.
+   ========================================== */
+
+.pz {
+  /* Brand: home page blue #00aeee and its variants */
+  --pz-50: #ecfaff;
+  --pz-100: #d6f4fe;
+  --pz-200: #ade8fc;
+  --pz-300: #74d7f8;
+  --pz-400: #33c2f3;
+  --pz-500: #00aeee;
+  --pz-600: #0094cf;
+  --pz-700: #0078a9;
+  --pz-800: #075f86;
+  --pz-900: #0b4d6c;
+  --pz-950: #072f44;
+
+  /* Neutrals: near-white → near-black, slightly cool to sit with the blue */
+  --pz-n50: #f7f8fa;
+  --pz-n100: #f0f2f5;
+  --pz-n200: #e4e7ec;
+  --pz-n300: #cfd4dc;
+  --pz-n400: #98a1b0;
+  --pz-n500: #6b7383;
+  --pz-n600: #4b5262;
+  --pz-n700: #343a46;
+  --pz-n800: #1f232b;
+  --pz-n900: #13161b;
+  --pz-n950: #0a0b0e;
+
+  --color-indigo-50: var(--pz-50);   --color-blue-50: var(--pz-50);   --color-purple-50: var(--pz-50);   --color-violet-50: var(--pz-50);   --color-sky-50: var(--pz-50);
+  --color-indigo-100: var(--pz-100); --color-blue-100: var(--pz-100); --color-purple-100: var(--pz-100); --color-violet-100: var(--pz-100); --color-sky-100: var(--pz-100);
+  --color-indigo-200: var(--pz-200); --color-blue-200: var(--pz-200); --color-purple-200: var(--pz-200); --color-violet-200: var(--pz-200); --color-sky-200: var(--pz-200);
+  --color-indigo-300: var(--pz-300); --color-blue-300: var(--pz-300); --color-purple-300: var(--pz-300); --color-violet-300: var(--pz-300); --color-sky-300: var(--pz-300);
+  --color-indigo-400: var(--pz-400); --color-blue-400: var(--pz-400); --color-purple-400: var(--pz-400); --color-violet-400: var(--pz-400); --color-sky-400: var(--pz-400);
+  --color-indigo-500: var(--pz-500); --color-blue-500: var(--pz-500); --color-purple-500: var(--pz-500); --color-violet-500: var(--pz-500); --color-sky-500: var(--pz-500);
+  --color-indigo-600: var(--pz-600); --color-blue-600: var(--pz-600); --color-purple-600: var(--pz-600); --color-violet-600: var(--pz-600); --color-sky-600: var(--pz-600);
+  --color-indigo-700: var(--pz-700); --color-blue-700: var(--pz-700); --color-purple-700: var(--pz-700); --color-violet-700: var(--pz-700); --color-sky-700: var(--pz-700);
+  --color-indigo-800: var(--pz-800); --color-blue-800: var(--pz-800); --color-purple-800: var(--pz-800); --color-violet-800: var(--pz-800); --color-sky-800: var(--pz-800);
+  --color-indigo-900: var(--pz-900); --color-blue-900: var(--pz-900); --color-purple-900: var(--pz-900); --color-violet-900: var(--pz-900); --color-sky-900: var(--pz-900);
+  --color-indigo-950: var(--pz-950); --color-blue-950: var(--pz-950); --color-purple-950: var(--pz-950); --color-violet-950: var(--pz-950); --color-sky-950: var(--pz-950);
+
+  --color-gray-50: var(--pz-n50);   --color-slate-50: var(--pz-n50);
+  --color-gray-100: var(--pz-n100); --color-slate-100: var(--pz-n100);
+  --color-gray-200: var(--pz-n200); --color-slate-200: var(--pz-n200);
+  --color-gray-300: var(--pz-n300); --color-slate-300: var(--pz-n300);
+  --color-gray-400: var(--pz-n400); --color-slate-400: var(--pz-n400);
+  --color-gray-500: var(--pz-n500); --color-slate-500: var(--pz-n500);
+  --color-gray-600: var(--pz-n600); --color-slate-600: var(--pz-n600);
+  --color-gray-700: var(--pz-n700); --color-slate-700: var(--pz-n700);
+  --color-gray-800: var(--pz-n800); --color-slate-800: var(--pz-n800);
+  --color-gray-900: var(--pz-n900); --color-slate-900: var(--pz-n900);
+  --color-gray-950: var(--pz-n950); --color-slate-950: var(--pz-n950);
+
+  /* Fonts (imo): Fira Sans Condensed for headings & figures, Nunito Sans for everything else */
+  --font-ubuntu: var(--font-fira-condensed), var(--font-nunito), sans-serif;
+  --font-poppins: var(--font-nunito), system-ui, sans-serif;
+  --font-fira-sans: var(--font-nunito), system-ui, sans-serif;
+
+  /* Compact type scale (imo uses 0.8rem body text) */
+  --text-xs: 0.6875rem;  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem;  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem; --text-base--line-height: 1.375rem;
+  --text-lg: 1rem;       --text-lg--line-height: 1.5rem;
+  --text-xl: 1.125rem;   --text-xl--line-height: 1.625rem;
+  --text-2xl: 1.375rem;  --text-2xl--line-height: 1.875rem;
+  --text-3xl: 1.625rem;  --text-3xl--line-height: 2.125rem;
+  --text-4xl: 2rem;      --text-4xl--line-height: 2.5rem;
+
+  /* Tighter radii (imo: 0.375rem controls, 0.5rem cards) */
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.5rem;
+  --radius-3xl: 0.625rem;
+
+  /* Semantic surfaces */
+  --pz-bg: var(--pz-n50);
+  --pz-card: #ffffff;
+  --pz-border: var(--pz-n200);
+  --pz-border-strong: var(--pz-n300);
+  --pz-text: var(--pz-n900);
+  --pz-text-soft: var(--pz-n700);
+  --pz-muted: var(--pz-n500);
+  --pz-hover: var(--pz-50);
+  --pz-accent-text: var(--pz-700);
+  --pz-accent-subtle: var(--pz-50);
+  --pz-accent-border: var(--pz-200);
+
+  min-height: 100vh;
+  background: var(--pz-bg);
+  color: var(--pz-text-soft);
+  font-family: var(--font-poppins);
+  line-height: 1.49;
+}
+
+:root.dark {
+  .pz {
+    --pz-bg: #000000;
+    --pz-card: var(--pz-n800);
+    --pz-border: #2a2f39;
+    --pz-border-strong: #3a414e;
+    --pz-text: #f3f5f8;
+    --pz-text-soft: var(--pz-n300);
+    --pz-muted: var(--pz-n400);
+    --pz-hover: rgb(0 174 238 / 0.08);
+    --pz-accent-text: var(--pz-400);
+    --pz-accent-subtle: rgb(0 174 238 / 0.12);
+    --pz-accent-border: rgb(0 174 238 / 0.35);
+  }
+}
+
+/* Room for the fixed sidebar (rendered by AdminNavbar once logged in) */
+@media (min-width: 1024px) {
+  .pz:has(.pz-sidebar) { padding-left: 15rem; }
+}
+
+/* Headings: imo condensed display font, uppercase for page titles */
+.pz :is(h1, h2, h3) { color: var(--pz-text); letter-spacing: 0.01em; }
+.pz h1 { font-family: var(--font-ubuntu); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+
+/* Figures line up in tables and KPI tiles */
+.pz :is(td, .pz-num) { font-variant-numeric: tabular-nums; }
+
+/* ---------- Cards: imo .card = flat surface + hairline border, no drop shadow ---------- */
+.pz :is(.rounded-2xl, .rounded-3xl):is(.shadow-sm, .shadow, .shadow-md) {
+  box-shadow: none;
+  border: 1px solid var(--pz-border);
+}
+
+/* ---------- Structured tables (imo .imo-table): bold uppercase heads, airy rows ---------- */
+.pz table { border-collapse: collapse; }
+.pz table thead th {
+  padding: 0.7rem 0.75rem;
+  font-family: var(--font-poppins);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: var(--pz-text);
+  border-bottom: 1px solid var(--pz-border);
+}
+.pz table tbody td {
+  padding: 0.75rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--pz-border);
+}
+.pz table tbody tr:last-child td { border-bottom: none; }
+.pz table tbody tr:hover { background-color: var(--pz-hover); }
+
+/* ---------- Structured forms (imo): small uppercase labels, bold 13px fields ---------- */
+.pz label.block {
+  font-family: var(--font-poppins);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pz-muted);
+  margin-bottom: 0.4rem;
+}
+.pz :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="color"], [type="range"]), select, textarea) {
+  font-family: var(--font-poppins);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: 0.375rem;
+}
+.pz :is(input, select, textarea)::placeholder { font-weight: 400; color: var(--pz-muted); opacity: 1; }
+.pz :is(input, select, textarea):focus { border-color: var(--pz-500); }
+.pz :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--pz-500); }
+
+/* ---------- Reusable components (use in new markup) ---------- */
+@layer components {
+  .pz-card {
+    border-radius: 0.5rem;
+    border: 1px solid var(--pz-border);
+    background: var(--pz-card);
+  }
+  .pz-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--pz-border);
+  }
+  .pz-card-title {
+    font-size: 0.875rem;
+    font-weight: 800;
+    color: var(--pz-text);
+  }
+  .pz-eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--pz-muted);
+  }
+  .pz-num {
+    font-family: var(--font-ubuntu);
+    font-weight: 700;
+    color: var(--pz-text);
+  }
+
+  .pz-stat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--pz-accent-border);
+    background: var(--pz-accent-subtle);
+    color: var(--pz-accent-text);
+  }
+
+  .pz-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 0.375rem;
+    border: 1px solid transparent;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .pz-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .pz-btn-primary { background: var(--pz-600); color: #fff; }
+  .pz-btn-primary:hover { background: var(--pz-700); }
+  .pz-btn-ghost { background: transparent; color: var(--pz-text-soft); }
+  .pz-btn-ghost:hover { background: var(--pz-hover); color: var(--pz-text); }
+  .pz-btn-outline { background: var(--pz-card); color: var(--pz-text-soft); border-color: var(--pz-border-strong); }
+  .pz-btn-outline:hover { border-color: var(--pz-500); color: var(--pz-accent-text); }
+
+  /* Segmented filter (period / category chips) */
+  .pz-seg { display: inline-flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.2rem; border-radius: 0.5rem; background: var(--pz-n100); }
+  .pz-seg > button {
+    padding: 0.35rem 0.7rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--pz-muted);
+  }
+  .pz-seg > button:hover { color: var(--pz-text); }
+  .pz-seg > button[aria-pressed="true"] { background: var(--pz-card); color: var(--pz-accent-text); box-shadow: 0 1px 2px rgb(0 0 0 / 0.08); }
+
+  .pz-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 1px 7px;
+    border-radius: 0.25rem;
+    border: 1px solid var(--pz-accent-border);
+    background: var(--pz-accent-subtle);
+    color: var(--pz-accent-text);
+    font-size: 0.6875rem;
+    font-weight: 800;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+  .pz-badge-up { border-color: #b7e4c7; background: #ecfdf3; color: #157a3c; }
+  .pz-badge-down { border-color: #f7c1b8; background: #fff1ee; color: #b42318; }
+  .pz-badge-warn { border-color: #fcd9a6; background: #fff7e8; color: #a35200; }
+  .pz-badge-neutral { border-color: var(--pz-border); background: var(--pz-n100); color: var(--pz-n600); }
+
+  .pz-rank {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    background: var(--pz-n100);
+    color: var(--pz-n600);
+  }
+  .pz-rank.is-top { background: var(--pz-500); color: #fff; }
+
+  .pz-bar { height: 0.375rem; border-radius: 9999px; background: var(--pz-n100); overflow: hidden; }
+  .pz-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--pz-500); }
+
+  .pz-empty { display: flex; align-items: center; justify-content: center; padding: 2.5rem 1rem; font-size: 0.8125rem; color: var(--pz-muted); }
+
+  /* Shell: sidebar + topbar (imo navbar-vertical) */
+  .pz-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 15rem;
+    height: 100%;
+    background: var(--pz-card);
+    border-right: 1px solid var(--pz-border);
+  }
+  .pz-nav-label {
+    padding: 0 0.75rem;
+    margin: 1.1rem 0 0.4rem;
+    font-size: 0.625rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--pz-muted);
+  }
+  .pz-nav-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    padding: 0.45rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-align: left;
+    color: var(--pz-text-soft);
+  }
+  .pz-nav-item:hover { background: var(--pz-hover); color: var(--pz-text); }
+  .pz-nav-item.is-active { background: var(--pz-accent-subtle); color: var(--pz-accent-text); font-weight: 800; }
+  .pz-nav-item.is-active::before {
+    content: "";
+    position: absolute;
+    left: -0.75rem;
+    top: 0.35rem;
+    bottom: 0.35rem;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--pz-500);
+  }
+  .pz-nav-count {
+    margin-left: auto;
+    min-width: 1.25rem;
+    padding: 0 0.35rem;
+    border-radius: 9999px;
+    font-size: 0.625rem;
+    font-weight: 800;
+    line-height: 1.125rem;
+    text-align: center;
+    background: var(--pz-n100);
+    color: var(--pz-n500);
+  }
+  .pz-nav-count.is-hot { background: var(--pz-500); color: #fff; }
+  .pz-nav-count.is-warn { background: #fff1d6; color: #a35200; }
+
+  .pz-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    height: 3.5rem;
+    padding: 0 1rem;
+    background: color-mix(in srgb, var(--pz-card) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--pz-border);
+  }
+  @media (min-width: 1024px) { .pz-topbar { padding: 0 1.5rem; } }
+}
+
+:root.dark {
+  .pz :is(.pz-seg) { background: var(--pz-n900); }
+  .pz :is(.pz-rank:not(.is-top), .pz-bar, .pz-nav-count:not(.is-hot, .is-warn), .pz-badge-neutral) { background: var(--pz-n900); }
+  .pz .pz-badge-up { border-color: #1f5136; background: #0f2a1c; color: #74d69a; }
+  .pz .pz-badge-down { border-color: #5c2a24; background: #2c1411; color: #f59b8c; }
+  .pz .pz-badge-warn { border-color: #5a4220; background: #2a1f0f; color: #ffc067; }
+  .pz .pz-nav-count.is-warn { background: #2a1f0f; color: #ffc067; }
+}
+
+.pz ::-webkit-scrollbar { width: 6px; height: 6px; }
+.pz ::-webkit-scrollbar-track { background: transparent; }
+.pz ::-webkit-scrollbar-thumb { background: var(--pz-border-strong); border-radius: 9999px; }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import AuthModal from './AuthModal';
+import { ThemeToggleButton } from './ThemeToggle';
 import Sidebar from './Sidebar';
 import { useUser } from '@/app/contexts/UserContext';
 import { useFavorites } from '@/app/contexts/FavoritesContext';
@@ -55,29 +56,36 @@ export default function Navbar() {
     <>
       <nav className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur-sm dark:border-gray-800 dark:bg-black/95 transition-all">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          {/* Menu icon on left */}
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            className="flex items-center justify-center p-2 text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-            aria-label="Menu"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+          {/* Left: menu opener */}
+          <div className="flex items-center">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="flex items-center justify-center gap-1 sm:gap-1.5 -ml-1.5 sm:ml-0 p-1.5 sm:p-2 text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 sm:h-6 sm:w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+              <span
+                className="text-[11px] sm:text-sm font-semibold underline underline-offset-4 decoration-2"
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                MENU
+              </span>
+            </button>
+          </div>
 
-          {/* Logo in middle */}
+          {/* Logo, centered */}
           <div className="absolute left-1/2 -translate-x-1/2">
             <Link 
               href="/" 
@@ -94,17 +102,25 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Shop and Login icons on right */}
-          <div className="flex items-center gap-3">
+          {/* Right: products link, theme (lg+), cart, account (lg+; below lg both live in the sidebar) */}
+          <div className="flex items-center gap-1 sm:gap-3">
+                <Link
+                  href="/products"
+                  className="text-[11px] sm:text-sm whitespace-nowrap font-semibold text-gray-900 dark:text-gray-100 underline underline-offset-4 decoration-2 decoration-[#00aeee] hover:text-[#00aeee] transition-colors"
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  TOUS NOS PRODUITS
+                </Link>
+                <ThemeToggleButton className="hidden lg:flex" />
                 {/* Shopping Bag Icon */}
                 <button
                   onClick={() => router.push('/cart')}
-                  className="flex items-center justify-center p-2 text-gray-700 hover:text-indigo-600 dark:text-gray-300 dark:hover:text-indigo-400 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 relative group"
+                  className="flex items-center justify-center p-1.5 sm:p-2 -mr-1.5 lg:mr-0 text-gray-700 hover:text-indigo-600 dark:text-gray-300 dark:hover:text-indigo-400 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 relative group"
                   aria-label="Shop"
                 >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 transition-transform group-hover:scale-110"
+                className="h-5 w-5 sm:h-6 sm:w-6 transition-transform group-hover:scale-110"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -123,8 +139,8 @@ export default function Navbar() {
                   )}
                 </button>
             
-            {/* User/Login Icon */}
-            <div className="flex items-center gap-2 relative" ref={menuRef}>
+            {/* User/Login Icon (lg+) */}
+            <div className="hidden lg:flex items-center gap-2 relative" ref={menuRef}>
               {!user && (
                 <span 
                   className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden sm:inline-block cursor-pointer hover:text-indigo-600 transition-colors"

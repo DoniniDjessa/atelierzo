@@ -18,45 +18,29 @@ interface Product {
 
 interface CategorySectionProps {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   products: Product[];
-  categoryPath?: string;
+  /** Total number of products in the category (the grid only shows a few) */
+  totalCount: number;
+  categoryPath: string;
   onProductClick?: (productId: string) => void;
 }
 
 export default function CategorySection({
   title,
-  subtitle,
   products,
+  totalCount,
   categoryPath,
   onProductClick,
 }: CategorySectionProps) {
   const router = useRouter();
 
-  const handleViewAll = () => {
-    // Map category titles to category values
-    const categoryMap: Record<string, string> = {
-      'T-SHIRTS OVERSIZES IMPRIMES': 'bermuda',
-      'Chemise Pantalon': 'pantalon',
-      'Tshirt Oversize CIV Champions d\'Afrique': 'tshirt-oversize-civ',
-      'Enfants': 'kids',
-    };
-    
-    const categoryValue = categoryMap[title];
-    if (categoryValue) {
-      router.push(`/products?category=${categoryValue}`);
-    } else {
-      router.push('/products');
-    }
-  };
-
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 mb-8">
-      {/* Section Header with Category Pills */}
+      {/* Section Header: title, count and "Afficher tout" */}
       <div className="px-1 sm:px-0">
-        <SectionHeader activeCategoryName={title} />
+        <SectionHeader title={title} count={totalCount} href={categoryPath} />
       </div>
-
       {/* Products Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6">
         {products.map((product) => (
@@ -81,7 +65,7 @@ export default function CategorySection({
       {/* View All Button */}
       <div className="flex justify-center px-2 sm:px-0">
         <button
-          onClick={handleViewAll}
+          onClick={() => router.push(categoryPath)}
           className="w-full max-w-xs flex items-center justify-center gap-2 py-2 sm:py-3 px-4 sm:px-6 bg-gradient-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 active:scale-95 text-sm"
           style={{ fontFamily: 'var(--font-poppins)' }}
         >

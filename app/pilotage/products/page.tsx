@@ -15,12 +15,14 @@ import { getAllVenteFlash, addProductToVenteFlash } from '@/app/lib/supabase/ven
 import { Zap } from 'lucide-react';
 import { getProductStats, ProductSalesStats } from '@/app/lib/utils/product-stats';
 import { addStockHistory } from '@/app/lib/supabase/stock-history';
+import { useCategories } from '@/app/lib/hooks/useCategories';
 
 const ADMIN_PASSWORD = '0044';
 
 export default function ProductsPage() {
   const router = useRouter();
   const { products, addProduct, updateProduct, deleteProduct } = useProducts();
+  const { roots: categoryRoots, childrenOf, labelOf } = useCategories({ includeInactive: true });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -45,6 +47,7 @@ export default function ProductsPage() {
     imageUrl: '',
     colors: '',
     category: 'bermuda',
+    subcategory: '',
     isBestSeller: false,
     isCurrentOffer: false,
     isKidsProduct: false,
@@ -159,6 +162,7 @@ export default function ProductsPage() {
         colors: selectedColors.length > 0 ? selectedColors : (formData.colors ? formData.colors.split(',').map((c) => c.trim()).filter((c) => c.length > 0) : []),
         inStock: hasAvailableSize,
         category: formData.category,
+        subcategory: formData.subcategory || undefined,
         isBestSeller: formData.isBestSeller,
         isCurrentOffer: formData.isCurrentOffer,
         isKidsProduct: formData.isKidsProduct,
@@ -186,6 +190,7 @@ export default function ProductsPage() {
       imageUrl: product.imageUrl,
       colors: product.colors?.join(', ') || '',
       category: product.category || 'bermuda',
+      subcategory: product.subcategory || '',
       isBestSeller: product.isBestSeller || false,
       isCurrentOffer: product.isCurrentOffer || false,
       isKidsProduct: product.isKidsProduct || false,
@@ -277,6 +282,8 @@ export default function ProductsPage() {
         colors: selectedColors.length > 0 ? selectedColors : (formData.colors ? formData.colors.split(',').map((c) => c.trim()).filter((c) => c.length > 0) : []),
         inStock: hasAvailableSize,
         category: formData.category,
+        // Only sent when set or cleared, so saving works before the sub-category column exists
+        subcategory: formData.subcategory || (editingProduct?.subcategory ? null : undefined),
         isBestSeller: formData.isBestSeller,
         isCurrentOffer: formData.isCurrentOffer,
         isKidsProduct: formData.isKidsProduct,
@@ -411,6 +418,7 @@ export default function ProductsPage() {
       imageUrl: '',
       colors: '',
       category: 'bermuda',
+      subcategory: '',
       isBestSeller: false,
       isCurrentOffer: false,
       isKidsProduct: false,
@@ -843,15 +851,41 @@ export default function ProductsPage() {
                     </label>
                     <select
                       value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value, subcategory: '' })}
                       className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
                       style={{ fontFamily: 'var(--font-poppins)' }}
                     >
-                      <option value="bermuda">T-SHIRTS OVERSIZES IMPRIMES</option>
-                      <option value="pantalon">Chemise Pantalon</option>
-                      <option value="tshirt-oversize-civ">Tshirt Oversize Côte d'Ivoire Champions d'Afrique</option>
+                      {categoryRoots.map((category) => (
+                        <option key={category.slug} value={category.slug}>
+                          {category.name}{category.is_active ? '' : ' (masquée)'}
+                        </option>
+                      ))}
+                      {/* A product whose category was removed from the list keeps it until changed */}
+                      {!categoryRoots.some((c) => c.slug === formData.category) && (
+                        <option value={formData.category}>{formData.category}</option>
+                      )}
                     </select>
                   </div>
+                  {childrenOf(formData.category).length > 0 && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
+                        Sous-catégorie
+                      </label>
+                      <select
+                        value={formData.subcategory}
+                        onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      >
+                        <option value="">Aucune</option>
+                        {childrenOf(formData.category).map((sub) => (
+                          <option key={sub.slug} value={sub.slug}>
+                            {sub.name}{sub.is_active ? '' : ' (masquée)'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" style={{ fontFamily: 'var(--font-poppins)' }}>
                       Description *
@@ -1524,13 +1558,8 @@ export default function ProductsPage() {
                           {selectedProductForDetails.inStock ? 'En stock' : 'Rupture de stock'}
                         </span>
                         <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-medium text-gray-700 dark:text-gray-300" style={{ fontFamily: 'var(--font-poppins)' }}>
-                          {selectedProductForDetails.category === 'bermuda' 
-                            ? 'T-SHIRTS OVERSIZES IMPRIMES' 
-                            : selectedProductForDetails.category === 'pantalon' 
-                            ? 'Chemise Pantalon' 
-                            : selectedProductForDetails.category === 'tshirt-oversize-civ'
-                            ? 'Tshirt Oversize CIV Champions d\'Afrique'
-                            : selectedProductForDetails.category}
+                          {labelOf(selectedProductForDetails.category)}
+                          {selectedProductForDetails.subcategory ? ` · ${labelOf(selectedProductForDetails.subcategory)}` : ''}
                         </span>
                       </div>
 

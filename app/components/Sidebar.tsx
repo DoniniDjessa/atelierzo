@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/app/contexts/UserContext';
 import AuthModal from './AuthModal';
+import { ThemeSwitcher } from './ThemeToggle';
+import { useProducts } from '@/app/contexts/ProductContext';
+import { useCategories } from '@/app/lib/hooks/useCategories';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -13,7 +16,9 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const router = useRouter();
-  const { user } = useUser();
+  const { user, logout } = useUser();
+  const { products } = useProducts();
+  const { roots } = useCategories();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [wasAuthModalOpened, setWasAuthModalOpened] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -191,29 +196,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     </span>
                   </button>
 
-                  {/* Categories */}
-                  <button
-                    onClick={() => handleNavigate('/products?category=bermuda')}
-                    className="w-full flex items-center justify-between py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
-                  >
-                    <span
-                      className="text-base font-medium"
-                      style={{ fontFamily: 'var(--font-poppins)' }}
-                    >
-                      T-SHIRTS OVERSIZES IMPRIMES
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => handleNavigate('/products?category=tshirt-oversize-civ')}
-                    className="w-full flex items-center justify-between py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
-                  >
-                    <span
-                      className="text-base font-medium"
-                      style={{ fontFamily: 'var(--font-poppins)' }}
-                    >
-                      Tshirt Oversize CIV Champions d'Afrique
-                    </span>
-                  </button>
+                  {/* Categories (managed in /pilotage/categories), only those with products */}
+                  {roots
+                    .filter((category) => products.some((p) => p.category === category.slug))
+                    .map((category) => (
+                      <button
+                        key={category.id}
+                        onClick={() => handleNavigate(`/products?category=${encodeURIComponent(category.slug)}`)}
+                        className="w-full flex items-center justify-between py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
+                      >
+                        <span
+                          className="text-base font-medium"
+                          style={{ fontFamily: 'var(--font-poppins)' }}
+                        >
+                          {category.name}
+                        </span>
+                      </button>
+                    ))}
 
                   <button
                     onClick={() => handleNavigate('/products?category=kids')}
@@ -253,6 +252,55 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         </span>
                       </button>
 
+                      {/* Account (on phones the navbar has no account menu, so it lives here) */}
+                      <button
+                        onClick={() => handleNavigate('/profile/history')}
+                        className="w-full flex items-center gap-3 py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-base font-medium" style={{ fontFamily: 'var(--font-poppins)' }}>
+                          Mon historique
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => handleNavigate('/profile/details')}
+                        className="w-full flex items-center gap-3 py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                        </svg>
+                        <span className="text-base font-medium" style={{ fontFamily: 'var(--font-poppins)' }}>
+                          Détails du profil
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => handleNavigate('/cart')}
+                        className="w-full flex items-center gap-3 py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z" />
+                        </svg>
+                        <span className="text-base font-medium" style={{ fontFamily: 'var(--font-poppins)' }}>
+                          Mon panier
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          logout();
+                          handleNavigate('/');
+                        }}
+                        className="w-full flex items-center gap-3 py-3 text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg px-4 transition-colors"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+                        </svg>
+                        <span className="text-base font-medium" style={{ fontFamily: 'var(--font-poppins)' }}>
+                          Déconnexion
+                        </span>
+                      </button>
+
                       {/* Mes paiements (Hidden temporarily)
                       <button
                         onClick={() => handleNavigate('/paiements')}
@@ -275,6 +323,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                 {/* Actions/Social Section */}
                 <div className="px-6 space-y-1">
+                  {/* Light / dark choice: here below lg, in the navbar from lg up */}
+                  <div className="lg:hidden">
+                    <ThemeSwitcher />
+                  </div>
+
                   <button
                     className="w-full flex items-center gap-3 py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
                   >

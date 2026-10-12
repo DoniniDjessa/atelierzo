@@ -10,11 +10,13 @@ import BestSellersSection from './components/BestSellersSection';
 import CurrentOffersSection from './components/CurrentOffersSection';
 import HeroCarousel from './components/HeroCarousel';
 import { useProducts } from './contexts/ProductContext';
+import { useCategories } from './lib/hooks/useCategories';
 import { generateOrganizationJsonLd, generateWebsiteJsonLd } from './lib/utils/structured-data';
 
 export default function Home() {
   const router = useRouter();
   const { products } = useProducts();
+  const { roots } = useCategories();
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black">
@@ -49,50 +51,34 @@ export default function Home() {
       {/* Category Sections */}
       <section className="py-12 px-3 sm:px-6 lg:px-8 bg-gray-50 dark:bg-black">
         <div className="max-w-7xl mx-auto">
-          {/* Bermuda Section */}
-          {products.filter((p) => (p as any).category === 'bermuda').length > 0 && (
-            <CategorySection
-              title="T-SHIRTS OVERSIZES IMPRIMES"
-              subtitle="Découvrez nos ensembles élégants pour un style décontracté et moderne"
-              products={products
-                .filter((p) => (p as any).category === 'bermuda')
-                .slice(0, 4)
-                .map((p) => ({
-                  ...p,
-                  isOutOfStock: !(p as any).inStock,
-                }))}
-              categoryPath="/products?category=bermuda"
-              onProductClick={(productId) => router.push(`/product/${productId}`)}
-            />
-          )}
-
-          {/* Tshirt Oversize CIV Section */}
-          {products.filter((p) => (p as any).category === 'tshirt-oversize-civ').length > 0 && (
-            <CategorySection
-              title="Tshirt Oversize CIV Champions"
-              subtitle="Célébrez la victoire avec style"
-              products={products
-                .filter((p) => (p as any).category === 'tshirt-oversize-civ')
-                .sort((a, b) => {
-                  const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-                  const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                  return aTime - bTime;
-                })
-                .slice(0, 12)
-                .map((p) => ({
-                  ...p,
-                  isOutOfStock: !(p as any).inStock,
-                }))}
-              categoryPath="/products?category=tshirt-oversize-civ"
-              onProductClick={(productId) => router.push(`/product/${productId}`)}
-            />
-          )}
+          {/* One section per category (managed in /pilotage/categories) */}
+          {roots
+            .filter((category) => category.show_on_home)
+            .map((category) => {
+              const categoryProducts = products.filter((p) => p.category === category.slug);
+              if (categoryProducts.length === 0) return null;
+              return (
+                <CategorySection
+                  key={category.id}
+                  title={category.name}
+                  subtitle={category.description ?? undefined}
+                  totalCount={categoryProducts.length}
+                  products={categoryProducts.slice(0, category.home_limit).map((p) => ({
+                    ...p,
+                    isOutOfStock: !(p as any).inStock,
+                  }))}
+                  categoryPath={`/products?category=${encodeURIComponent(category.slug)}`}
+                  onProductClick={(productId) => router.push(`/product/${productId}`)}
+                />
+              );
+            })}
 
           {/* Kids Section */}
           {products.filter((p) => p.isKidsProduct).length > 0 && (
             <CategorySection
               title="Enfants"
               subtitle="Découvrez nos collections pour les tout-petits"
+              totalCount={products.filter((p) => p.isKidsProduct).length}
               products={products
                 .filter((p) => p.isKidsProduct)
                 .slice(0, 4)

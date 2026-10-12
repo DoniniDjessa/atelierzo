@@ -1,8 +1,13 @@
 'use client';
 
 import Image from 'next/image';
+import { useProducts } from '@/app/contexts/ProductContext';
+import { useCategories } from '@/app/lib/hooks/useCategories';
 
 export default function Footer() {
+  const { products } = useProducts();
+  const { roots } = useCategories();
+
   return (
     <footer className="bg-slate-800 dark:bg-slate-900 border-t border-slate-700 dark:border-slate-800 mt-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -46,24 +51,19 @@ export default function Footer() {
                   Accueil
                 </a>
               </li>
-              <li>
-                <a
-                  href="/products?category=bermuda"
-                  className="text-sm text-gray-300 hover:text-white transition-colors"
-                  style={{ fontFamily: 'var(--font-poppins)' }}
-                >
-                  T-SHIRTS OVERSIZES IMPRIMES
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/products?category=tshirt-oversize-civ"
-                  className="text-sm text-gray-300 hover:text-white transition-colors"
-                  style={{ fontFamily: 'var(--font-poppins)' }}
-                >
-                  Tshirt Oversize CIV Champions d'Afrique
-                </a>
-              </li>
+              {roots
+                .filter((category) => products.some((p) => p.category === category.slug))
+                .map((category) => (
+                  <li key={category.id}>
+                    <a
+                      href={`/products?category=${encodeURIComponent(category.slug)}`}
+                      className="text-sm text-gray-300 hover:text-white transition-colors"
+                      style={{ fontFamily: 'var(--font-poppins)' }}
+                    >
+                      {category.name}
+                    </a>
+                  </li>
+                ))}
             </ul>
           </div>
 

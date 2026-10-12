@@ -8,23 +8,20 @@ import PageTitle from '../components/PageTitle';
 import { useProducts } from '../contexts/ProductContext';
 import { getColorName } from '../lib/utils/colors';
 import { Filter, X } from 'lucide-react';
+import { useCategories } from '../lib/hooks/useCategories';
 
-const CATEGORIES = [
-  { value: 'all', label: 'Tous les produits' },
-  { value: 'kids', label: 'Enfants' },
-  { value: 'bermuda', label: 'T-SHIRTS OVERSIZES IMPRIMES' },
-  { value: 'tshirt-oversize-civ', label: 'Tshirt Oversize Côte d\'Ivoire Champions d\'Afrique' },
-];
 
 function ProductsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { products } = useProducts();
-  
+  const { roots, childrenOf } = useCategories();
+
   // Get category and search from URL or default to 'all' and empty
   const categoryParam = searchParams.get('category') || 'all';
   const searchParam = searchParams.get('search') || '';
   const [selectedCategory, setSelectedCategory] = useState(categoryParam);
+  const [selectedSubcategory, setSelectedSubcategory] = useState(searchParams.get('sub') || '');
   const [searchQuery, setSearchQuery] = useState(searchParam);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000000]);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
@@ -38,6 +35,7 @@ function ProductsPageContent() {
     const cat = searchParams.get('category') || 'all';
     const search = searchParams.get('search') || '';
     setSelectedCategory(cat);
+    setSelectedSubcategory(searchParams.get('sub') || '');
     setSearchQuery(search);
   }, [searchParams]);
 
@@ -89,6 +87,9 @@ function ProductsPageContent() {
         filtered = filtered.filter(p => p.isKidsProduct);
       } else {
         filtered = filtered.filter(p => p.category === selectedCategory);
+        if (selectedSubcategory) {
+          filtered = filtered.filter(p => p.subcategory === selectedSubcategory);
+        }
       }
     }
 
@@ -131,16 +132,22 @@ function ProductsPageContent() {
     });
 
     return filtered;
-  }, [products, searchQuery, selectedCategory, priceRange, selectedSizes, selectedColors, showInStockOnly, sortBy]);
+  }, [products, searchQuery, selectedCategory, selectedSubcategory, priceRange, selectedSizes, selectedColors, showInStockOnly, sortBy]);
 
-  const handleCategoryChange = (category: string) => {
+  const handleCategoryChange = (category: string, subcategory = '') => {
     setSelectedCategory(category);
+    setSelectedSubcategory(subcategory);
     // Update URL without page reload
     const params = new URLSearchParams(searchParams.toString());
     if (category === 'all') {
       params.delete('category');
     } else {
       params.set('category', category);
+    }
+    if (subcategory) {
+      params.set('sub', subcategory);
+    } else {
+      params.delete('sub');
     }
     router.push(`/products?${params.toString()}`, { scroll: false });
   };
@@ -163,6 +170,7 @@ function ProductsPageContent() {
 
   const clearFilters = () => {
     setSelectedCategory('all');
+    setSelectedSubcategory('');
     setPriceRange([0, maxPrice || 100000]);
     setSelectedSizes([]);
     setSelectedColors([]);
@@ -190,20 +198,47 @@ function ProductsPageContent() {
           Catégorie
         </label>
         <div className="space-y-2">
-          {CATEGORIES.map(cat => (
-            <button
-              key={cat.value}
-              onClick={() => handleCategoryChange(cat.value)}
-              className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-colors ${
-                selectedCategory === cat.value
-                  ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-              style={{ fontFamily: 'var(--font-poppins)' }}
-            >
-              {cat.label}
-            </button>
-          ))}
+          {[
+            { value: 'all', label: 'Tous les produits' },
+            { value: 'kids', label: 'Enfants' },
+            ...roots.map((c) => ({ value: c.slug, label: c.name })),
+          ].map(cat => {
+            const subcategories = cat.value === selectedCategory && cat.value !== 'all' && cat.value !== 'kids' ? childrenOf(cat.value) : [];
+            return (
+              <div key={cat.value}>
+                <button
+                  onClick={() => handleCategoryChange(cat.value)}
+                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-colors ${
+                    selectedCategory === cat.value && !selectedSubcategory
+                      ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                  style={{ fontFamily: 'var(--font-poppins)' }}
+                >
+                  {cat.label}
+                </button>
+                {/* Sub-categories of the selected category */}
+                {subcategories.length > 0 && (
+                  <div className="mt-1 ml-4 pl-2 border-l border-gray-200 dark:border-gray-700 space-y-1">
+                    {subcategories.map((sub) => (
+                      <button
+                        key={sub.slug}
+                        onClick={() => handleCategoryChange(cat.value, sub.slug)}
+                        className={`w-full text-left px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                          selectedSubcategory === sub.slug
+                            ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                        style={{ fontFamily: 'var(--font-poppins)' }}
+                      >
+                        {sub.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

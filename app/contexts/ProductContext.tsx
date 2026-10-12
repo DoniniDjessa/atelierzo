@@ -21,6 +21,7 @@ export interface Product {
   sizeQuantities?: Record<string, number>; // Object with size as key and quantity as value
   inStock?: boolean;
   category?: string;
+  subcategory?: string | null;
   isBestSeller?: boolean;
   isCurrentOffer?: boolean;
   isKidsProduct?: boolean;
@@ -91,6 +92,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         is_best_seller: product.isBestSeller || false,
         is_current_offer: product.isCurrentOffer || false,
         is_kids_product: product.isKidsProduct || false,
+        subcategory: product.subcategory || undefined,
       };
 
       const { data, error } = await createProductSupabase(supabaseProduct);
@@ -128,6 +130,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
       if (product.sizeQuantities !== undefined) supabaseUpdates.sizeQuantities = product.sizeQuantities;
       if (product.inStock !== undefined) supabaseUpdates.in_stock = product.inStock;
       if (product.category !== undefined) supabaseUpdates.category = product.category;
+      if (product.subcategory !== undefined) supabaseUpdates.subcategory = product.subcategory;
       if (product.isBestSeller !== undefined) supabaseUpdates.is_best_seller = product.isBestSeller;
       if (product.isCurrentOffer !== undefined) supabaseUpdates.is_current_offer = product.isCurrentOffer;
       if (product.isKidsProduct !== undefined) supabaseUpdates.is_kids_product = product.isKidsProduct;

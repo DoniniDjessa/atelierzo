@@ -9,6 +9,7 @@ import { ProductProvider } from "./contexts/ProductContext";
 import { FavoritesProvider } from "./contexts/FavoritesContext";
 import { CartProvider } from "./contexts/CartContext";
 import { Toaster } from "sonner";
+import { themeInitScript } from "./lib/theme-script";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://lesatelierszo.com"),
@@ -137,8 +138,10 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="fr">
+    // The dark class is set before paint by themeInitScript, hence suppressHydrationWarning
+    <html lang="fr" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
