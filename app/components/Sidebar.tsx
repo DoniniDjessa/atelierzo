@@ -22,6 +22,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [wasAuthModalOpened, setWasAuthModalOpened] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
 
   // Close sidebar when user logs in (if auth modal was opened from sidebar)
   useEffect(() => {
@@ -54,10 +55,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  // Reset search query when sidebar closes
+  // Reset search query and collapse the account menu when sidebar closes
   useEffect(() => {
     if (!isOpen) {
       setSearchQuery('');
+      setIsAccountMenuOpen(false);
     }
   }, [isOpen]);
 
@@ -241,6 +243,38 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   {user && (
                     <>
                       <button
+                        onClick={() => setIsAccountMenuOpen((open) => !open)}
+                        aria-expanded={isAccountMenuOpen}
+                        aria-controls="sidebar-account-menu"
+                        className="w-full flex items-center justify-between py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
+                      >
+                        <span className="text-base font-medium" style={{ fontFamily: 'var(--font-poppins)' }}>
+                          Mon compte
+                        </span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className={`h-4 w-4 text-gray-600 dark:text-gray-400 transition-transform duration-200 ${isAccountMenuOpen ? 'rotate-180' : ''}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          aria-hidden="true"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      <AnimatePresence initial={false}>
+                        {isAccountMenuOpen && (
+                          <motion.div
+                            id="sidebar-account-menu"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2, ease: 'easeOut' }}
+                            className="overflow-hidden pl-3"
+                          >
+                      <button
                         onClick={() => handleNavigate('/favorites')}
                         className="w-full flex items-center gap-3 py-3 text-left text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-4 transition-colors"
                       >
@@ -300,6 +334,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                           Déconnexion
                         </span>
                       </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
 
                       {/* Mes paiements (Hidden temporarily)
                       <button
