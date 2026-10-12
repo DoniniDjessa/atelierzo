@@ -40,7 +40,7 @@ export const FASHION_COLORS: ColorOption[] = [
   { name: 'bleu-nuit', hex: '#191970', displayName: 'Bleu nuit' },
   { name: 'vert-treillis', hex: '#4B5320', displayName: 'Vert treillis' },
   { name: 'marron', hex: '#7B3F00', displayName: 'Marron' },
-  { name: 'jaune-orange', hex: '#F5A623', displayName: 'Jaune orangé' },
+  { name: 'jaune-or', hex: '#F5A623', displayName: 'Jaune or' },
   { name: 'vert-fonce', hex: '#006400', displayName: 'Vert foncé' },
 ];
 
@@ -51,7 +51,7 @@ const UNICOLOR_PRIORITY_COLOR_NAMES = [
   'vert-treillis',
   'gris-fonce',
   'marron',
-  'jaune-orange',
+  'jaune-or',
   'vert-fonce',
   'beige',
 ];

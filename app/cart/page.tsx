@@ -79,13 +79,16 @@ export default function CartPage() {
           ? product.colorVariants?.find((variant) => variant.color === item.color)?.sizeQuantities[item.size] || 0
           : product.sizeQuantities[item.size] || 0;
         if (availableQty < item.quantity) {
+          const label = product.category === UNICOLOR_CATEGORY_SLUG
+            ? `${getColorName(item.color || "") || item.color}, taille ${item.size}`
+            : `taille ${item.size}`;
           if (availableQty === 0) {
             toast.error(
-              `${item.title} (taille ${item.size}) n'est plus disponible en stock. Veuillez retirer cet article de votre panier.`
+              `${item.title} (${label}) n'est plus disponible en stock. Veuillez retirer cet article de votre panier.`
             );
           } else {
             toast.error(
-              `${item.title} (taille ${item.size}) n'a plus que ${availableQty} article(s) disponible(s). Vous en avez sélectionné ${item.quantity}. Veuillez ajuster la quantité.`
+              `${item.title} (${label}) n'a plus que ${availableQty} article(s) disponible(s). Vous en avez sélectionné ${item.quantity}. Veuillez ajuster la quantité.`
             );
           }
           return;

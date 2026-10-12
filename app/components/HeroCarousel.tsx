@@ -146,7 +146,8 @@ export default function HeroCarousel() {
         </div>
       )}
 
-      <div className="max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-2">
+      {/* Edge to edge on phones; padded with rounded corners from sm up */}
+      <div className="max-w-[1600px] mx-auto px-0 sm:px-6 lg:px-8 pt-0 sm:pt-6 pb-2">
         <SlideTrack slides={slides ?? []} />
       </div>
     </section>
@@ -246,7 +247,7 @@ function SlideTrack({ slides }: { slides: HeroSlide[] }) {
     >
       <div
         ref={viewportRef}
-        className="overflow-hidden rounded-2xl shadow-[0_10px_30px_-15px_rgba(0,0,0,0.4)] touch-pan-y select-none"
+        className="overflow-hidden sm:rounded-2xl sm:shadow-[0_10px_30px_-15px_rgba(0,0,0,0.4)] touch-pan-y select-none"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
@@ -254,7 +255,7 @@ function SlideTrack({ slides }: { slides: HeroSlide[] }) {
         onPointerLeave={endDrag}
       >
         {/* Placeholder with roughly the final height until pictures and width are known */}
-        {(count === 0 || !slideWidth) && <div className="aspect-[3/4] sm:aspect-[3/2] lg:aspect-[2/1] xl:aspect-[8/3] rounded-2xl bg-gray-100 dark:bg-gray-900 animate-pulse" />}
+        {(count === 0 || !slideWidth) && <div className="aspect-[3/4] sm:aspect-[3/2] lg:aspect-[2/1] xl:aspect-[8/3] sm:rounded-2xl bg-gray-100 dark:bg-gray-900 animate-pulse" />}
         {count > 0 && slideWidth > 0 && (
         <div
           className={`flex ${canSlide ? "" : "justify-center"}`}

@@ -1,5 +1,6 @@
 import { supabase } from "./client";
 import { UNICOLOR_CATEGORY_SLUG } from "./categories";
+import { getColorName } from "@/app/lib/utils/colors";
 import { sendNewOrderNotification } from "@/app/lib/sms/service";
 import { checkUserOrderLimit } from "./stock-history";
 import {
@@ -189,9 +190,10 @@ export async function createOrder(
             const selectedVariant = variants[variantIndex];
             const variantSizes = selectedVariant?.sizes;
             const productTitle = product.title || "Ce produit";
+            const colorLabel = getColorName(item.color || "") || item.color || "couleur";
 
             if (!selectedVariant || !variantSizes || typeof variantSizes !== "object") {
-              return { data: null, error: `${productTitle} (${item.color || "couleur"}) n’a plus de stock disponible.` };
+              return { data: null, error: `${productTitle} (${colorLabel}) n’a plus de stock disponible.` };
             }
 
             const availableQty = Number(variantSizes[item.size] || 0);
@@ -199,8 +201,8 @@ export async function createOrder(
               return {
                 data: null,
                 error: availableQty === 0
-                  ? `${productTitle} (${item.color}, taille ${item.size}) n'est plus disponible en stock.`
-                  : `${productTitle} (${item.color}, taille ${item.size}) n'a plus que ${availableQty} article(s) en stock.`,
+                  ? `${productTitle} (${colorLabel}, taille ${item.size}) n'est plus disponible en stock.`
+                  : `${productTitle} (${colorLabel}, taille ${item.size}) n'a plus que ${availableQty} article(s) en stock.`,
               };
             }
 

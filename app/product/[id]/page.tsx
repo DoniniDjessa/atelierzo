@@ -292,25 +292,34 @@ export default function ProductDetailPage() {
                   {selectedVariantColor && <span className="ml-2 text-gray-500">{getColorName(selectedVariantColor) || selectedVariantColor}</span>}
                 </label>
                 <div className="flex flex-wrap gap-3">
-                  {(product.colorVariants || []).map((variant) => (
-                    <button
-                      key={variant.color}
-                      type="button"
-                      onClick={() => {
-                        setSelectedVariantColor(variant.color);
-                        setSelectedSizes([]);
-                        setQuantities({});
-                      }}
-                      className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-xs ${
-                        selectedVariantColor === variant.color
-                          ? 'border-sky-500 bg-sky-50 dark:bg-sky-950/30'
-                          : 'border-gray-200 dark:border-gray-700'
-                      }`}
-                    >
-                      <span className="h-5 w-5 rounded-full border border-black/10" style={{ backgroundColor: variant.color }} />
-                      {getColorName(variant.color) || variant.color}
-                    </button>
-                  ))}
+                  {(product.colorVariants || []).map((variant) => {
+                    const isOutOfStock = !Object.values(variant.sizeQuantities).some((quantity) => quantity > 0);
+                    return (
+                      <button
+                        key={variant.color}
+                        type="button"
+                        disabled={isOutOfStock}
+                        onClick={() => {
+                          setSelectedVariantColor(variant.color);
+                          setSelectedSizes([]);
+                          setQuantities({});
+                        }}
+                        title={isOutOfStock ? 'Rupture de stock' : undefined}
+                        className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-xs ${
+                          isOutOfStock
+                            ? 'cursor-not-allowed border-gray-200 opacity-40 dark:border-gray-700'
+                            : selectedVariantColor === variant.color
+                              ? 'border-sky-500 bg-sky-50 dark:bg-sky-950/30'
+                              : 'border-gray-200 dark:border-gray-700'
+                        }`}
+                      >
+                        <span className="h-8 w-8 rounded-full border border-black/10" style={{ backgroundColor: variant.color }} />
+                        <span className={isOutOfStock ? 'line-through' : undefined}>
+                          {getColorName(variant.color) || variant.color}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

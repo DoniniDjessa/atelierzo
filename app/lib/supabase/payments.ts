@@ -1,4 +1,6 @@
 import { supabase } from "./client";
+import { UNICOLOR_CATEGORY_SLUG } from "./categories";
+import { getColorName } from "@/app/lib/utils/colors";
 
 export interface PaymentItem {
   product_id: string;
@@ -41,6 +43,57 @@ export interface CreatePaymentInput {
   notes?: string;
 }
 
+type StockProduct = {
+  sizes: Record<string, number> | null;
+  category?: string | null;
+  color_variants?: unknown;
+};
+
+type StockVariant = { color: string; image_url?: string; sizes: Record<string, number> };
+
+function getVariants(product: StockProduct): StockVariant[] {
+  return Array.isArray(product.color_variants) ? (product.color_variants as StockVariant[]) : [];
+}
+
+/** Quantity in stock for an item; unicolor products track stock per color variant. */
+function getAvailableStock(product: StockProduct, item: PaymentItem): number {
+  if (product.category === UNICOLOR_CATEGORY_SLUG) {
+    const variant = getVariants(product).find((v) => v.color === item.color);
+    return Number(variant?.sizes?.[item.size] || 0);
+  }
+  return Number(product.sizes?.[item.size] || 0);
+}
+
+/** Columns to write after changing an item's stock by `delta` (negative to decrement). */
+function buildStockUpdate(product: StockProduct, item: PaymentItem, delta: number) {
+  if (product.category === UNICOLOR_CATEGORY_SLUG) {
+    const variants = getVariants(product).map((variant) =>
+      variant.color === item.color
+        ? { ...variant, sizes: { ...variant.sizes, [item.size]: Number(variant.sizes?.[item.size] || 0) + delta } }
+        : variant
+    );
+    const sizes: Record<string, number> = {};
+    variants.forEach((variant) => {
+      Object.entries(variant.sizes || {}).forEach(([size, quantity]) => {
+        sizes[size] = (sizes[size] || 0) + Number(quantity || 0);
+      });
+    });
+    return {
+      color_variants: variants,
+      sizes,
+      in_stock: Object.values(sizes).some((q) => q > 0),
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  const sizes = { ...(product.sizes || {}), [item.size]: Number(product.sizes?.[item.size] || 0) + delta };
+  return {
+    sizes,
+    in_stock: Object.values(sizes).some((q) => q > 0),
+    updated_at: new Date().toISOString(),
+  };
+}
+
 async function decrementStock(items: PaymentItem[]): Promise<string | null> {
   for (const item of items) {
     let retries = 5;
@@ -49,28 +102,27 @@ async function decrementStock(items: PaymentItem[]): Promise<string | null> {
     while (retries > 0 && !success) {
       const { data: product, error: fetchErr } = await supabase
         .from('zo-products')
-        .select('sizes, title, updated_at')
+        .select('sizes, title, updated_at, category, color_variants')
         .eq('id', item.product_id)
         .single();
 
       if (fetchErr || !product) return 'Erreur lors de la vérification du stock';
 
-      const sizes = product.sizes as Record<string, number>;
-      const available = sizes[item.size] || 0;
+      const available = getAvailableStock(product, item);
       const productTitle = product.title || 'Ce produit';
+      const label = product.category === UNICOLOR_CATEGORY_SLUG
+        ? `${getColorName(item.color) || item.color}, taille ${item.size}`
+        : `taille ${item.size}`;
 
       if (available < item.quantity) {
         return available === 0
-          ? `${productTitle} (taille ${item.size}) n'est plus disponible en stock.`
-          : `${productTitle} (taille ${item.size}) n'a plus que ${available} article(s) disponible(s).`;
+          ? `${productTitle} (${label}) n'est plus disponible en stock.`
+          : `${productTitle} (${label}) n'a plus que ${available} article(s) disponible(s).`;
       }
-
-      const updatedSizes = { ...sizes, [item.size]: available - item.quantity };
-      const totalQty = Object.values(updatedSizes).reduce((s, q) => s + q, 0);
 
       const { data: updated, error: updateErr } = await supabase
         .from('zo-products')
-        .update({ sizes: updatedSizes, in_stock: totalQty > 0, updated_at: new Date().toISOString() })
+        .update(buildStockUpdate(product, item, -item.quantity))
         .eq('id', item.product_id)
         .eq('updated_at', product.updated_at)
         .select('id');
@@ -95,19 +147,15 @@ async function restoreStock(items: PaymentItem[]): Promise<void> {
     try {
       const { data: product } = await supabase
         .from('zo-products')
-        .select('sizes')
+        .select('sizes, category, color_variants')
         .eq('id', item.product_id)
         .single();
 
       if (!product?.sizes) continue;
 
-      const sizes = product.sizes as Record<string, number>;
-      const updatedSizes = { ...sizes, [item.size]: (sizes[item.size] || 0) + item.quantity };
-      const totalQty = Object.values(updatedSizes).reduce((s, q) => s + q, 0);
-
       await supabase
         .from('zo-products')
-        .update({ sizes: updatedSizes, in_stock: totalQty > 0, updated_at: new Date().toISOString() })
+        .update(buildStockUpdate(product, item, item.quantity))
         .eq('id', item.product_id);
     } catch (err) {
       console.error(`Failed to restore stock for product ${item.product_id}:`, err);
