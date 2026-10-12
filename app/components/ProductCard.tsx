@@ -41,6 +41,7 @@ export default function ProductCard({
 }: ProductCardProps) {
   const favorites = useFavorites();
   const isFav = productId ? favorites.isFavorite(productId) : (propIsFavorite || false);
+  const hasDiscount = oldPrice !== undefined && oldPrice > price;
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -51,25 +52,31 @@ export default function ProductCard({
   };
 
   return (
-    <div 
-      className={`bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-shadow relative flex flex-col h-full overflow-hidden ${onClick ? 'cursor-pointer' : ''}`}
+    <div
+      className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-gray-700/80 dark:bg-gray-800 ${
+        onClick ? 'cursor-pointer' : ''
+      }`}
       onClick={onClick}
     >
-      {/* Product Image - Square on mobile, larger on desktop */}
-      <div className="relative w-full aspect-square sm:flex-1 sm:min-h-80 bg-gray-100 dark:bg-gray-700 rounded-t-xl sm:rounded-t-2xl overflow-hidden">
+      <div className="relative aspect-square w-full overflow-hidden bg-gray-100 dark:bg-gray-700">
         <NextImage
           src={imageUrl}
           alt={title}
           fill
-          className="object-cover"
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
           sizes="(max-width: 640px) 50vw, (max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           unoptimized={imageUrl.includes('unsplash.com') || imageUrl.includes('placehold.co')}
         />
+        {hasDiscount && (
+          <span className="absolute left-2 top-2 rounded-full bg-[#B9F19D] px-2.5 py-1 text-[10px] font-bold text-gray-900 shadow-sm sm:left-3 sm:top-3 sm:text-xs">
+            -{Math.round(((oldPrice - price) / oldPrice) * 100)}%
+          </span>
+        )}
         {/* Out of Stock Overlay on Image */}
         {isOutOfStock && (
-          <div className="absolute inset-0 bg-black/60 dark:bg-black/70 rounded-t-xl sm:rounded-t-2xl flex items-center justify-center z-10">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 dark:bg-black/70">
             <span
-              className="text-white text-sm sm:text-base font-semibold"
+              className="rounded-full border border-white/30 bg-black/30 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm sm:text-sm"
               style={{ fontFamily: 'var(--font-poppins)' }}
             >
               Rupture de stock
@@ -79,7 +86,7 @@ export default function ProductCard({
       </div>
 
       {/* Top Right Actions */}
-      <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex items-center gap-2 z-10">
+      <div className="absolute right-2 top-2 z-10 flex items-center gap-2 sm:right-3 sm:top-3">
         {/* Preorder Badge/Button */}
         {isOutOfStock && productId === PREORDER_PRODUCT_ID && (
           <button
@@ -102,8 +109,9 @@ export default function ProductCard({
         {/* Favorite Badge */}
         <button
           onClick={handleFavoriteClick}
-          className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm flex items-center justify-center hover:bg-white dark:hover:bg-gray-800 transition-colors shadow-sm"
-          aria-label="Add to favorites"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800 sm:h-9 sm:w-9"
+          aria-label={isFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+          aria-pressed={isFav}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -123,88 +131,82 @@ export default function ProductCard({
       </div>
 
       {/* Content Section */}
-      <div className="p-3.5 sm:p-4 flex flex-col shrink-0">
+      <div className="flex shrink-0 flex-1 flex-col p-3 sm:p-4">
         {/* Product Title */}
-      <h3
-        className="text-sm sm:text-base font-bold text-black dark:text-white mb-2 sm:mb-3 line-clamp-1"
-                  style={{ fontFamily: 'var(--font-ubuntu)' }}
-      >
-        {title}
-      </h3>
+        <h3
+          className="mb-2 line-clamp-2 min-h-10 text-sm font-bold leading-5 text-gray-900 dark:text-white sm:mb-3 sm:text-base"
+          style={{ fontFamily: 'var(--font-ubuntu)' }}
+        >
+          {title}
+        </h3>
 
-      {/* Color or Size Selector - Only show if not out of stock */}
-      {!isOutOfStock && (colors.length > 0 || sizes.length > 0) && (
-        <div className="flex items-center justify-center flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
-          {colors.length > 0 &&
-            colors.map((color, index) => (
-              <div
-                key={index}
-                className="w-3 h-3 sm:w-4 sm:h-4 rounded-full border border-gray-200 dark:border-gray-600"
-                style={{ backgroundColor: color }}
-                title={color}
-              />
-            ))}
-          {sizes.length > 0 &&
-            sizes.map((size, index) => (
+        {!isOutOfStock && (colors.length > 0 || sizes.length > 0) && (
+          <div className="mb-2 flex min-h-5 flex-wrap items-center gap-1.5 sm:mb-3 sm:gap-2">
+            {colors.length > 0 &&
+              colors.slice(0, 5).map((color, index) => (
+                <span
+                  key={`${color}-${index}`}
+                  className="h-3.5 w-3.5 rounded-full border border-gray-200 dark:border-gray-600 sm:h-4 sm:w-4"
+                  style={{ backgroundColor: color }}
+                  title={color}
+                />
+              ))}
+            {sizes.slice(0, 4).map((size, index) => (
               <span
-                key={index}
-                className="px-1 py-0.5 sm:px-1.5 sm:py-0.5 text-[10px] sm:text-xs border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-400"
+                key={`${size}-${index}`}
+                className="rounded border border-gray-200 px-1.5 py-0.5 text-[10px] text-gray-600 dark:border-gray-600 dark:text-gray-400 sm:text-xs"
                 style={{ fontFamily: 'var(--font-poppins)' }}
               >
                 {size}
               </span>
             ))}
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* Footer: Price and Add to Cart */}
-      <div className="pt-2 sm:pt-3 border-t border-gray-100 dark:border-gray-700 mt-auto">
-        {/* Prices - justify-between on same line, centered vertically */}
-        <div className="flex items-center justify-between mb-1.5 sm:mb-0">
-          {oldPrice && (
+        <div className="mt-auto border-t border-gray-100 pt-2 dark:border-gray-700 sm:pt-3">
+          <div className="flex min-h-6 flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+            {hasDiscount && (
+              <span
+                className="text-[10px] text-gray-400 line-through dark:text-gray-500 sm:text-xs"
+                style={{ fontFamily: 'var(--font-poppins)' }}
+              >
+                {oldPrice.toLocaleString('fr-FR')} XOF
+              </span>
+            )}
             <span
-              className="text-[10px] sm:text-sm text-gray-400 dark:text-gray-500 line-through"
+              className="ml-auto text-sm font-bold text-gray-950 dark:text-white sm:text-base"
+              style={{ fontFamily: 'var(--font-ubuntu)' }}
+            >
+              {price.toLocaleString('fr-FR')} XOF
+            </span>
+          </div>
+
+          {!hideAddToCart && !isOutOfStock && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToCart?.();
+              }}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-cyan-700 px-2 py-2 text-white transition-all hover:from-cyan-600 hover:to-cyan-800 active:scale-[0.98] sm:mt-3"
               style={{ fontFamily: 'var(--font-poppins)' }}
             >
-              {oldPrice.toLocaleString('fr-FR')} XOF
-            </span>
+              <span className="text-[10px] font-medium sm:text-xs">
+                Ajouter au panier
+              </span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-3 w-3 sm:h-3.5 sm:w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           )}
-          <span
-            className={`text-base sm:text-lg font-bold text-black dark:text-white ${oldPrice ? '' : 'ml-auto'}`}
-            style={{ fontFamily: 'var(--font-ubuntu)' }}
-          >
-            {price.toLocaleString('fr-FR')} XOF
-          </span>
         </div>
-
-        {/* Add to Cart Button */}
-        {!hideAddToCart && !isOutOfStock && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddToCart?.();
-            }}
-            className="w-full mt-2 sm:mt-3 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg flex items-center justify-center gap-1 sm:gap-1.5 transition-all transform hover:scale-105 active:scale-95 bg-linear-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800"
-            style={{ fontFamily: 'var(--font-poppins)' }}
-          >
-            <span className="text-[10px] sm:text-xs font-medium">
-              Ajouter au panier
-            </span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-3 w-3 sm:h-3.5 sm:w-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        )}
-      </div>
       </div>
     </div>
   );
 }
-

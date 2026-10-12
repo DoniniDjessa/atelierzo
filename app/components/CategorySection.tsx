@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import ProductCard from './ProductCard';
 import SectionHeader from './SectionHeader';
 
@@ -28,23 +27,23 @@ interface CategorySectionProps {
 
 export default function CategorySection({
   title,
+  subtitle,
   products,
   totalCount,
   categoryPath,
   onProductClick,
 }: CategorySectionProps) {
-  const router = useRouter();
-
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 mb-8">
-      {/* Section Header: title, count and "Afficher tout" */}
-      <div className="px-1 sm:px-0">
-        <SectionHeader title={title} count={totalCount} href={categoryPath} />
-      </div>
-      {/* Products Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6">
+    <section className="mb-6 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900/70 sm:mb-8 sm:p-6 lg:p-7">
+      <SectionHeader
+        title={title}
+        subtitle={subtitle}
+        count={totalCount}
+        href={categoryPath}
+      />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-5">
         {products.map((product) => (
-          <div key={product.id} className="relative">
+          <div key={product.id} className="min-w-0">
             <ProductCard
               productId={product.id}
               title={product.title}
@@ -61,32 +60,6 @@ export default function CategorySection({
           </div>
         ))}
       </div>
-
-      {/* View All Button */}
-      <div className="flex justify-center px-2 sm:px-0">
-        <button
-          onClick={() => router.push(categoryPath)}
-          className="w-full max-w-xs flex items-center justify-center gap-2 py-2 sm:py-3 px-4 sm:px-6 bg-gradient-to-r from-cyan-400 to-cyan-700 hover:from-cyan-500 hover:to-cyan-800 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 active:scale-95 text-sm"
-          style={{ fontFamily: 'var(--font-poppins)' }}
-        >
-          <span className="text-sm">Afficher tout</span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M13 7l5 5m0 0l-5 5m5-5H6"
-            />
-          </svg>
-        </button>
-      </div>
-    </div>
+    </section>
   );
 }
-
