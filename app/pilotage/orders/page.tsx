@@ -1589,7 +1589,18 @@ export default function OrdersPage() {
                                   {item.title}
                                 </button>
                                 <div className="text-gray-500 dark:text-gray-400 text-[11px] mt-0.5">
-                                  Taille: {item.size} | Qté: {item.quantity}
+                                  Taille: {item.size} |{' '}
+                                  {item.color && getProductById(item.product_id)?.category === UNICOLOR_CATEGORY_SLUG && (
+                                    <>
+                                      <span
+                                        className="inline-block h-2.5 w-2.5 rounded-full border border-black/10 align-middle dark:border-white/20"
+                                        style={{ backgroundColor: item.color }}
+                                        aria-hidden="true"
+                                      />{' '}
+                                      Couleur: {getColorName(item.color) || item.color} |{' '}
+                                    </>
+                                  )}
+                                  Qté: {item.quantity}
                                 </div>
                               </div>
                             ))
