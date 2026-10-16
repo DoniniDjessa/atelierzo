@@ -19,8 +19,10 @@ interface ReceiptModalProps {
     total: number;
     shipping_address: string;
     shipping_phone: string;
+    pickup_number?: string;
     created_at: string;
     customerName: string;
+    customerPhone?: string;
     notes?: string;
   };
 }
@@ -150,8 +152,12 @@ export default function ReceiptModal({
               {orderData.customerName}
             </p>
             <p className="mb-1">
-              <span className="font-semibold">Numero de livraison:</span>{" "}
-              {orderData.shipping_phone}
+              <span className="font-semibold">Contact:</span>{" "}
+              {orderData.customerPhone}
+            </p>
+            <p className="mb-1">
+              <span className="font-semibold">Numero de récupération:</span>{" "}
+              {orderData.pickup_number}
             </p>
             <p>
               <span className="font-semibold">Adresse:</span>{" "}

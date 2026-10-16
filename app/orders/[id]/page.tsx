@@ -85,8 +85,10 @@ export default function OrderDetailsPage() {
       total: order.total_amount,
       shipping_address: order.shipping_address || '',
       shipping_phone: order.shipping_phone || '',
+      pickup_number: order.pickup_number || '',
       created_at: order.created_at,
       customerName: user?.name || 'Client',
+      customerPhone: user?.phone || '',
       notes: order.notes,
     };
 

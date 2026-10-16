@@ -139,8 +139,10 @@ export default function CartPage() {
         total: orderTotal,
         shipping_address: shippingAddress,
         shipping_phone: shippingPhone,
+        pickup_number: pickupNumber,
         created_at: new Date().toISOString(),
         customerName: user?.name || "Client",
+        customerPhone: user?.phone || "",
         notes: notes || undefined,
       };
 
@@ -236,8 +238,10 @@ export default function CartPage() {
       total: orderTotal,
       shipping_address: shippingAddress,
       shipping_phone: shippingPhone,
+      pickup_number: pickupNumber,
       created_at: new Date().toISOString(),
       customerName: user?.name || 'Client',
+      customerPhone: user?.phone || '',
       notes: notes || undefined,
     };
     clearCart();
